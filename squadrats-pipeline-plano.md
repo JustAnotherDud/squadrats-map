@@ -94,8 +94,19 @@ Cada tarefa só avança para a seguinte depois de confirmada — não construir 
       Supabase). Testada com POST simulando os headers `X-Goog-*` — 200 OK, headers
       registados corretamente nos logs, boot em 18ms. Nota: as notificações do Drive
       **não trazem corpo JSON**, só headers — o handler não faz `req.json()`.
-- [ ] **T3** — Testar `repository_dispatch` manual via curl (3.3)
-- [ ] **T4** — Ligar 3.2 + 3.3: Edge Function recebe webhook → dispara `repository_dispatch`
+- [x] **T3** — Testar `repository_dispatch` manual via curl (3.3)
+      **Resultado (2026-07-19):** PAT fine-grained (só `squadrats-map`, Contents: R/W,
+      expira 2026-10-17) + workflow `.github/workflows/process-kml.yml`
+      (`on: repository_dispatch, types: [kml-updated]`). 204 do curl, run verde em 10s.
+- [x] **T4** — Ligar 3.2 + 3.3: Edge Function recebe webhook → dispara `repository_dispatch`
+      **Resultado (2026-07-19):** `drive-webhook-receiver` reescrita — valida
+      `X-Goog-Channel-Token` contra secret `CHANNEL_TOKEN` (403 se errado/em falta,
+      única defesa do endpoint dado `verify_jwt=false`), ignora `resource-state=sync`
+      sem ação, dispara `repository_dispatch` via `GH_PAT` (secret) nos restantes casos.
+      Testado: sem token → 403; com token + `state=change` → 200 e run `kml-updated`
+      confirmado nos Actions. Secrets `GH_PAT` e `CHANNEL_TOKEN` só existem nos
+      Supabase secrets — `CHANNEL_TOKEN` também guardado local em `.secrets/channel_token.txt`
+      (git-ignored) para reutilizar no `watch()` real em T7.
 - [ ] **T5** — Implementar `changes.list()` + tracking de `pageToken` (3.4), guardar em tabela Supabase `drive_sync_state`
 - [ ] **T6** — Escrever `process-kml.yml`: recebe `repository_dispatch`, descarrega o ficheiro certo do Drive (via `fileId` devolvido por T5), corre `pipeline.py`, commita
 - [ ] **T7** — Escrever `drive-watch-setup` como function separada (pedindo sempre `expiration = +24h` explícito) + GitHub Action **a cada 12h** que a chama (renovação do canal, com margem folgada antes das 24h)
