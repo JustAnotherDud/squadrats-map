@@ -133,7 +133,24 @@ Cada tarefa só avança para a seguinte depois de confirmada — não construir 
         segundo run tentou processar esse KML vazio, `pipeline.py` abortou com
         `RuntimeError` antes de tocar em `data/`, exit 1 — zero corrupção. Corrigido
         o filtro da Edge Function para excluir também `file.trashed`.
-- [ ] **T7** — Escrever `drive-watch-setup` como function separada (pedindo sempre `expiration = +24h` explícito) + GitHub Action **a cada 12h** que a chama (renovação do canal, com margem folgada antes das 24h)
+- [x] **T7** — Escrever `drive-watch-setup` como function separada (pedindo sempre `expiration = +24h` explícito) + GitHub Action **a cada 12h** que a chama (renovação do canal, com margem folgada antes das 24h)
+      **Resultado (2026-07-19):**
+      - `drive-watch-setup` exige `X-Setup-Token` (secret próprio, só em GitHub
+        Actions secrets + Supabase secrets — mais fechada que a webhook-receiver,
+        que tem de aceitar pedidos não-autenticados da Google). Testado: sem
+        token → 403.
+      - Ordem cria-antes-de-parar confirmada na prática: 1ª chamada cria o canal
+        A (sem antigo a parar, `oldChannelStopped: "skipped"`); 2ª chamada cria o
+        canal B e só depois pára o A (`oldChannelStopped: true`). Nunca há uma
+        janela sem canal nenhum.
+      - Nova coluna `channel_resource_id` (migração) — `channels.stop()` exige
+        `id` + `resourceId`, só guardar o `channel_id` (T5) não chegava.
+        `google_auth.ts`/`sync_state.ts` movidos para `_shared/`, partilhados
+        pelas duas functions.
+      - `.github/workflows/renew-drive-watch.yml`: cron a cada 12h +
+        `workflow_dispatch` (para testar manualmente). Inclui heartbeat mensal
+        (commit a `heartbeat.txt` só se o último tiver >25 dias) para o GitHub
+        não desativar o schedule por inatividade ao fim de 60 dias.
 - [ ] **T8** — Teste end-to-end: exportar um KML real, confirmar que o site atualiza sozinho em minutos
 - [ ] **T9** — Documentar no README do repo: como funciona, como debugar se parar de atualizar (ex: canal expirado sem renovar)
 

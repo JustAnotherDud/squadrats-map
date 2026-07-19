@@ -13,8 +13,8 @@
 //   resto: atualiza o pageToken e sai sem disparar dispatch.
 
 import "@supabase/functions-js/edge-runtime.d.ts";
-import { getDriveAccessToken } from "./google_auth.ts";
-import { getPageToken, updatePageToken } from "./sync_state.ts";
+import { getDriveAccessToken } from "../_shared/google_auth.ts";
+import { getPageToken, updatePageToken } from "../_shared/sync_state.ts";
 
 const GITHUB_OWNER = "JustAnotherDud";
 const GITHUB_REPO = "squadrats-map";
