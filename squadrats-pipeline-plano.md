@@ -107,7 +107,16 @@ Cada tarefa só avança para a seguinte depois de confirmada — não construir 
       confirmado nos Actions. Secrets `GH_PAT` e `CHANNEL_TOKEN` só existem nos
       Supabase secrets — `CHANNEL_TOKEN` também guardado local em `.secrets/channel_token.txt`
       (git-ignored) para reutilizar no `watch()` real em T7.
-- [ ] **T5** — Implementar `changes.list()` + tracking de `pageToken` (3.4), guardar em tabela Supabase `drive_sync_state`
+- [x] **T5** — Implementar `changes.list()` + tracking de `pageToken` (3.4), guardar em tabela Supabase `drive_sync_state`
+      **Resultado (2026-07-19):** tabela `drive_sync_state` (singleton `id=1 check`,
+      RLS ativo sem policies — só service role acede) com `page_token`, `channel_id`,
+      `channel_expiration` (as duas últimas por preencher, T7 trata). Edge Function
+      assina o próprio JWT de service account (Web Crypto, sem dependências) para
+      obter access token, chama `changes.list()`, filtra por `.kml` + pasta
+      `squadrats-exports` + não-removido, atualiza `page_token` sempre, só dispara
+      `repository_dispatch` (com `fileId`/`fileName`) nas mudanças relevantes.
+      Testado: `.txt` na pasta → 0 relevantes, sem dispatch; `.kml` na pasta → 1
+      relevante, dispatch confirmado nos GitHub Actions.
 - [ ] **T6** — Escrever `process-kml.yml`: recebe `repository_dispatch`, descarrega o ficheiro certo do Drive (via `fileId` devolvido por T5), corre `pipeline.py`, commita
 - [ ] **T7** — Escrever `drive-watch-setup` como function separada (pedindo sempre `expiration = +24h` explícito) + GitHub Action **a cada 12h** que a chama (renovação do canal, com margem folgada antes das 24h)
 - [ ] **T8** — Teste end-to-end: exportar um KML real, confirmar que o site atualiza sozinho em minutos
