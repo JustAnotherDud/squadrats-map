@@ -117,22 +117,22 @@ Cada tarefa só avança para a seguinte depois de confirmada — não construir 
       `repository_dispatch` (com `fileId`/`fileName`) nas mudanças relevantes.
       Testado: `.txt` na pasta → 0 relevantes, sem dispatch; `.kml` na pasta → 1
       relevante, dispatch confirmado nos GitHub Actions.
-- [~] **T6** — Escrever `process-kml.yml`: recebe `repository_dispatch`, descarrega o ficheiro certo do Drive (via `fileId` devolvido por T5), corre `pipeline.py`, commita
-      **Progresso (2026-07-19):** código escrito e testado localmente, falta o E2E real.
-      - `GOOGLE_SA_KEY` duplicado como secret do repo GitHub (`gh secret set`) — a Edge
-        Function e o workflow usam a mesma chave, guardada em dois sítios por
-        necessidade da arquitetura (Supabase secrets + GitHub Actions secrets).
-      - Trigger só `repository_dispatch` (sem `push`), evita o workflow disparar-se
-        a si próprio quando commita.
-      - Commit condicional a `git diff --quiet` nos dois `tile_info_*.json` — protege
-        contra notificações duplicadas da Google (idempotência).
-      - `pipeline.py` agora falha alto (`RuntimeError`, exit 1) se o KML não tiver a
-        camada `squadrats` — testado localmente contra o `squadrats-teste.kml`
-        mínimo (o mesmo que está na pasta desde o T5): abortou antes de tocar em
-        ficheiros de saída, como esperado.
-      - **Por fazer antes do teste E2E real:** apagar `nota-irrelevante.txt` e
-        `squadrats-teste.kml` da pasta `squadrats-exports` (a ferramenta de Drive
-        disponível não apaga — manual) e substituir pelo KML real de 19 jul.
+- [x] **T6** — Escrever `process-kml.yml`: recebe `repository_dispatch`, descarrega o ficheiro certo do Drive (via `fileId` devolvido por T5), corre `pipeline.py`, commita
+      **Resultado (2026-07-19):** E2E real confirmado — webhook → Edge Function →
+      dispatch → workflow → download → pipeline → commit → push, tudo automático,
+      com o KML real de 19 jul. Resultado bate certo com a validação local: 389
+      squadrats (354 PT), 5021 squadratinhos (4754 PT).
+      - `GOOGLE_SA_KEY` duplicado como secret do repo GitHub (mesma chave da Edge
+        Function, arquitetura obriga a duplicar).
+      - Trigger só `repository_dispatch` (sem `push`), commit condicional a
+        `git diff --quiet` (idempotência), `[skip ci]` na mensagem.
+      - `pipeline.py` falha alto se faltar a camada `squadrats` — **provou-se na
+        prática**: o E2E real disparou 2 dispatches em vez de 1 (Google reportou o
+        `squadrats-teste.kml` do T5 como mudança, apesar de já estar na reciclagem —
+        `removed` só fica `true` num hard-delete, não num "mover para o lixo"). O
+        segundo run tentou processar esse KML vazio, `pipeline.py` abortou com
+        `RuntimeError` antes de tocar em `data/`, exit 1 — zero corrupção. Corrigido
+        o filtro da Edge Function para excluir também `file.trashed`.
 - [ ] **T7** — Escrever `drive-watch-setup` como function separada (pedindo sempre `expiration = +24h` explícito) + GitHub Action **a cada 12h** que a chama (renovação do canal, com margem folgada antes das 24h)
 - [ ] **T8** — Teste end-to-end: exportar um KML real, confirmar que o site atualiza sozinho em minutos
 - [ ] **T9** — Documentar no README do repo: como funciona, como debugar se parar de atualizar (ex: canal expirado sem renovar)

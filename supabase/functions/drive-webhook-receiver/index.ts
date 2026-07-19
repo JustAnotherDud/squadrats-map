@@ -28,7 +28,7 @@ const GH_PAT = Deno.env.get("GH_PAT");
 interface DriveChange {
   fileId: string;
   removed?: boolean;
-  file?: { name?: string; parents?: string[]; mimeType?: string };
+  file?: { name?: string; parents?: string[]; mimeType?: string; trashed?: boolean };
 }
 
 async function listRelevantChanges(): Promise<{ relevant: DriveChange[]; newPageToken: string }> {
@@ -42,7 +42,7 @@ async function listRelevantChanges(): Promise<{ relevant: DriveChange[]; newPage
     url.searchParams.set("pageToken", pageToken);
     url.searchParams.set(
       "fields",
-      "nextPageToken,newStartPageToken,changes(fileId,removed,file(name,parents,mimeType))",
+      "nextPageToken,newStartPageToken,changes(fileId,removed,file(name,parents,mimeType,trashed))",
     );
 
     const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -50,7 +50,10 @@ async function listRelevantChanges(): Promise<{ relevant: DriveChange[]; newPage
     const data = await resp.json();
 
     for (const change of (data.changes ?? []) as DriveChange[]) {
-      if (change.removed) continue;
+      // "removed" só é true num hard-delete; um ficheiro só posto no lixo continua
+      // a aparecer com removed=false — sem o check de trashed, reprocessávamos
+      // ficheiros de teste apagados (foi o que aconteceu no E2E real do T6).
+      if (change.removed || change.file?.trashed) continue;
       const name = change.file?.name ?? "";
       const parents = change.file?.parents ?? [];
       if (name.toLowerCase().endsWith(".kml") && parents.includes(SQUADRATS_FOLDER_ID)) {
