@@ -79,16 +79,21 @@ Ordenar por esta lista — cada uma é um teste isolado, descartável se falhar,
 Cada tarefa só avança para a seguinte depois de confirmada — não construir tudo de uma vez.
 
 - [x] **T1** — Validar 3.1 (expiração do canal) isoladamente, reportar o valor real
-      **Resultado (2026-07-19, testado com `pipeline/spikes/t1_watch_expiration.py`):
-      o canal expira em exatamente 1 hora** (3600s), não 24h nem "vago" como a doc sugeria.
-      Isto obriga T7 a um cron **horário** (com margem, ex. a cada 45-50 min), não semanal —
-      atualizado abaixo.
+      **Resultado (2026-07-19):**
+      - Teste 1 (`t1_watch_expiration.py`), sem pedir `expiration`: canal expira ao fim de
+        **1 hora** — isto é só o *default*, não o máximo.
+      - Teste 2 (`t1b_watch_expiration_24h.py`), pedindo `expiration = agora + 24h`
+        explicitamente no body do `watch()`: a Google **honrou o pedido** e devolveu
+        expiração a ~24h exatas (23:59:59, arredondamento normal).
+      - Conclusão: `drive-watch-setup` (T7) deve sempre pedir `expiration` explícito de
+        +24h. Cron de renovação pode ser **diário com margem** (ex. a cada 12h), não
+        horário — bem mais simples.
 - [ ] **T2** — Deploy da Edge Function mínima (3.2), confirmar receção do webhook
 - [ ] **T3** — Testar `repository_dispatch` manual via curl (3.3)
 - [ ] **T4** — Ligar 3.2 + 3.3: Edge Function recebe webhook → dispara `repository_dispatch`
 - [ ] **T5** — Implementar `changes.list()` + tracking de `pageToken` (3.4), guardar em tabela Supabase `drive_sync_state`
 - [ ] **T6** — Escrever `process-kml.yml`: recebe `repository_dispatch`, descarrega o ficheiro certo do Drive (via `fileId` devolvido por T5), corre `pipeline.py`, commita
-- [ ] **T7** — Escrever `drive-watch-setup` como function separada + GitHub Action **horária** (não semanal — ver T1) que a chama (renovação do canal)
+- [ ] **T7** — Escrever `drive-watch-setup` como function separada (pedindo sempre `expiration = +24h` explícito) + GitHub Action **a cada 12h** que a chama (renovação do canal, com margem folgada antes das 24h)
 - [ ] **T8** — Teste end-to-end: exportar um KML real, confirmar que o site atualiza sozinho em minutos
 - [ ] **T9** — Documentar no README do repo: como funciona, como debugar se parar de atualizar (ex: canal expirado sem renovar)
 
