@@ -1,0 +1,54 @@
+name: renew-drive-watch
+
+# Canais do changes.watch() duram 24h (T1). Corre a cada 12h para ter margem
+# folgada contra atrasos do scheduler do GitHub Actions (schedules em repos
+# com pouca atividade atrasam-se, por vezes 30-60min — normal e documentado).
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch: {} # para testar manualmente sem esperar pelo cron
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Renovar o canal do Drive
+        run: |
+          resp=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://yvsjchzvoikqlpbqsphs.supabase.co/functions/v1/drive-watch-setup" \
+            -H "X-Setup-Token: ${{ secrets.SETUP_TOKEN }}")
+          body=$(echo "$resp" | head -n -1)
+          code=$(echo "$resp" | tail -n1)
+          echo "resposta ($code): $body"
+          if [ "$code" != "200" ]; then
+            echo "::error::renovação do canal falhou (HTTP $code)"
+            exit 1
+          fi
+
+      # GitHub desativa `schedule` em repos sem commits há 60 dias — se passares
+      # 2 meses sem exportar KMLs, o cron morre silenciosamente e o pipeline
+      # fica surdo. Este passo mantém o repo "vivo" sem depender de atividade
+      # real: só commita heartbeat.txt se o último commit a esse ficheiro tiver
+      # mais de 25 dias (portanto no máximo ~1x/mês, não em todas as 12h).
+      - name: Heartbeat mensal (mantém o schedule ativo)
+        run: |
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          last_commit_epoch=$(git log -1 --format=%ct -- heartbeat.txt 2>/dev/null || echo 0)
+          now_epoch=$(date +%s)
+          days_since=$(( (now_epoch - last_commit_epoch) / 86400 ))
+
+          if [ "$last_commit_epoch" != "0" ] && [ "$days_since" -lt 25 ]; then
+            echo "heartbeat.txt commitado há $days_since dias, nada a fazer."
+            exit 0
+          fi
+
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > heartbeat.txt
+          git add heartbeat.txt
+          git commit -m "chore: heartbeat mensal (mantém o schedule do Actions ativo) [skip ci]"
+          git push
