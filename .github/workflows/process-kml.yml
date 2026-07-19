@@ -1,0 +1,15 @@
+name: process-kml
+
+on:
+  repository_dispatch:
+    types: [kml-updated]
+
+jobs:
+  log-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirmar receção do dispatch
+        run: |
+          echo "repository_dispatch recebido, event_type=${{ github.event.action }}"
+          echo "payload:"
+          echo '${{ toJson(github.event.client_payload) }}'
