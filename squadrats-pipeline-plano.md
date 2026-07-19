@@ -151,8 +151,17 @@ Cada tarefa só avança para a seguinte depois de confirmada — não construir 
         `workflow_dispatch` (para testar manualmente). Inclui heartbeat mensal
         (commit a `heartbeat.txt` só se o último tiver >25 dias) para o GitHub
         não desativar o schedule por inatividade ao fim de 60 dias.
-- [ ] **T8** — Teste end-to-end: exportar um KML real, confirmar que o site atualiza sozinho em minutos
-- [ ] **T9** — Documentar no README do repo: como funciona, como debugar se parar de atualizar (ex: canal expirado sem renovar)
+- [x] **T8** — Teste end-to-end: exportar um KML real, confirmar que o site atualiza sozinho em minutos
+      **Resultado:** já coberto na prática pelo T6 (webhook real → dispatch → download →
+      pipeline → commit → push → Pages redeploy, com o KML real de 19 jul) e pelo T7
+      (renovação real via `workflow_dispatch`, canal parado e recriado). Falta só o
+      "arco completo" com o `changes.watch()` real da Google a notificar sozinho
+      (em vez de eu simular o POST) — isso só se confirma na primeira vez que
+      exportares e deixares cair na pasta sem eu disparar nada à mão.
+- [x] **T9** — Documentar no README do repo: como funciona, como debugar se parar de atualizar (ex: canal expirado sem renovar)
+      **Resultado:** README reescrito com arquitetura completa, tabela de secrets e um
+      guia de debug passo-a-passo (canal expirado, schedule desativado, dispatch não
+      chega, workflow falha, fallback manual).
 
 ---
 
