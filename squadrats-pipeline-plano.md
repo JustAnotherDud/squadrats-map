@@ -88,7 +88,12 @@ Cada tarefa só avança para a seguinte depois de confirmada — não construir 
       - Conclusão: `drive-watch-setup` (T7) deve sempre pedir `expiration` explícito de
         +24h. Cron de renovação pode ser **diário com margem** (ex. a cada 12h), não
         horário — bem mais simples.
-- [ ] **T2** — Deploy da Edge Function mínima (3.2), confirmar receção do webhook
+- [x] **T2** — Deploy da Edge Function mínima (3.2), confirmar receção do webhook
+      **Resultado (2026-07-19):** `drive-webhook-receiver` deployada no projeto `Baseline`
+      (`yvsjchzvoikqlpbqsphs`) com `verify_jwt=false` (a Google não autentica-se com o
+      Supabase). Testada com POST simulando os headers `X-Goog-*` — 200 OK, headers
+      registados corretamente nos logs, boot em 18ms. Nota: as notificações do Drive
+      **não trazem corpo JSON**, só headers — o handler não faz `req.json()`.
 - [ ] **T3** — Testar `repository_dispatch` manual via curl (3.3)
 - [ ] **T4** — Ligar 3.2 + 3.3: Edge Function recebe webhook → dispara `repository_dispatch`
 - [ ] **T5** — Implementar `changes.list()` + tracking de `pageToken` (3.4), guardar em tabela Supabase `drive_sync_state`
