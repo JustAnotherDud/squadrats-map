@@ -1,15 +1,49 @@
 name: process-kml
 
+# Só repository_dispatch — de propósito, sem trigger de push. O próprio job
+# faz commit no fim; se reagisse a push também, o commit do bot disparava-se
+# a si próprio (não é loop infinito, o segundo run não tem payload de dispatch
+# e sai sem fazer nada, mas é ruído/confusão a evitar).
 on:
   repository_dispatch:
     types: [kml-updated]
 
 jobs:
-  log-dispatch:
+  process-kml:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Confirmar receção do dispatch
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Descarregar o KML (fileId do dispatch)
+        env:
+          GOOGLE_SA_KEY: ${{ secrets.GOOGLE_SA_KEY }}
         run: |
-          echo "repository_dispatch recebido, event_type=${{ github.event.action }}"
-          echo "payload:"
-          echo '${{ toJson(github.event.client_payload) }}'
+          python3 pipeline/download_kml.py \
+            "${{ github.event.client_payload.fileId }}" \
+            /tmp/incoming.kml
+
+      - name: Correr o pipeline
+        run: python3 pipeline/pipeline.py /tmp/incoming.kml data
+
+      - name: Commitar só se houver diferença real
+        run: |
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          if git diff --quiet -- data/tile_info_squadrats.json data/tile_info_squadratinhos.json; then
+            echo "sem alterações reais nos squares — nada a commitar."
+            exit 0
+          fi
+
+          git add data/tile_info_squadrats.json data/tile_info_squadratinhos.json
+          git commit -m "chore(data): atualizar squares (${{ github.event.client_payload.fileName }}) [skip ci]"
+          git push

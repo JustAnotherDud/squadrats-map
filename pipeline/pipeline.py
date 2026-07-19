@@ -23,6 +23,16 @@ def run(kml_path, out_dir):
 
     geoms = parse_kml_geometries(kml_path)
 
+    # falhar alto e cedo: um KML sem a camada "squadrats" é quase certamente um
+    # export incompleto/de teste, não um export real — nunca deve gerar JSON
+    # vazio/parcial que silenciosamente apague os dados reais do site.
+    if "squadrats" not in geoms:
+        raise RuntimeError(
+            f"KML '{kml_path}' não tem a camada 'squadrats' — export incompleto ou "
+            f"ficheiro errado. Placemarks encontrados: {list(geoms.keys()) or '(nenhum)'}. "
+            f"A abortar sem tocar em ficheiros de saída."
+        )
+
     summary = {}
     for type_name, zoom in ZOOM_BY_TYPE.items():
         if type_name not in geoms:
