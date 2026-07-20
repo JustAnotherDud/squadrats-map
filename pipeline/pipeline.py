@@ -33,7 +33,14 @@ def run(kml_path, out_dir):
             f"A abortar sem tocar em ficheiros de saída."
         )
 
+    with open(os.path.join(REFDATA_DIR, "grid_totals.json"), encoding="utf-8") as f:
+        grid_totals = json.load(f)
+
+    zkey_by_type = {"squadrats": "z14", "squadratinhos": "z17"}
+
     summary = {}
+    stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "country_es": {}}
+
     for type_name, zoom in ZOOM_BY_TYPE.items():
         if type_name not in geoms:
             print(f"aviso: placemark '{type_name}' não encontrado no KML", file=sys.stderr)
@@ -50,6 +57,8 @@ def run(kml_path, out_dir):
             )
 
         out = []
+        by_concelho_captured, by_distrito_captured = {}, {}
+        pt_captured = es_captured = 0
         for x, y, lon, lat in squares:
             info = classifier.classify(lon, lat)
             out.append({
@@ -57,6 +66,12 @@ def run(kml_path, out_dir):
                 "lon": round(lon, 6), "lat": round(lat, 6),
                 **info,
             })
+            if info["in_portugal"]:
+                pt_captured += 1
+                by_concelho_captured[info["concelho"]] = by_concelho_captured.get(info["concelho"], 0) + 1
+                by_distrito_captured[info["district"]] = by_distrito_captured.get(info["district"], 0) + 1
+            else:
+                es_captured += 1
 
         out_path = os.path.join(out_dir, f"tile_info_{type_name}.json")
         with open(out_path, "w", encoding="utf-8") as f:
@@ -64,9 +79,38 @@ def run(kml_path, out_dir):
 
         summary[type_name] = {
             "total": len(out),
-            "in_portugal": sum(1 for s in out if s["in_portugal"]),
+            "in_portugal": pt_captured,
         }
         print(f"{type_name}: {len(out)} squares -> {out_path}")
+
+        zkey = zkey_by_type[type_name]
+
+        def pct(captured, total):
+            return round(100.0 * captured / total, 2) if total else 0.0
+
+        for name, total_info in grid_totals["by_concelho"].items():
+            total = total_info.get(zkey, 0)
+            captured = by_concelho_captured.get(name, 0)
+            stats["by_concelho"].setdefault(name, {})[zkey] = {
+                "captured": captured, "total": total, "pct": pct(captured, total),
+            }
+        for name, total_info in grid_totals["by_distrito"].items():
+            total = total_info.get(zkey, 0)
+            captured = by_distrito_captured.get(name, 0)
+            stats["by_distrito"].setdefault(name, {})[zkey] = {
+                "captured": captured, "total": total, "pct": pct(captured, total),
+            }
+
+        pt_total = grid_totals["country_pt"].get(zkey, 0)
+        stats["country_pt"][zkey] = {
+            "captured": pt_captured, "total": pt_total, "pct": pct(pt_captured, pt_total),
+        }
+        stats["country_es"][zkey] = {"captured": es_captured, "total": None, "pct": None}
+
+    stats_path = os.path.join(out_dir, "stats.json")
+    with open(stats_path, "w", encoding="utf-8") as f:
+        json.dump(stats, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"stats -> {stats_path}")
 
     return summary
 
