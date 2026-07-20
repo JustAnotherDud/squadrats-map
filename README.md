@@ -16,7 +16,10 @@ minutos depois o mapa no GitHub Pages já reflete os dados novos, sem mais nenhu
   - `download_kml.py` — descarrega um ficheiro do Drive pelo `fileId` (usado pelo workflow em CI)
   - `compute_grid_totals.py` — **one-off**, corre manualmente, nunca pelo pipeline: calcula quantos tiles (zoom14/17) existem no total em cada concelho/distrito/país, usando o mesmo critério do `classify.py` (centro do tile). Output commitado em `refdata/grid_totals.json` — só se recalcula se as fronteiras (`concelhos_pt.geojson`/`distritos_pt.geojson`) mudarem.
   - `refdata/` — fronteiras de concelho/distrito **não simplificadas** (só para classificação — mais precisas que as de `data/`, que estão simplificadas para pesarem menos no browser) + `grid_totals.json`
+  - `refdata/foreign/` — geometria de precisão de regiões estrangeiras, um ficheiro por país (`ES.geojson`). Adicionar um país novo (ex: França) = só adicionar `FR.geojson` com o mesmo formato (`properties.country` + `properties.region` por feature), zero alterações de código em `classify.py`/`pipeline.py`.
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento (T1, T5) — não fazem parte do pipeline em produção
+- `supabase/functions/` — as duas Edge Functions do pipeline automático (ver arquitetura abaixo)
+- `.github/workflows/` — `process-kml.yml` (processa KMLs novos) e `renew-drive-watch.yml` (renova o canal do Drive)
 
 ### Nota sobre nomes de concelho duplicados
 
@@ -25,8 +28,18 @@ Dois pares de concelhos têm o mesmo nome em Portugal: **Calheta** (Açores/Made
 com isso desambiguado — `Calheta (Açores)`, `Calheta (Madeira)`, `Lagoa (Açores)`, `Lagoa (Faro)` —
 gerado a partir do `NAME_1` (distrito/região) do GADM. Sem isto, os dois concelhos colidiam na
 mesma chave e um dos dois perdia todas as capturas/totais na agregação.
-- `supabase/functions/` — as duas Edge Functions do pipeline automático (ver arquitetura abaixo)
-- `.github/workflows/` — `process-kml.yml` (processa KMLs novos) e `renew-drive-watch.yml` (renova o canal do Drive)
+
+### Regiões estrangeiras (Espanha e futuras)
+
+Squares fora de Portugal são classificados por província espanhola quando há geometria
+disponível (`refdata/foreign/ES.geojson`, 52 províncias/GADM ESP nível 2, nomes corrigidos —
+`Asturias`, `Cantabria`, `Madrid`, `León`, etc., sem os espaços em falta do GADM). Sem geometria
+para o país em causa (ex: um square em França, hoje), o square fica genérico — `country`/`region`
+a `null` no `tile_info_*.json`, contado em `stats.foreign[zkey].unclassified`, sem quebrar nada.
+
+Só a **contagem** de capturados por província é calculada (`stats.json` → `foreign`) — não há
+"total da grelha" nem `%` para regiões estrangeiras (seria trabalho especulativo sem volume de
+dados; ver `grid_totals.json`, que já tem o schema preparado mas não calcula nada para ES).
 
 ## Rodar o pipeline manualmente
 

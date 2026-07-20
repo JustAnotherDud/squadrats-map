@@ -25,7 +25,12 @@
   #sheet-summary b { color:#fff; }
   #sheet-body { padding:0 14px 16px; overflow-y:auto; height:calc(62vh - 54px); display:none; }
   #sheet.expanded #sheet-body { display:block; }
-  .stat-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; gap:8px; }
+  .stat-row { display:flex; justify-content:space-between; align-items:center; padding:5px 6px; margin:0 -6px; border-bottom:1px solid #1e2230; font-size:12.5px; gap:8px; border-left:3px solid transparent; border-radius:4px; transition:background-color .5s, border-left-color .2s; }
+  .stat-row.selectable { cursor:pointer; }
+  .stat-row.selectable:active { background:#1c2130; }
+  .stat-row.selected { border-left-color:#39d97a; background:#1a2420; }
+  .stat-row.selected .stat-name { font-weight:700; color:#fff; }
+  .stat-row.flash { background:#22392c; }
   .stat-row b { color:#fff; white-space:nowrap; }
   .stat-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .section-title { margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
@@ -69,14 +74,17 @@ const DATA_URLS = {
   concelhos: 'data/concelhos_pt.geojson',
   distritos: 'data/distritos_pt.geojson',
   portugal: 'data/portugal_outline.geojson',
+  provinciasEs: 'data/provincias_es.geojson',
+  spain: 'data/spain_outline.geojson',
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
 function defaultSortFor(grelha) { return grelha === 'squadratinhos' ? 'captured' : 'pct'; }
-let state = { grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, sort: defaultSortFor('squadratinhos') };
+let state = { grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, sort: defaultSortFor('squadratinhos'), selected: null };
 let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
+let boundaryLayersByName = {}; // nome -> layer Leaflet, reconstruído a cada drawBoundaries()
 
 const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([39.6, -8.5], 7);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -122,23 +130,66 @@ function drawSquares() {
       color: sq.in_portugal ? '#3d7bf5' : '#888',
       weight, fillColor: sq.in_portugal ? '#3d7bf5' : '#888', fillOpacity: 0.55,
     });
-    const where = sq.in_portugal ? `${sq.concelho}, ${sq.district}` : 'Espanha';
+    let where;
+    if (sq.in_portugal) where = `${sq.concelho}, ${sq.district}`;
+    else if (sq.region) where = `${sq.region}, ${sq.country === 'ES' ? 'Espanha' : sq.country}`;
+    else where = 'Estrangeiro (região desconhecida)';
     rect.bindPopup(`<b>${where}</b><br>${sq.lat.toFixed(4)}, ${sq.lon.toFixed(4)}`);
     squaresLayer.addLayer(rect);
   });
 }
 
+const SELECTED_STYLE = { color: '#39d97a', weight: 2.5, opacity: 1 };
+
+function baseStyleFor(name, statsBucket, zkey) {
+  const s = (statsBucket[name] || {})[zkey];
+  const pct = s ? s.pct : null;
+  return {
+    color: '#5a6478', weight: 0.7,
+    fillColor: pctColor(pct), fillOpacity: pct ? 0.35 : 0.08, opacity: 0.6,
+  };
+}
+
+function styleFor(name, statsBucket, zkey) {
+  const base = baseStyleFor(name, statsBucket, zkey);
+  const isSelected = state.selected && state.selected.name === name;
+  return isSelected ? { ...base, ...SELECTED_STYLE } : base;
+}
+
+function styleForForeign(name, zkey) {
+  const captured = ((cache.stats.foreign[zkey] || {}).ES || {})[name] || 0;
+  const base = {
+    color: '#5a6478', weight: 0.6,
+    fillColor: '#c9743d', fillOpacity: captured > 0 ? 0.3 : 0.05, opacity: 0.5,
+  };
+  const isSelected = state.selected && state.selected.name === name;
+  return isSelected ? { ...base, ...SELECTED_STYLE } : base;
+}
+
+function addBoundaryFeature(name, layer, styleFn) {
+  boundaryLayersByName[name] = { layer, styleFn };
+  layer.on('click', () => selectItem(name, { fromMap: true }));
+}
+
 function drawBoundaries() {
   boundaryLayer.clearLayers();
+  boundaryLayersByName = {};
   const zkey = ZKEY[state.grelha];
   const stats = cache.stats;
 
   if (state.visao === 'paises') {
     const pt = stats.country_pt[zkey];
+    const es = stats.country_es[zkey];
     L.geoJSON(cache.portugal, {
       style: { color: '#39d97a', weight: 2, fill: false },
       onEachFeature: (feat, layer) => {
         layer.bindTooltip(`<b>Portugal</b><br>${pt.captured}/${pt.total} · ${fmtPct(pt.pct)}`, { sticky: true });
+      },
+    }).addTo(boundaryLayer);
+    L.geoJSON(cache.spain, {
+      style: { color: '#c9743d', weight: 2, fill: false },
+      onEachFeature: (feat, layer) => {
+        layer.bindTooltip(`<b>Espanha</b><br>${es.captured} sq`, { sticky: true });
       },
     }).addTo(boundaryLayer);
     return;
@@ -149,24 +200,67 @@ function drawBoundaries() {
   const nameProp = state.visao === 'distritos' ? 'district' : 'NAME_2';
 
   L.geoJSON(geo, {
-    style: feat => {
-      const s = (statsBucket[feat.properties[nameProp]] || {})[zkey];
-      const pct = s ? s.pct : null;
-      const isRioMaior = feat.properties[nameProp] === 'Rio Maior';
-      return {
-        color: isRioMaior ? '#39d97a' : '#5a6478',
-        weight: isRioMaior ? 2.2 : 0.7,
-        fillColor: pctColor(pct),
-        fillOpacity: pct ? 0.35 : 0.08,
-        opacity: isRioMaior ? 1 : 0.6,
-      };
-    },
+    style: feat => styleFor(feat.properties[nameProp], statsBucket, zkey),
     onEachFeature: (feat, layer) => {
       const name = feat.properties[nameProp];
       const s = (statsBucket[name] || {})[zkey] || { captured: 0, total: 0, pct: 0 };
       layer.bindTooltip(`<b>${name}</b><br>${s.captured}/${s.total} · ${s.pct}%`, { sticky: true });
+      addBoundaryFeature(name, layer, () => styleFor(name, statsBucket, zkey));
     },
   }).addTo(boundaryLayer);
+
+  if (state.visao === 'distritos') {
+    L.geoJSON(cache.provinciasEs, {
+      style: feat => styleForForeign(feat.properties.region, zkey),
+      onEachFeature: (feat, layer) => {
+        const name = feat.properties.region;
+        const captured = ((stats.foreign[zkey] || {}).ES || {})[name] || 0;
+        layer.bindTooltip(`<b>${name} (ES)</b><br>${captured} sq`, { sticky: true });
+        addBoundaryFeature(name, layer, () => styleForForeign(name, zkey));
+      },
+    }).addTo(boundaryLayer);
+  }
+}
+
+function refreshBoundaryStyles() {
+  Object.values(boundaryLayersByName).forEach(({ layer, styleFn }) => {
+    layer.setStyle(styleFn());
+  });
+}
+
+function selectItem(name, opts) {
+  opts = opts || {};
+  if (state.selected && state.selected.name === name) {
+    clearSelection();
+    return;
+  }
+  state.selected = { name };
+  refreshBoundaryStyles();
+
+  const entry = boundaryLayersByName[name];
+  if (entry) {
+    map.fitBounds(entry.layer.getBounds(), { padding: [30, 30], maxZoom: 12 });
+  }
+
+  renderStats(); // reconstrói a lista com a linha marcada .selected antes de a localizar
+
+  const row = document.querySelector(`.stat-row[data-name="${cssEscape(name)}"]`);
+  if (row) {
+    if (opts.fromMap) setSheet(true);
+    row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    row.classList.add('flash');
+    setTimeout(() => row.classList.remove('flash'), 900);
+  }
+}
+
+function clearSelection() {
+  state.selected = null;
+  refreshBoundaryStyles();
+  renderStats();
+}
+
+function cssEscape(s) {
+  return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&');
 }
 
 function fmtPct(pct) { return pct === null || pct === undefined ? '—' : `${pct}%`; }
@@ -212,8 +306,21 @@ function renderStats() {
         : (b[1].pct || 0) - (a[1].pct || 0));
     rows.forEach(([name, s]) => {
       const dotColor = pctColor(s.pct);
-      html += `<div class="stat-row"><span class="stat-name"><span class="legend-dot" style="background:${dotColor}"></span>${name}</span><b>${s.captured}/${s.total} · ${fmtPct(s.pct)}</b></div>`;
+      const selected = state.selected && state.selected.name === name;
+      html += `<div class="stat-row selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(name)}"><span class="stat-name"><span class="legend-dot" style="background:${dotColor}"></span>${name}</span><b>${s.captured}/${s.total} · ${fmtPct(s.pct)}</b></div>`;
     });
+
+    if (state.visao === 'distritos') {
+      const foreign = ((stats.foreign[zkey] || {}).ES) || {};
+      const foreignRows = Object.entries(foreign).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]);
+      if (foreignRows.length) {
+        html += '<div class="section-title">Espanha (províncias)</div>';
+        foreignRows.forEach(([name, captured]) => {
+          const selected = state.selected && state.selected.name === name;
+          html += `<div class="stat-row selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(name)}"><span class="stat-name"><span class="legend-dot" style="background:#c9743d"></span>${name}</span><b>${captured} sq</b></div>`;
+        });
+      }
+    }
   }
 
   const rm = stats.by_concelho['Rio Maior'][zkey];
@@ -224,6 +331,15 @@ function renderStats() {
 
   document.getElementById('sheet-list').innerHTML = html;
 }
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+document.getElementById('sheet-list').addEventListener('click', e => {
+  const row = e.target.closest('.stat-row.selectable');
+  if (row) selectItem(row.dataset.name, { fromMap: false });
+});
 
 function render() {
   drawSquares();
@@ -237,6 +353,7 @@ document.querySelectorAll('#seg-grelha button').forEach(btn => {
     btn.classList.add('active');
     state.grelha = btn.dataset.val;
     state.sort = defaultSortFor(state.grelha);
+    state.selected = null;
     render();
   };
 });
@@ -245,6 +362,7 @@ document.querySelectorAll('#seg-visao button').forEach(btn => {
     document.querySelectorAll('#seg-visao button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.visao = btn.dataset.val;
+    state.selected = null;
     render();
   };
 });
@@ -271,6 +389,12 @@ handle.addEventListener('pointerup', e => {
   dragStartY = null;
 });
 handle.addEventListener('pointercancel', () => { dragStartY = null; });
+
+// limpar seleção: Escape ou clique no mapa fora de qualquer polígono
+// (Leaflet já para a propagação do click de um L.Path para o mapa, por isso
+// isto só dispara em cliques no fundo do mapa, não nos polígonos)
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.selected) clearSelection(); });
+map.on('click', () => { if (state.selected) clearSelection(); });
 
 (async function init() {
   await loadAll();
