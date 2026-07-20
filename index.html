@@ -19,23 +19,48 @@
   #sheet { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:#151821; border-top:1px solid #262b38; border-radius:14px 14px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.4); transition: height .25s ease; }
   #sheet.collapsed { height:54px; }
   #sheet.expanded { height:62vh; }
+  #sheet.detail { height:250px; }
+  #sheet-list { display:block; }
+  #sheet-detail { display:none; }
+  #sheet.detail #sheet-list { display:none; }
+  #sheet.detail #sheet-detail { display:block; }
   #sheet-handle { padding:9px 14px 4px; cursor:grab; touch-action:none; }
   #sheet-handle .bar { width:36px; height:4px; background:#3a4256; border-radius:2px; margin:0 auto 8px; }
   #sheet-summary { display:flex; justify-content:space-between; align-items:center; padding:0 14px 10px; font-size:13px; }
   #sheet-summary b { color:#fff; }
-  #sheet-body { padding:0 14px 16px; overflow-y:auto; height:calc(62vh - 54px); display:none; }
-  #sheet.expanded #sheet-body { display:block; }
-  .stat-row { display:flex; justify-content:space-between; align-items:center; padding:5px 6px; margin:0 -6px; border-bottom:1px solid #1e2230; font-size:12.5px; gap:8px; border-left:3px solid transparent; border-radius:4px; transition:background-color .5s, border-left-color .2s; }
-  .stat-row.selectable { cursor:pointer; }
-  .stat-row.selectable:active { background:#1c2130; }
-  .stat-row.selected { border-left-color:#39d97a; background:#1a2420; }
-  .stat-row.selected .stat-name { font-weight:700; color:#fff; }
-  .stat-row.flash { background:#22392c; }
+  #sheet-body { padding:0 14px 16px; overflow-y:auto; display:none; }
+  #sheet.expanded #sheet-body, #sheet.detail #sheet-body { display:block; height:calc(100% - 54px); }
+
+  table.stats-table { width:100%; border-collapse:collapse; font-size:12px; }
+  table.stats-table th { position:sticky; top:0; background:#151821; text-align:right; font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:#7d8598; padding:5px 4px; cursor:pointer; user-select:none; white-space:nowrap; }
+  table.stats-table th.col-name { text-align:left; }
+  table.stats-table th .arrow { opacity:.5; margin-left:2px; }
+  table.stats-table th.sorted .arrow { opacity:1; color:#3d7bf5; }
+  table.stats-table td { padding:5px 4px; text-align:right; border-bottom:1px solid #1e2230; white-space:nowrap; }
+  table.stats-table td.col-name { text-align:left; overflow:hidden; text-overflow:ellipsis; max-width:0; width:100%; }
+  table.stats-table tr.selectable { cursor:pointer; }
+  table.stats-table tr.selectable:active td { background:#1c2130; }
+  table.stats-table tr.selected td { background:#1a2420; }
+  table.stats-table tr.selected td.col-name { font-weight:700; color:#fff; box-shadow: inset 3px 0 0 #39d97a; }
+  @media (max-width:420px) {
+    table.stats-table td.col-total, table.stats-table th.col-total,
+    table.stats-table td.col-remaining, table.stats-table th.col-remaining { display:none; }
+  }
+  .stat-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; gap:8px; }
   .stat-row b { color:#fff; white-space:nowrap; }
   .stat-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .section-title { margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
   .legend-dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:middle; flex-shrink:0; }
+  .section-title { margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
   .note { font-size:10px; color:#6b7285; padding:8px 0 0; }
+
+  #sheet-detail { padding:2px 0 0; }
+  #sheet-detail .detail-back { background:none; border:none; color:#7ab8ff; font-size:12px; padding:0 0 10px; cursor:pointer; }
+  #sheet-detail h2 { margin:0 0 8px; font-size:16px; }
+  .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; }
+  .detail-item { }
+  .detail-item .label { font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:#7d8598; }
+  .detail-item .value { font-size:16px; font-weight:700; color:#fff; }
+
   a { color:#7ab8ff; }
   #loading { position:absolute; inset:0; z-index:2000; background:#0f1115; display:flex; align-items:center; justify-content:center; font-size:13px; color:#9aa2b1; }
 </style>
@@ -61,8 +86,8 @@
   <div id="sheet-handle"><div class="bar"></div></div>
   <div id="sheet-summary"><span id="summary-text"></span><span style="color:#7d8598">▲</span></div>
   <div id="sheet-body">
-    <div class="seg" id="seg-sort" style="margin-bottom:8px;"></div>
     <div id="sheet-list"></div>
+    <div id="sheet-detail" style="display:none;"></div>
   </div>
 </div>
 
@@ -79,8 +104,11 @@ const DATA_URLS = {
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
-function defaultSortFor(grelha) { return grelha === 'squadratinhos' ? 'captured' : 'pct'; }
-let state = { grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, sort: defaultSortFor('squadratinhos'), selected: null };
+let state = {
+  grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, selected: null,
+  sortKey: 'captured', sortDir: 'desc',           // tabela principal (distritos/concelhos)
+  sortForeignKey: 'captured', sortForeignDir: 'desc', // tabela de províncias ES
+};
 let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
@@ -228,6 +256,65 @@ function refreshBoundaryStyles() {
   });
 }
 
+const DETAIL_HEIGHT_PX = 250;
+
+function getEntryInfo(name) {
+  const zkey = ZKEY[state.grelha];
+  const stats = cache.stats;
+  if (state.visao === 'distritos') {
+    if (stats.by_distrito[name]) {
+      return { kind: 'distrito', name, ...stats.by_distrito[name][zkey] };
+    }
+    const foreignBucket = ((stats.foreign[zkey] || {}).ES) || {};
+    if (name in foreignBucket) {
+      return { kind: 'foreign', name, captured: foreignBucket[name], total: null, pct: null };
+    }
+  } else if (state.visao === 'concelhos') {
+    if (stats.by_concelho[name]) {
+      return { kind: 'concelho', name, ...stats.by_concelho[name][zkey] };
+    }
+  }
+  return null;
+}
+
+function rankingFor(info) {
+  const zkey = ZKEY[state.grelha];
+  const stats = cache.stats;
+  if (info.kind === 'foreign') {
+    const bucket = ((stats.foreign[zkey] || {}).ES) || {};
+    const sorted = Object.keys(bucket).sort((a, b) => bucket[b] - bucket[a]);
+    return { rank: sorted.indexOf(info.name) + 1, outOf: sorted.length };
+  }
+  const bucket = info.kind === 'distrito' ? stats.by_distrito : stats.by_concelho;
+  const entries = Object.entries(bucket)
+    .map(([n, byZoom]) => [n, byZoom[zkey]])
+    .filter(([, s]) => s && (info.kind === 'distrito' || s.captured > 0))
+    .sort((a, b) => (b[1].pct || 0) - (a[1].pct || 0));
+  return { rank: entries.findIndex(([n]) => n === info.name) + 1, outOf: entries.length };
+}
+
+function renderDetailCard(name) {
+  const info = getEntryInfo(name);
+  const container = document.getElementById('sheet-detail');
+  if (!info) { container.innerHTML = ''; return; }
+
+  const rank = rankingFor(info);
+  let grid = `<div class="detail-item"><div class="label">Capturados</div><div class="value">${info.captured}</div></div>`;
+  if (info.total !== null && info.total !== undefined) {
+    grid += `<div class="detail-item"><div class="label">Total</div><div class="value">${info.total}</div></div>`;
+    grid += `<div class="detail-item"><div class="label">Por capturar</div><div class="value">${info.total - info.captured}</div></div>`;
+    grid += `<div class="detail-item"><div class="label">%</div><div class="value">${fmtPct(info.pct)}</div></div>`;
+  }
+  grid += `<div class="detail-item"><div class="label">Posição no ranking</div><div class="value">${rank.rank}/${rank.outOf}</div></div>`;
+
+  container.innerHTML = `
+    <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
+    <h2>${escapeHtml(name)}</h2>
+    <div class="detail-grid">${grid}</div>
+  `;
+  document.getElementById('detail-back-btn').onclick = clearSelection;
+}
+
 function selectItem(name, opts) {
   opts = opts || {};
   if (state.selected && state.selected.name === name) {
@@ -236,46 +323,66 @@ function selectItem(name, opts) {
   }
   state.selected = { name };
   refreshBoundaryStyles();
+  if (opts.fromMap) state.sheetExpanded = true;
+
+  sheet.classList.remove('collapsed', 'expanded');
+  sheet.classList.add('detail');
+  document.querySelector('#sheet-summary span:last-child').textContent = '▼';
+  renderDetailCard(name);
 
   const entry = boundaryLayersByName[name];
   if (entry) {
-    map.fitBounds(entry.layer.getBounds(), { padding: [30, 30], maxZoom: 12 });
-  }
-
-  renderStats(); // reconstrói a lista com a linha marcada .selected antes de a localizar
-
-  const row = document.querySelector(`.stat-row[data-name="${cssEscape(name)}"]`);
-  if (row) {
-    if (opts.fromMap) setSheet(true);
-    row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    row.classList.add('flash');
-    setTimeout(() => row.classList.remove('flash'), 900);
+    // padding compensa o topbar (topo) e o cartão de detalhe (fundo), para a
+    // região selecionada ficar centrada no espaço do mapa que fica mesmo visível
+    map.fitBounds(entry.layer.getBounds(), {
+      paddingTopLeft: [20, 100],
+      paddingBottomRight: [20, DETAIL_HEIGHT_PX + 20],
+      maxZoom: 12,
+    });
   }
 }
 
 function clearSelection() {
   state.selected = null;
   refreshBoundaryStyles();
+  sheet.classList.remove('detail');
+  setSheet(state.sheetExpanded);
   renderStats();
-}
-
-function cssEscape(s) {
-  return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&');
 }
 
 function fmtPct(pct) { return pct === null || pct === undefined ? '—' : `${pct}%`; }
 
-function renderSortToggle() {
-  const seg = document.getElementById('seg-sort');
-  if (state.visao === 'paises') { seg.style.display = 'none'; seg.innerHTML = ''; return; }
-  seg.style.display = 'flex';
-  seg.innerHTML = `
-    <button data-sort="pct" class="${state.sort === 'pct' ? 'active' : ''}">Por %</button>
-    <button data-sort="captured" class="${state.sort === 'captured' ? 'active' : ''}">Por capturados</button>
-  `;
-  seg.querySelectorAll('button').forEach(btn => {
-    btn.onclick = () => { state.sort = btn.dataset.sort; renderStats(); };
+function sortRows(rows, key, dir) {
+  return [...rows].sort((a, b) => {
+    if (key === 'name') {
+      return dir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+    }
+    const av = a[key] ?? -Infinity, bv = b[key] ?? -Infinity;
+    return dir === 'asc' ? av - bv : bv - av;
   });
+}
+
+function buildTable(tableId, columns, rows, sortKey, sortDir) {
+  const sorted = sortRows(rows, sortKey, sortDir);
+  let thead = '<tr>';
+  columns.forEach(col => {
+    const isSorted = sortKey === col.key;
+    const arrow = isSorted ? `<span class="arrow">${sortDir === 'asc' ? '▲' : '▼'}</span>` : '';
+    thead += `<th class="${col.className || ''}${isSorted ? ' sorted' : ''}" data-table="${tableId}" data-key="${col.key}">${col.label}${arrow}</th>`;
+  });
+  thead += '</tr>';
+
+  let tbody = '';
+  sorted.forEach(row => {
+    const selected = state.selected && state.selected.name === row.name;
+    tbody += `<tr class="selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(row.name)}">`;
+    columns.forEach(col => {
+      tbody += `<td class="${col.className || ''}">${col.render ? col.render(row) : row[col.key]}</td>`;
+    });
+    tbody += '</tr>';
+  });
+
+  return `<table class="stats-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
 }
 
 function renderStats() {
@@ -287,8 +394,6 @@ function renderStats() {
   document.getElementById('summary-text').innerHTML =
     `<b>${pt.captured}</b> sq · ${fmtPct(pt.pct)} PT`;
 
-  renderSortToggle();
-
   let html = '';
   if (state.visao === 'paises') {
     html += '<div class="section-title">Por país</div>';
@@ -299,33 +404,29 @@ function renderStats() {
     const title = state.visao === 'distritos' ? 'Por distrito' : 'Por concelho (com capturas)';
     html += `<div class="section-title">${title}</div>`;
     const rows = Object.entries(bucket)
-      .map(([name, byZoom]) => [name, byZoom[zkey]])
-      .filter(([, s]) => s && (state.visao === 'distritos' || s.captured > 0))
-      .sort((a, b) => state.sort === 'captured'
-        ? (b[1].captured || 0) - (a[1].captured || 0)
-        : (b[1].pct || 0) - (a[1].pct || 0));
-    rows.forEach(([name, s]) => {
-      const dotColor = pctColor(s.pct);
-      const selected = state.selected && state.selected.name === name;
-      html += `<div class="stat-row selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(name)}"><span class="stat-name"><span class="legend-dot" style="background:${dotColor}"></span>${name}</span><b>${s.captured}/${s.total} · ${fmtPct(s.pct)}</b></div>`;
-    });
+      .map(([name, byZoom]) => ({ name, ...byZoom[zkey] }))
+      .filter(r => r && (state.visao === 'distritos' || r.captured > 0))
+      .map(r => ({ ...r, remaining: r.total - r.captured }));
+    html += buildTable('main', [
+      { key: 'name', label: 'Nome', className: 'col-name' },
+      { key: 'captured', label: 'Capturados' },
+      { key: 'total', label: 'Total', className: 'col-total' },
+      { key: 'remaining', label: 'Por capturar', className: 'col-remaining' },
+      { key: 'pct', label: '%', render: r => fmtPct(r.pct) },
+    ], rows, state.sortKey, state.sortDir);
 
     if (state.visao === 'distritos') {
       const foreign = ((stats.foreign[zkey] || {}).ES) || {};
-      const foreignRows = Object.entries(foreign).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1]);
+      const foreignRows = Object.entries(foreign).filter(([, c]) => c > 0).map(([name, captured]) => ({ name, captured }));
       if (foreignRows.length) {
         html += '<div class="section-title">Espanha (províncias)</div>';
-        foreignRows.forEach(([name, captured]) => {
-          const selected = state.selected && state.selected.name === name;
-          html += `<div class="stat-row selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(name)}"><span class="stat-name"><span class="legend-dot" style="background:#c9743d"></span>${name}</span><b>${captured} sq</b></div>`;
-        });
+        html += buildTable('foreign', [
+          { key: 'name', label: 'Nome', className: 'col-name' },
+          { key: 'captured', label: 'Capturados' },
+        ], foreignRows, state.sortForeignKey, state.sortForeignDir);
       }
     }
   }
-
-  const rm = stats.by_concelho['Rio Maior'][zkey];
-  html += '<div class="section-title">Rio Maior (concelho-base)</div>';
-  html += `<div class="stat-row"><span class="stat-name"><span class="legend-dot" style="background:#39d97a"></span>% capturado</span><b>${rm.captured}/${rm.total} · ${fmtPct(rm.pct)}</b></div>`;
 
   html += `<div class="note">Grelha: ${state.grelha === 'squadrats' ? 'squadrats (1609 m)' : 'squadratinhos (201 m)'} · fronteiras de concelho via GADM + OSM (ref:ine) · totais da grelha calculados uma vez (<code>compute_grid_totals.py</code>), nunca recalculados por export</div>`;
 
@@ -337,7 +438,19 @@ function escapeHtml(s) {
 }
 
 document.getElementById('sheet-list').addEventListener('click', e => {
-  const row = e.target.closest('.stat-row.selectable');
+  const th = e.target.closest('th[data-key]');
+  if (th) {
+    const isMain = th.dataset.table === 'main';
+    const curKey = isMain ? state.sortKey : state.sortForeignKey;
+    const curDir = isMain ? state.sortDir : state.sortForeignDir;
+    const key = th.dataset.key;
+    const newDir = curKey === key ? (curDir === 'asc' ? 'desc' : 'asc') : (key === 'name' ? 'asc' : 'desc');
+    if (isMain) { state.sortKey = key; state.sortDir = newDir; }
+    else { state.sortForeignKey = key; state.sortForeignDir = newDir; }
+    renderStats();
+    return;
+  }
+  const row = e.target.closest('tr.selectable');
   if (row) selectItem(row.dataset.name, { fromMap: false });
 });
 
@@ -347,13 +460,20 @@ function render() {
   renderStats();
 }
 
+function resetSelectionUI() {
+  if (sheet.classList.contains('detail')) {
+    sheet.classList.remove('detail');
+    setSheet(state.sheetExpanded);
+  }
+}
+
 document.querySelectorAll('#seg-grelha button').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('#seg-grelha button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.grelha = btn.dataset.val;
-    state.sort = defaultSortFor(state.grelha);
     state.selected = null;
+    resetSelectionUI();
     render();
   };
 });
@@ -363,6 +483,7 @@ document.querySelectorAll('#seg-visao button').forEach(btn => {
     btn.classList.add('active');
     state.visao = btn.dataset.val;
     state.selected = null;
+    resetSelectionUI();
     render();
   };
 });
@@ -375,7 +496,10 @@ function setSheet(expanded) {
   sheet.classList.toggle('collapsed', !expanded);
   document.querySelector('#sheet-summary span:last-child').textContent = expanded ? '▼' : '▲';
 }
-document.getElementById('sheet-summary').onclick = () => setSheet(!state.sheetExpanded);
+document.getElementById('sheet-summary').onclick = () => {
+  if (state.selected) { clearSelection(); return; }
+  setSheet(!state.sheetExpanded);
+};
 
 let dragStartY = null;
 const handle = document.getElementById('sheet-handle');
@@ -383,7 +507,9 @@ handle.addEventListener('pointerdown', e => { dragStartY = e.clientY; });
 handle.addEventListener('pointerup', e => {
   if (dragStartY === null) return;
   const dy = e.clientY - dragStartY;
-  if (dy < -15) setSheet(true);
+  if (state.selected) {
+    if (dy > 15) clearSelection(); // arrastar para baixo no cartão de detalhe volta à lista
+  } else if (dy < -15) setSheet(true);
   else if (dy > 15) setSheet(false);
   else setSheet(!state.sheetExpanded);
   dragStartY = null;
