@@ -14,8 +14,17 @@ minutos depois o mapa no GitHub Pages já reflete os dados novos, sem mais nenhu
   - `kml_parse.py` — parse do KML + reconstrução dos squares individuais (x, y, zoom) por varrimento da grelha XYZ
   - `classify.py` — classifica cada square em concelho/distrito (point-in-polygon com STRtree)
   - `download_kml.py` — descarrega um ficheiro do Drive pelo `fileId` (usado pelo workflow em CI)
-  - `refdata/` — fronteiras de concelho/distrito **não simplificadas** (só para classificação — mais precisas que as de `data/`, que estão simplificadas para pesarem menos no browser)
+  - `compute_grid_totals.py` — **one-off**, corre manualmente, nunca pelo pipeline: calcula quantos tiles (zoom14/17) existem no total em cada concelho/distrito/país, usando o mesmo critério do `classify.py` (centro do tile). Output commitado em `refdata/grid_totals.json` — só se recalcula se as fronteiras (`concelhos_pt.geojson`/`distritos_pt.geojson`) mudarem.
+  - `refdata/` — fronteiras de concelho/distrito **não simplificadas** (só para classificação — mais precisas que as de `data/`, que estão simplificadas para pesarem menos no browser) + `grid_totals.json`
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento (T1, T5) — não fazem parte do pipeline em produção
+
+### Nota sobre nomes de concelho duplicados
+
+Dois pares de concelhos têm o mesmo nome em Portugal: **Calheta** (Açores/Madeira) e **Lagoa**
+(Açores/Algarve). Os ficheiros de fronteiras (`concelhos_pt.geojson`, refdata e display) já vêm
+com isso desambiguado — `Calheta (Açores)`, `Calheta (Madeira)`, `Lagoa (Açores)`, `Lagoa (Faro)` —
+gerado a partir do `NAME_1` (distrito/região) do GADM. Sem isto, os dois concelhos colidiam na
+mesma chave e um dos dois perdia todas as capturas/totais na agregação.
 - `supabase/functions/` — as duas Edge Functions do pipeline automático (ver arquitetura abaixo)
 - `.github/workflows/` — `process-kml.yml` (processa KMLs novos) e `renew-drive-watch.yml` (renova o canal do Drive)
 

@@ -39,11 +39,11 @@ jobs:
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          if git diff --quiet -- data/tile_info_squadrats.json data/tile_info_squadratinhos.json; then
+          if git diff --quiet -- data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json; then
             echo "sem alterações reais nos squares — nada a commitar."
             exit 0
           fi
 
-          git add data/tile_info_squadrats.json data/tile_info_squadratinhos.json
+          git add data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json
           git commit -m "chore(data): atualizar squares (${{ github.event.client_payload.fileName }}) [skip ci]"
           git push
