@@ -106,6 +106,7 @@ const DATA_URLS = {
   portugal: 'data/portugal_outline.geojson',
   provinciasEs: 'data/provincias_es.geojson',
   spain: 'data/spain_outline.geojson',
+  adjacency: 'data/adjacency.json',
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
@@ -113,8 +114,8 @@ let state = {
   grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, selected: null,
   sortKey: 'captured', sortDir: 'desc',           // tabela principal (distritos/concelhos)
   sortForeignKey: 'captured', sortForeignDir: 'desc', // tabela de províncias ES
-  showZero: false,      // linha "+N sem capturas" expandida?
-  colorMode: 'uniform', // 'uniform' | 'region' — cor dos squares capturados
+  showZero: false,     // regiões sem capturas juntam-se à tabela principal?
+  colorMode: 'region', // 'uniform' | 'region' — cor dos squares capturados
 };
 let cache = {};
 let squaresLayer = L.layerGroup();
@@ -156,23 +157,20 @@ function pctColor(pct) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-// paleta categórica distinguível sobre o basemap escuro (~ D3 category20,
-// sem tons demasiado escuros/dessaturados)
-const CATEGORY_PALETTE = [
-  '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0',
-  '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8',
-  '#aaffc3', '#ffd8b1', '#42d4f4', '#f5c9b0', '#ff69b4', '#a9a9a9',
-];
-function hashColor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+// cores por região: coloração de grafo pré-calculada (compute_adjacency.py),
+// vizinhos nunca partilham cor — nunca hash, que dava cores iguais a
+// concelhos vizinhos (ex: Rio Maior/Caldas da Rainha, ambos avermelhados)
+function regionColor(kind, name) {
+  const bucket = cache.adjacency && cache.adjacency[kind];
+  const entry = bucket && bucket[name];
+  if (!entry) return '#5a6478';
+  return cache.adjacency.palette[entry.colorIndex];
 }
 
 function squareColor(sq) {
   if (state.colorMode === 'region' && sq.in_portugal && (state.visao === 'distritos' || state.visao === 'concelhos')) {
-    const key = state.visao === 'concelhos' ? sq.concelho : sq.district;
-    if (key) return hashColor(key);
+    if (state.visao === 'concelhos' && sq.concelho) return regionColor('concelhos', sq.concelho);
+    if (state.visao === 'distritos' && sq.district) return regionColor('distritos', sq.district);
   }
   return sq.in_portugal ? '#3d7bf5' : '#888';
 }
@@ -321,10 +319,12 @@ function rankingFor(info) {
     const sorted = Object.keys(bucket).sort((a, b) => bucket[b] - bucket[a]);
     return { rank: sorted.indexOf(info.name) + 1, outOf: sorted.length };
   }
+  // ranking sobre TODAS as regiões do país (308 concelhos / 18 distritos),
+  // não só as que têm capturas — as de 0% empatam no fim
   const bucket = info.kind === 'distrito' ? stats.by_distrito : stats.by_concelho;
   const entries = Object.entries(bucket)
     .map(([n, byZoom]) => [n, byZoom[zkey]])
-    .filter(([, s]) => s && (info.kind === 'distrito' || s.captured > 0))
+    .filter(([, s]) => s)
     .sort((a, b) => (b[1].pct || 0) - (a[1].pct || 0));
   return { rank: entries.findIndex(([n]) => n === info.name) + 1, outOf: entries.length };
 }
@@ -438,8 +438,8 @@ function renderStats() {
     html += `<div class="stat-row"><span class="stat-name"><span class="legend-dot" style="background:#888"></span>Espanha</span><b>${es.captured} sq</b></div>`;
   } else {
     const bucket = state.visao === 'distritos' ? stats.by_distrito : stats.by_concelho;
-    const title = state.visao === 'distritos' ? 'Por distrito' : 'Por concelho (com capturas)';
-    html += `<div class="section-title">${title}</div>`;
+    const title = state.visao === 'distritos' ? 'Por distrito' : 'Por concelho';
+    html += `<div class="section-title">${title}${state.showZero ? '' : ' (com capturas)'}</div>`;
     const allRows = Object.entries(bucket)
       .map(([name, byZoom]) => ({ name, ...byZoom[zkey] }))
       .filter(r => r)
@@ -451,18 +451,15 @@ function renderStats() {
       { key: 'remaining', label: 'Por capturar', className: 'col-remaining' },
       { key: 'pct', label: '%', render: r => fmtPct(r.pct) },
     ];
-    const rows = allRows.filter(r => r.captured > 0);
-    const zeroRows = allRows.filter(r => r.captured === 0);
-    html += buildTable('main', columns, rows, state.sortKey, state.sortDir);
+    const zeroCount = allRows.filter(r => r.captured === 0).length;
+    const visibleRows = state.showZero ? allRows : allRows.filter(r => r.captured > 0);
+    html += buildTable('main', columns, visibleRows, state.sortKey, state.sortDir);
 
-    if (zeroRows.length) {
+    if (zeroCount) {
       const label = state.visao === 'distritos' ? 'distritos' : 'concelhos';
-      if (state.showZero) {
-        html += `<div class="zero-toggle" data-zero-toggle="1">− ocultar ${zeroRows.length} ${label} sem capturas</div>`;
-        html += buildTable('zero', columns, zeroRows, 'name', 'asc', false);
-      } else {
-        html += `<div class="zero-toggle" data-zero-toggle="1">+ ${zeroRows.length} ${label} sem capturas</div>`;
-      }
+      html += state.showZero
+        ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar os ${zeroCount} ${label} sem capturas</div>`
+        : `<div class="zero-toggle" data-zero-toggle="1">+ mostrar ${zeroCount} ${label} sem capturas (entram no sort)</div>`;
     }
 
     if (state.visao === 'distritos') {
