@@ -19,6 +19,7 @@ def run(kml_path, out_dir):
     classifier = Classifier(
         os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
+        foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
     )
 
     geoms = parse_kml_geometries(kml_path)
@@ -39,7 +40,7 @@ def run(kml_path, out_dir):
     zkey_by_type = {"squadrats": "z14", "squadratinhos": "z17"}
 
     summary = {}
-    stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "country_es": {}}
+    stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "country_es": {}, "foreign": {}}
 
     for type_name, zoom in ZOOM_BY_TYPE.items():
         if type_name not in geoms:
@@ -58,6 +59,8 @@ def run(kml_path, out_dir):
 
         out = []
         by_concelho_captured, by_distrito_captured = {}, {}
+        by_foreign_captured = {}  # {country: {region: count}}
+        unclassified_foreign = 0
         pt_captured = es_captured = 0
         for x, y, lon, lat in squares:
             info = classifier.classify(lon, lat)
@@ -72,6 +75,15 @@ def run(kml_path, out_dir):
                 by_distrito_captured[info["district"]] = by_distrito_captured.get(info["district"], 0) + 1
             else:
                 es_captured += 1
+                if info["country"] and info["region"]:
+                    by_foreign_captured.setdefault(info["country"], {})
+                    by_foreign_captured[info["country"]][info["region"]] = (
+                        by_foreign_captured[info["country"]].get(info["region"], 0) + 1
+                    )
+                else:
+                    # sem geometria disponível para este país — fallback genérico
+                    # (mesmo comportamento de antes desta iteração)
+                    unclassified_foreign += 1
 
         out_path = os.path.join(out_dir, f"tile_info_{type_name}.json")
         with open(out_path, "w", encoding="utf-8") as f:
@@ -106,6 +118,7 @@ def run(kml_path, out_dir):
             "captured": pt_captured, "total": pt_total, "pct": pct(pt_captured, pt_total),
         }
         stats["country_es"][zkey] = {"captured": es_captured, "total": None, "pct": None}
+        stats["foreign"][zkey] = {**by_foreign_captured, "unclassified": unclassified_foreign}
 
     stats_path = os.path.join(out_dir, "stats.json")
     with open(stats_path, "w", encoding="utf-8") as f:
