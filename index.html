@@ -52,6 +52,10 @@
   .legend-dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:middle; flex-shrink:0; }
   .section-title { margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
   .note { font-size:10px; color:#6b7285; padding:8px 0 0; }
+  .zero-toggle { font-size:11.5px; color:#7ab8ff; padding:7px 4px; cursor:pointer; user-select:none; }
+  .zero-toggle:active { opacity:.7; }
+  #btn-color-mode { align-self:flex-start; margin-top:2px; pointer-events:auto; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
+  #btn-color-mode.active { background:#3d7bf5; border-color:#3d7bf5; }
 
   #sheet-detail { padding:2px 0 0; }
   #sheet-detail .detail-back { background:none; border:none; color:#7ab8ff; font-size:12px; padding:0 0 10px; cursor:pointer; }
@@ -80,6 +84,7 @@
     <button data-val="distritos">Distritos</button>
     <button data-val="concelhos">Concelhos</button>
   </div>
+  <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
 </div>
 
 <div id="sheet" class="collapsed">
@@ -87,7 +92,7 @@
   <div id="sheet-summary"><span id="summary-text"></span><span style="color:#7d8598">▲</span></div>
   <div id="sheet-body">
     <div id="sheet-list"></div>
-    <div id="sheet-detail" style="display:none;"></div>
+    <div id="sheet-detail"></div>
   </div>
 </div>
 
@@ -108,6 +113,8 @@ let state = {
   grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, selected: null,
   sortKey: 'captured', sortDir: 'desc',           // tabela principal (distritos/concelhos)
   sortForeignKey: 'captured', sortForeignDir: 'desc', // tabela de províncias ES
+  showZero: false,      // linha "+N sem capturas" expandida?
+  colorMode: 'uniform', // 'uniform' | 'region' — cor dos squares capturados
 };
 let cache = {};
 let squaresLayer = L.layerGroup();
@@ -149,14 +156,35 @@ function pctColor(pct) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
+// paleta categórica distinguível sobre o basemap escuro (~ D3 category20,
+// sem tons demasiado escuros/dessaturados)
+const CATEGORY_PALETTE = [
+  '#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0',
+  '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8',
+  '#aaffc3', '#ffd8b1', '#42d4f4', '#f5c9b0', '#ff69b4', '#a9a9a9',
+];
+function hashColor(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+}
+
+function squareColor(sq) {
+  if (state.colorMode === 'region' && sq.in_portugal && (state.visao === 'distritos' || state.visao === 'concelhos')) {
+    const key = state.visao === 'concelhos' ? sq.concelho : sq.district;
+    if (key) return hashColor(key);
+  }
+  return sq.in_portugal ? '#3d7bf5' : '#888';
+}
+
 function drawSquares() {
   squaresLayer.clearLayers();
   const squares = cache[state.grelha];
   const weight = state.grelha === 'squadratinhos' ? 0.5 : 1;
   squares.forEach(sq => {
+    const color = squareColor(sq);
     const rect = L.rectangle(tileBounds(sq.x, sq.y, sq.zoom), {
-      color: sq.in_portugal ? '#3d7bf5' : '#888',
-      weight, fillColor: sq.in_portugal ? '#3d7bf5' : '#888', fillOpacity: 0.55,
+      color, weight, fillColor: color, fillOpacity: 0.55,
     });
     let where;
     if (sq.in_portugal) where = `${sq.concelho}, ${sq.district}`;
@@ -167,7 +195,9 @@ function drawSquares() {
   });
 }
 
-const SELECTED_STYLE = { color: '#39d97a', weight: 2.5, opacity: 1 };
+// contorno grosso + fill leve fixo — não herda a cor do choropleth, para o
+// destaque ser sempre inequívoco independentemente da % da região
+const SELECTED_STYLE = { color: '#39d97a', weight: 3, opacity: 1, fillColor: '#39d97a', fillOpacity: 0.22 };
 
 function baseStyleFor(name, statsBucket, zkey) {
   const s = (statsBucket[name] || {})[zkey];
@@ -196,7 +226,13 @@ function styleForForeign(name, zkey) {
 
 function addBoundaryFeature(name, layer, styleFn) {
   boundaryLayersByName[name] = { layer, styleFn };
-  layer.on('click', () => selectItem(name, { fromMap: true }));
+  layer.on('click', (e) => {
+    // Leaflet propaga cliques de L.Path para o mapa por defeito
+    // (bubblingMouseEvents:true) — sem isto, o handler "clique fora limpa a
+    // seleção" do mapa disparava logo a seguir e desfazia a seleção no mesmo click.
+    L.DomEvent.stopPropagation(e);
+    selectItem(name, { fromMap: true });
+  });
 }
 
 function drawBoundaries() {
@@ -362,13 +398,14 @@ function sortRows(rows, key, dir) {
   });
 }
 
-function buildTable(tableId, columns, rows, sortKey, sortDir) {
+function buildTable(tableId, columns, rows, sortKey, sortDir, interactive = true) {
   const sorted = sortRows(rows, sortKey, sortDir);
   let thead = '<tr>';
   columns.forEach(col => {
     const isSorted = sortKey === col.key;
     const arrow = isSorted ? `<span class="arrow">${sortDir === 'asc' ? '▲' : '▼'}</span>` : '';
-    thead += `<th class="${col.className || ''}${isSorted ? ' sorted' : ''}" data-table="${tableId}" data-key="${col.key}">${col.label}${arrow}</th>`;
+    const attrs = interactive ? ` data-table="${tableId}" data-key="${col.key}"` : '';
+    thead += `<th class="${col.className || ''}${isSorted ? ' sorted' : ''}"${attrs}>${col.label}${arrow}</th>`;
   });
   thead += '</tr>';
 
@@ -403,17 +440,30 @@ function renderStats() {
     const bucket = state.visao === 'distritos' ? stats.by_distrito : stats.by_concelho;
     const title = state.visao === 'distritos' ? 'Por distrito' : 'Por concelho (com capturas)';
     html += `<div class="section-title">${title}</div>`;
-    const rows = Object.entries(bucket)
+    const allRows = Object.entries(bucket)
       .map(([name, byZoom]) => ({ name, ...byZoom[zkey] }))
-      .filter(r => r && (state.visao === 'distritos' || r.captured > 0))
+      .filter(r => r)
       .map(r => ({ ...r, remaining: r.total - r.captured }));
-    html += buildTable('main', [
+    const columns = [
       { key: 'name', label: 'Nome', className: 'col-name' },
       { key: 'captured', label: 'Capturados' },
       { key: 'total', label: 'Total', className: 'col-total' },
       { key: 'remaining', label: 'Por capturar', className: 'col-remaining' },
       { key: 'pct', label: '%', render: r => fmtPct(r.pct) },
-    ], rows, state.sortKey, state.sortDir);
+    ];
+    const rows = allRows.filter(r => r.captured > 0);
+    const zeroRows = allRows.filter(r => r.captured === 0);
+    html += buildTable('main', columns, rows, state.sortKey, state.sortDir);
+
+    if (zeroRows.length) {
+      const label = state.visao === 'distritos' ? 'distritos' : 'concelhos';
+      if (state.showZero) {
+        html += `<div class="zero-toggle" data-zero-toggle="1">− ocultar ${zeroRows.length} ${label} sem capturas</div>`;
+        html += buildTable('zero', columns, zeroRows, 'name', 'asc', false);
+      } else {
+        html += `<div class="zero-toggle" data-zero-toggle="1">+ ${zeroRows.length} ${label} sem capturas</div>`;
+      }
+    }
 
     if (state.visao === 'distritos') {
       const foreign = ((stats.foreign[zkey] || {}).ES) || {};
@@ -438,6 +488,12 @@ function escapeHtml(s) {
 }
 
 document.getElementById('sheet-list').addEventListener('click', e => {
+  const zeroToggle = e.target.closest('[data-zero-toggle]');
+  if (zeroToggle) {
+    state.showZero = !state.showZero;
+    renderStats();
+    return;
+  }
   const th = e.target.closest('th[data-key]');
   if (th) {
     const isMain = th.dataset.table === 'main';
@@ -459,6 +515,21 @@ function render() {
   drawBoundaries();
   renderStats();
 }
+
+function updateColorToggleVisibility() {
+  const btn = document.getElementById('btn-color-mode');
+  const applicable = state.visao === 'distritos' || state.visao === 'concelhos';
+  btn.style.display = applicable ? 'inline-block' : 'none';
+  btn.classList.toggle('active', state.colorMode === 'region');
+  const byLabel = state.visao === 'concelhos' ? 'concelho' : 'distrito';
+  btn.textContent = state.colorMode === 'region' ? `Cores: ${byLabel}` : 'Cores: uniforme';
+}
+
+document.getElementById('btn-color-mode').onclick = () => {
+  state.colorMode = state.colorMode === 'region' ? 'uniform' : 'region';
+  updateColorToggleVisibility();
+  drawSquares();
+};
 
 function resetSelectionUI() {
   if (sheet.classList.contains('detail')) {
@@ -483,7 +554,9 @@ document.querySelectorAll('#seg-visao button').forEach(btn => {
     btn.classList.add('active');
     state.visao = btn.dataset.val;
     state.selected = null;
+    state.showZero = false;
     resetSelectionUI();
+    updateColorToggleVisibility();
     render();
   };
 });
@@ -517,13 +590,15 @@ handle.addEventListener('pointerup', e => {
 handle.addEventListener('pointercancel', () => { dragStartY = null; });
 
 // limpar seleção: Escape ou clique no mapa fora de qualquer polígono
-// (Leaflet já para a propagação do click de um L.Path para o mapa, por isso
-// isto só dispara em cliques no fundo do mapa, não nos polígonos)
+// (addBoundaryFeature já para a propagação do click do polígono para o mapa
+// via L.DomEvent.stopPropagation — sem isso este handler disparava a seguir
+// e desfazia a seleção no mesmo click)
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.selected) clearSelection(); });
 map.on('click', () => { if (state.selected) clearSelection(); });
 
 (async function init() {
   await loadAll();
+  updateColorToggleVisibility();
   render();
   document.getElementById('loading').style.display = 'none';
 })();
