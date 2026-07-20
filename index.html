@@ -42,8 +42,8 @@
 <div id="topbar">
   <h1>Squadrats — Análise</h1>
   <div class="seg" id="seg-grelha">
-    <button data-val="squadrats" class="active">Squadrats (1609 m)</button>
-    <button data-val="squadratinhos">Squadratinhos (201 m)</button>
+    <button data-val="squadrats">Squadrats (1609 m)</button>
+    <button data-val="squadratinhos" class="active">Squadratinhos (201 m)</button>
   </div>
   <div class="seg" id="seg-visao">
     <button data-val="paises" class="active">Países</button>
@@ -55,7 +55,10 @@
 <div id="sheet" class="collapsed">
   <div id="sheet-handle"><div class="bar"></div></div>
   <div id="sheet-summary"><span id="summary-text"></span><span style="color:#7d8598">▲</span></div>
-  <div id="sheet-body"></div>
+  <div id="sheet-body">
+    <div class="seg" id="seg-sort" style="margin-bottom:8px;"></div>
+    <div id="sheet-list"></div>
+  </div>
 </div>
 
 <script>
@@ -69,7 +72,8 @@ const DATA_URLS = {
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
-let state = { grelha: 'squadrats', visao: 'paises', sheetExpanded: false };
+function defaultSortFor(grelha) { return grelha === 'squadratinhos' ? 'captured' : 'pct'; }
+let state = { grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, sort: defaultSortFor('squadratinhos') };
 let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
@@ -167,6 +171,19 @@ function drawBoundaries() {
 
 function fmtPct(pct) { return pct === null || pct === undefined ? '—' : `${pct}%`; }
 
+function renderSortToggle() {
+  const seg = document.getElementById('seg-sort');
+  if (state.visao === 'paises') { seg.style.display = 'none'; seg.innerHTML = ''; return; }
+  seg.style.display = 'flex';
+  seg.innerHTML = `
+    <button data-sort="pct" class="${state.sort === 'pct' ? 'active' : ''}">Por %</button>
+    <button data-sort="captured" class="${state.sort === 'captured' ? 'active' : ''}">Por capturados</button>
+  `;
+  seg.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => { state.sort = btn.dataset.sort; renderStats(); };
+  });
+}
+
 function renderStats() {
   const zkey = ZKEY[state.grelha];
   const stats = cache.stats;
@@ -175,6 +192,8 @@ function renderStats() {
 
   document.getElementById('summary-text').innerHTML =
     `<b>${pt.captured}</b> sq · ${fmtPct(pt.pct)} PT`;
+
+  renderSortToggle();
 
   let html = '';
   if (state.visao === 'paises') {
@@ -188,7 +207,9 @@ function renderStats() {
     const rows = Object.entries(bucket)
       .map(([name, byZoom]) => [name, byZoom[zkey]])
       .filter(([, s]) => s && (state.visao === 'distritos' || s.captured > 0))
-      .sort((a, b) => (b[1].pct || 0) - (a[1].pct || 0));
+      .sort((a, b) => state.sort === 'captured'
+        ? (b[1].captured || 0) - (a[1].captured || 0)
+        : (b[1].pct || 0) - (a[1].pct || 0));
     rows.forEach(([name, s]) => {
       const dotColor = pctColor(s.pct);
       html += `<div class="stat-row"><span class="stat-name"><span class="legend-dot" style="background:${dotColor}"></span>${name}</span><b>${s.captured}/${s.total} · ${fmtPct(s.pct)}</b></div>`;
@@ -201,7 +222,7 @@ function renderStats() {
 
   html += `<div class="note">Grelha: ${state.grelha === 'squadrats' ? 'squadrats (1609 m)' : 'squadratinhos (201 m)'} · fronteiras de concelho via GADM + OSM (ref:ine) · totais da grelha calculados uma vez (<code>compute_grid_totals.py</code>), nunca recalculados por export</div>`;
 
-  document.getElementById('sheet-body').innerHTML = html;
+  document.getElementById('sheet-list').innerHTML = html;
 }
 
 function render() {
@@ -215,6 +236,7 @@ document.querySelectorAll('#seg-grelha button').forEach(btn => {
     document.querySelectorAll('#seg-grelha button').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.grelha = btn.dataset.val;
+    state.sort = defaultSortFor(state.grelha);
     render();
   };
 });
