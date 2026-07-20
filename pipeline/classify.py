@@ -9,7 +9,7 @@ from shapely.geometry import shape, Point
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
-COASTAL_BUFFER_DEG = 0.05  # tolerância para squares na costa que caem ligeiramente fora do polígono simplificado
+COASTAL_BUFFER_DEG = 0.05  # tolerância para decidir in_portugal a partir da distância ao distrito mais próximo
 
 
 def _clean(geom):
@@ -23,13 +23,6 @@ class _Layer:
         self.names = names
         self.geoms = geoms
         self.tree = STRtree(geoms)
-        # geometrias com buffer pré-computado, só para o fallback costeiro
-        self._buffered = None
-
-    def buffered(self):
-        if self._buffered is None:
-            self._buffered = [g.buffer(COASTAL_BUFFER_DEG) for g in self.geoms]
-        return self._buffered
 
     def lookup(self, point, nearest_fallback=True):
         # STRtree.query(geom, predicate) avalia predicate(geom, tree_geometry) —
@@ -37,23 +30,18 @@ class _Layer:
         for idx in self.tree.query(point, predicate="within"):
             return self.names[idx]
 
-        # fallback: buffer para squares costeiros/fronteiriços
-        for idx in self.tree.query(point, predicate="dwithin", distance=COASTAL_BUFFER_DEG):
-            if self.buffered()[idx].contains(point):
-                return self.names[idx]
-
         if not nearest_fallback:
             return None
 
-        # último recurso: geometria mais próxima (só para PT — regiões
-        # estrangeiras não têm fallback "mais próxima", um ponto sem geometria
-        # disponível fica genérico em vez de ser atirado para a região errada)
-        best_name, best_dist = None, float("inf")
-        for name, geom in zip(self.names, self.geoms):
-            d = geom.distance(point)
-            if d < best_dist:
-                best_name, best_dist = name, d
-        return best_name
+        # fallback costeiro/fronteiriço: geometria mais próxima por distância real.
+        # (bug histórico: aqui usava-se tree.query(dwithin) + primeiro match cujo
+        # buffer continha o ponto — a ordem devolvida pela STRtree é arbitrária,
+        # não por distância, o que atirava squares costeiros para o concelho
+        # errado, ex: um ponto em Peniche a 0.0002° ficava classificado como
+        # Lourinhã a 0.043° só por ter aparecido primeiro na query. STRtree.nearest
+        # devolve sempre o geometricamente mais próximo, determinístico.)
+        idx = self.tree.nearest(point)
+        return self.names[idx]
 
 
 class Classifier:
