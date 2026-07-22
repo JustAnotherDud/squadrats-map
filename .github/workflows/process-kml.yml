@@ -8,6 +8,17 @@ on:
   repository_dispatch:
     types: [kml-updated]
 
+# Ficheiros duplicados do Drive (ex: "nome (1).kml") ou dois exports próximos
+# no tempo disparam dois webhooks quase simultâneos -> dois runs em paralelo,
+# ambos tentam git push, o segundo é rejeitado (non-fast-forward) e o job
+# falha (visto em produção 21 jul). Com group fixo, runs concorrentes ficam
+# em fila em vez de correr ao mesmo tempo — o segundo só arranca depois do
+# primeiro terminar (checkout já traz o commit dele), por isso o "git diff
+# --quiet" do passo de commit trata-o como no-op se não houver nada de novo.
+concurrency:
+  group: process-kml-push
+  cancel-in-progress: false
+
 jobs:
   process-kml:
     runs-on: ubuntu-latest
@@ -46,4 +57,11 @@ jobs:
 
           git add data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json
           git commit -m "chore(data): atualizar squares (${{ github.event.client_payload.fileName }}) [skip ci]"
+
+          # cinto e suspensórios: com o concurrency acima isto quase nunca
+          # dispara, mas cobre a janela rara entre runs concorrentes que
+          # escapem à fila. Se o rebase falhar por conflito real nos JSON
+          # gerados, deixa o job falhar visivelmente em vez de forçar um
+          # push que pise dados — mais fácil de investigar do que silenciar.
+          git pull --rebase origin master
           git push
