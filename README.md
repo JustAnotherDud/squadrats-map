@@ -2,25 +2,56 @@
 
 Mapa de squares (squadrats/squadratinhos) capturados, com % por concelho/distrito de Portugal, servido via GitHub Pages.
 
-O ciclo é automático: exportas o KML da app squadrats.com para uma pasta do Google Drive, e uns
-minutos depois o mapa no GitHub Pages já reflete os dados novos, sem mais nenhuma ação manual.
+O ciclo é automático: `fetch-map-data.yml` corre semanalmente, busca os dados **diretamente aos
+vector tiles da Squadrats** (sem export manual de KML) e comita se houver diferença real. Também
+publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os 3 atletas do
+clube, consumido pelo `club-koms` como o `prs.json`.
 
 ## Estrutura
 
 - `index.html` — o mapa (GitHub Pages serve isto na raiz)
-- `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares)
-- `pipeline/` — converte o KML exportado do squadrats.com nos ficheiros em `data/`
-  - `pipeline.py` — orquestrador (`py pipeline.py <kml> <out_dir>`)
-  - `kml_parse.py` — parse do KML + reconstrução dos squares individuais (x, y, zoom) por varrimento da grelha XYZ
+- `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube)
+- `pipeline/` — busca os squares do José e produz os ficheiros em `data/`
+  - `tiles_fetch.py` — **fonte principal**: fetch directo aos vector tiles da Squadrats
+    (`tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf`, endpoint não documentado, ver
+    "Regras de uso" abaixo). Descoberta em cascata (z4→z7→z10, cada nível só explora filhos dos
+    tiles com cobertura do nível anterior) — robusto a um atleta ter capturas em qualquer parte
+    do mundo, sem bbox fixo a adivinhar. Auto-validação obrigatória: a contagem reconstruída de
+    `squadrats`/`squadratinhos` tem de bater exatamente com o `size` que o próprio servidor
+    reporta — se não bater, `pipeline.py`/`fetch_club_koms.py` rebentam em vez de publicar dados
+    errados.
+  - `pipeline.py` — orquestrador. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
+    ou `py pipeline.py --kml <caminho.kml> <out_dir>` (fallback, ver abaixo)
+  - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`
+  - `kml_parse.py` — **fallback**: parse de KML exportado manualmente + reconstrução dos squares
+    individuais (x, y, zoom) por varrimento da grelha XYZ. `reconstruct_squares()` é partilhado
+    com `tiles_fetch.py` — o resto do pipeline (classificação, stats) não sabe nem quer saber se
+    os squares vieram de um KML ou de um tile
   - `classify.py` — classifica cada square em concelho/distrito (point-in-polygon com STRtree)
-  - `download_kml.py` — descarrega um ficheiro do Drive pelo `fileId` (usado pelo workflow em CI)
+  - `download_kml.py` — descarrega um ficheiro do Drive pelo `fileId` (só usado pelo fallback `process-kml.yml`)
   - `compute_grid_totals.py` — **one-off**, corre manualmente, nunca pelo pipeline: calcula quantos tiles (zoom14/17) existem no total em cada concelho/distrito/país, usando o mesmo critério do `classify.py` (centro do tile). Output commitado em `refdata/grid_totals.json` — recalcular sempre que as fronteiras OU a regra de classificação (`classify.py`) mudarem, para os totais nunca divergirem do critério usado nos capturados.
   - `compute_adjacency.py` — **one-off**: adjacência entre concelhos/distritos/províncias ES (`geom.buffer(eps).intersects()`) + greedy coloring sobre a paleta categórica do `index.html`, para vizinhos nunca partilharem cor no modo "Cores: região". Output commitado em `data/adjacency.json`. Recalcular só se as fronteiras mudarem.
   - `refdata/` — fronteiras de concelho/distrito **não simplificadas** (só para classificação — mais precisas que as de `data/`, que estão simplificadas para pesarem menos no browser) + `grid_totals.json`
   - `refdata/foreign/` — geometria de precisão de regiões estrangeiras, um ficheiro por país (`ES.geojson`). Adicionar um país novo (ex: França) = só adicionar `FR.geojson` com o mesmo formato (`properties.country` + `properties.region` por feature), zero alterações de código em `classify.py`/`pipeline.py`.
-  - `spikes/` — scripts de teste/validação usados durante o desenvolvimento (T1, T5) — não fazem parte do pipeline em produção
-- `supabase/functions/` — as duas Edge Functions do pipeline automático (ver arquitetura abaixo)
-- `.github/workflows/` — `process-kml.yml` (processa KMLs novos) e `renew-drive-watch.yml` (renova o canal do Drive)
+  - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
+- `supabase/functions/` — Edge Functions do caminho **fallback** por KML (ver arquitetura abaixo)
+- `.github/workflows/`
+  - `fetch-map-data.yml` — **principal**, cron semanal, sem dependência do Drive
+  - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
+
+## Regras de uso do endpoint de vector tiles
+
+`tiles1.squadrats.com` não é uma API pública nem documentada — são dados que os atletas tornaram
+públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
+já expõe o UID). Para não abusar:
+
+- Correr no máximo semanalmente (o `fetch-map-data.yml` já está assim)
+- `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
+- Concorrência baixa (`MAX_CONCURRENCY = 4` em `tiles_fetch.py`, não subir sem motivo)
+- Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)
+- O `{TS}` no URL tem de ser fresco (`int(time.time()*1000)`) a cada pedido — o servidor ignora o
+  valor mas a resposta vem com `cache-control: max-age=31536000` e o URL é a chave de cache; um
+  timestamp fixo devolve dados congelados sem erro nenhum (falha silenciosa)
 
 ### Nota sobre nomes de concelho duplicados
 
@@ -46,12 +77,48 @@ dados; ver `grid_totals.json`, que já tem o schema preparado mas não calcula n
 
 ```
 py -m pip install -r requirements.txt
-py pipeline/pipeline.py data/sample-export.kml data
+py pipeline/pipeline.py --uid PjHY1RpxbmgMrQG3ITdTeDa7t6M2 data   # José, via vector tiles
+py pipeline/fetch_club_koms.py data                                # totais dos 3 atletas
 ```
 
-Produz `data/tile_info_squadrats.json` e `data/tile_info_squadratinhos.json`.
+Produz `data/tile_info_squadrats.json`, `data/tile_info_squadratinhos.json`, `data/stats.json` e `data/squadrats.json`.
 
-## Arquitetura da automação
+Fallback por KML (ver secção própria): `py pipeline/pipeline.py --kml data/sample-export.kml data`.
+
+## Arquitetura
+
+### Caminho principal — vector tiles (`fetch-map-data.yml`, cron semanal)
+
+```
+[fetch-map-data.yml, cron semanal ou workflow_dispatch]
+                    |
+                    v
+[tiles_fetch.py] --fetch--> tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf
+   descoberta em cascata z4->z7->z10, depois busca os filhos z12 com cobertura
+   auto-validação: contagem reconstruída == `size` do servidor, senão rebenta
+                    |
+      +-------------+-------------+
+      |                           |
+      v                           v
+[pipeline.py --uid]      [fetch_club_koms.py]
+  José -> classify.py       Zé/Xeira/Carolina -> totais simples (8 camadas)
+  -> tile_info_*.json,      -> data/squadrats.json
+     data/stats.json
+      |                           |
+      +-------------+-------------+
+                    |
+                    v
+          commit condicional (só se houver diff real)
+                    |
+                    v
+          [GitHub Pages: redeploy automático]
+```
+
+### Caminho fallback — export manual de KML (`process-kml.yml` + Drive/Supabase)
+
+Mantido caso o endpoint de vector tiles mude ou fique bloqueado sem aviso (não documentado, sem
+API pública — ver "Regras de uso" acima). Desativado na prática assim que ninguém largar KMLs na
+pasta do Drive, mas pronto a usar sem reconstruir nada.
 
 ```
 [App squadrats.com] --export manual do KML--> [Google Drive: pasta squadrats-exports]
@@ -108,32 +175,27 @@ browser da app de nutrição do mesmo projeto Supabase não consegue tocar-lhe.
 
 ## Debugar: "o mapa parou de atualizar"
 
-1. **O canal expirou sem renovar.** Confirma em `drive_sync_state.channel_expiration` (tabela
-   Supabase) se já passou. Se sim, o `renew-drive-watch.yml` parou de correr — verifica em
-   [Actions → renew-drive-watch](../../actions/workflows/renew-drive-watch.yml) se os runs recentes
-   existem e passaram. Corre `workflow_dispatch` manualmente para recuperar já.
-2. **O schedule do GitHub foi desativado por inatividade (60 dias sem commits).** O heartbeat
-   mensal (`heartbeat.txt`) devia prevenir isto — se mesmo assim aconteceu, vai a
-   `Settings → Actions → General` e reativa o workflow, ou corre `workflow_dispatch` uma vez (isso
-   também já reativa o schedule).
-3. **O `repository_dispatch` não chega.** Testa a Edge Function diretamente:
+1. **`fetch-map-data.yml` corre mas falha.** A causa mais provável é a auto-validação a apanhar um
+   varrimento incompleto — ver logs do run, a mensagem diz qual camada/UID não bateu com o `size`
+   do servidor. Se for um atleta com capturas nalgum sítio muito remoto que os níveis de cascata
+   (`DISCOVERY_LEVELS = (4, 7, 10)` em `tiles_fetch.py`) não apanharam, ajustar os níveis ou correr
+   manualmente com um `bbox=` mais específico primeiro para confirmar onde está a cobertura em falta.
+2. **UID devolve 500.** `SquadratsHttpError` — o UID mudou ou ficou inválido. Confirmar em
+   `squadrats.com/map/{uid}/17` que o mapa do atleta ainda abre.
+3. **O endpoint de vector tiles mudou ou está bloqueado.** Não é documentado, pode mudar sem aviso
+   (ver "Regras de uso" acima). Ativa o fallback por KML: exporta manualmente da app, larga na
+   pasta `squadrats-exports` do Drive (o watch ainda está ativo, ver `renew-drive-watch.yml`) —
+   `process-kml.yml` retoma sozinho. Ou corre à mão:
    ```
-   curl -i -X POST https://yvsjchzvoikqlpbqsphs.supabase.co/functions/v1/drive-webhook-receiver \
-     -H "X-Goog-Channel-Id: debug" \
-     -H "X-Goog-Channel-Token: <CHANNEL_TOKEN>" \
-     -H "X-Goog-Resource-State: change"
+   py pipeline/pipeline.py --kml <kml_descarregado_à_mão> data
+   git add data/tile_info_*.json data/stats.json && git commit -m "chore(data): update manual" && git push
    ```
-   200 sem novo run em Actions → o `changes.list()` não encontrou nada relevante (normal se não
-   houver KML novo) ou o filtro `.kml`/pasta/`trashed` está a excluir por engano — ver logs da
-   function no dashboard do Supabase.
-4. **O workflow `process-kml` corre mas falha.** Provavelmente o KML não tem a camada `squadrats`
-   (export incompleto) — `pipeline.py` falha alto de propósito nesse caso, exit 1, sem tocar em
-   `data/`. Confirma nos logs do run qual foi o erro exato.
-5. **Nada disto e continua parado.** Fallback manual, sempre disponível:
-   ```
-   py pipeline/pipeline.py <kml_descarregado_à_mão> data
-   git add data/tile_info_*.json && git commit -m "chore(data): update manual" && git push
-   ```
+4. **O canal do Drive expirou (só importa se estiveres a usar o fallback).** Confirma em
+   `drive_sync_state.channel_expiration` (tabela Supabase) se já passou. Se sim, corre
+   `workflow_dispatch` em [renew-drive-watch](../../actions/workflows/renew-drive-watch.yml)
+   manualmente para recuperar já.
+5. **O schedule do GitHub foi desativado por inatividade (60 dias sem commits).** Corre
+   `workflow_dispatch` em qualquer um dos workflows uma vez — reativa o schedule.
 
 ## Ver também
 

@@ -5,3 +5,5 @@ state.json
 *.key.json
 .secrets/
 supabase/.temp/
+pipeline/spikes/*.pbf
+pipeline/spikes/*.pkl
