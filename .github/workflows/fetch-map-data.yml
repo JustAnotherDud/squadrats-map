@@ -1,0 +1,56 @@
+name: fetch-map-data
+
+# Caminho principal (substitui o process-kml.yml/Drive, mantido como
+# fallback): fetch directo aos vector tiles da Squadrats, sem export manual.
+# Diário por agora — commit condicional (git diff --quiet) já garante que
+# dias sem sincronização nova não geram ruído nenhum, só custo de correr.
+# TODO: trigger por atividade real (Garmin/Strava/intervals.icu/calendário)
+# em vez de tempo fixo, para não haver atraso entre sincronizar e o mapa
+# atualizar — precisa de webhook novo, não implementado ainda (ver README
+# das regras de uso do endpoint antes de desenhar isso).
+on:
+  schedule:
+    - cron: "0 6 * * *" # diário, 06:00 UTC
+  workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
+
+concurrency:
+  group: fetch-map-data-push
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Mapa detalhado (José) — vector tiles -> concelho/distrito
+        run: python3 pipeline/pipeline.py --uid PjHY1RpxbmgMrQG3ITdTeDa7t6M2 data
+
+      - name: Totais do clube (Zé/Xeira/Carolina) — para o club-koms
+        run: python3 pipeline/fetch_club_koms.py data
+
+      - name: Commitar só se houver diferença real
+        run: |
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json"
+
+          if git diff --quiet -- $FILES; then
+            echo "sem alterações reais — nada a commitar."
+            exit 0
+          fi
+
+          git add $FILES
+          git commit -m "chore(data): atualizar squares via vector tiles [skip ci]"
+          git pull --rebase origin master
+          git push

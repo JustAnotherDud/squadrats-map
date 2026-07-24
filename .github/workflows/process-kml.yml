@@ -1,5 +1,11 @@
 name: process-kml
 
+# FALLBACK — o caminho principal passou a ser fetch-map-data.yml (vector
+# tiles, sem export manual). Isto fica desativado na prática assim que
+# ninguém mais largar KMLs na pasta do Drive, mas não foi removido: se o
+# endpoint de vector tiles mudar/for bloqueado sem aviso (não documentado,
+# ver README), isto continua pronto a usar sem reconstruir nada.
+#
 # Só repository_dispatch — de propósito, sem trigger de push. O próprio job
 # faz commit no fim; se reagisse a push também, o commit do bot disparava-se
 # a si próprio (não é loop infinito, o segundo run não tem payload de dispatch
@@ -43,7 +49,7 @@ jobs:
             /tmp/incoming.kml
 
       - name: Correr o pipeline
-        run: python3 pipeline/pipeline.py /tmp/incoming.kml data
+        run: python3 pipeline/pipeline.py --kml /tmp/incoming.kml data
 
       - name: Commitar só se houver diferença real
         run: |

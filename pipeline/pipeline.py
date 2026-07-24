@@ -1,6 +1,9 @@
-"""Pipeline: KML exportado do squadrats.com -> JSON classificado por concelho/distrito.
+"""Pipeline: squares do squadrats.com (KML ou vector tiles) -> JSON classificado
+por concelho/distrito.
 
-Uso: py pipeline.py <caminho.kml> <pasta_saida>
+Uso:
+  py pipeline.py --kml <caminho.kml> [pasta_saida]      (fallback, ver tiles_fetch.py)
+  py pipeline.py --uid <firebase_uid> [pasta_saida]      (fonte principal)
 """
 import argparse
 import json
@@ -16,12 +19,8 @@ REFDATA_DIR = os.path.join(HERE, "refdata")  # fronteiras não-simplificadas, s�
 
 
 def run(kml_path, out_dir):
-    classifier = Classifier(
-        os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
-        os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
-        foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
-    )
-
+    """Fallback: export manual de KML (ver README — mantido caso o endpoint
+    de vector tiles mude ou fique indisponível sem aviso)."""
     geoms = parse_kml_geometries(kml_path)
 
     # falhar alto e cedo: um KML sem a camada "squadrats" é quase certamente um
@@ -33,6 +32,31 @@ def run(kml_path, out_dir):
             f"ficheiro errado. Placemarks encontrados: {list(geoms.keys()) or '(nenhum)'}. "
             f"A abortar sem tocar em ficheiros de saída."
         )
+    return run_from_geoms(geoms, out_dir, strict_validation=False)
+
+
+def run_from_tiles(uid, out_dir, bbox=None):
+    """Fonte principal: fetch directo aos vector tiles da Squadrats (ver
+    tiles_fetch.py). Substitui o export manual de KML."""
+    from tiles_fetch import scan_athlete
+
+    kwargs = {"bbox": bbox} if bbox else {}
+    geoms, counts = scan_athlete(uid, **kwargs)
+
+    if "squadrats" not in geoms:
+        raise RuntimeError(
+            f"UID '{uid}': nenhum square 'squadrats' encontrado na área varrida — "
+            f"varrimento incompleto ou atleta sem dados. A abortar sem tocar em ficheiros de saída."
+        )
+    return run_from_geoms(geoms, out_dir, strict_validation=True)
+
+
+def run_from_geoms(geoms, out_dir, strict_validation):
+    classifier = Classifier(
+        os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
+        os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
+        foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
+    )
 
     with open(os.path.join(REFDATA_DIR, "grid_totals.json"), encoding="utf-8") as f:
         grid_totals = json.load(f)
@@ -44,18 +68,23 @@ def run(kml_path, out_dir):
 
     for type_name, zoom in ZOOM_BY_TYPE.items():
         if type_name not in geoms:
-            print(f"aviso: placemark '{type_name}' não encontrado no KML", file=sys.stderr)
+            print(f"aviso: camada '{type_name}' não encontrada", file=sys.stderr)
             continue
 
         declared_size, geom = geoms[type_name]
         squares = reconstruct_squares(geom, zoom)
 
         if declared_size is not None and len(squares) != declared_size:
-            print(
-                f"aviso: {type_name} — reconstruídos {len(squares)}, "
-                f"declarados {declared_size} no KML (diferença pode indicar simplificação/geometria degenerada)",
-                file=sys.stderr,
+            msg = (
+                f"{type_name} — reconstruídos {len(squares)}, declarados {declared_size} "
+                f"(diferença indica varrimento incompleto ou bug de geometria)"
             )
+            if strict_validation:
+                # vector tiles: a auto-validação É a rede de segurança do
+                # pipeline (ver tiles_fetch.py) — nunca publicar dados que não
+                # batam com o total que o próprio servidor da Squadrats reporta.
+                raise RuntimeError(msg)
+            print(f"aviso: {msg}", file=sys.stderr)
 
         out = []
         by_concelho_captured, by_distrito_captured = {}, {}
@@ -130,10 +159,15 @@ def run(kml_path, out_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("kml_path")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--kml", dest="kml_path", help="fallback: caminho para um KML exportado manualmente")
+    source.add_argument("--uid", dest="uid", help="fonte principal: Firebase UID do atleta")
     parser.add_argument("out_dir", nargs="?", default=DATA_DIR)
     args = parser.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
-    result = run(args.kml_path, args.out_dir)
+    if args.uid:
+        result = run_from_tiles(args.uid, args.out_dir)
+    else:
+        result = run(args.kml_path, args.out_dir)
     print(json.dumps(result, indent=2, ensure_ascii=False))
