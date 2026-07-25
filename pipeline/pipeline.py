@@ -49,7 +49,7 @@ def run_from_tiles(uid, out_dir, bbox=None):
             f"varrimento incompleto ou atleta sem dados. A abortar sem tocar em ficheiros de saída."
         )
     write_trophies(trophies, counts, out_dir)
-    return run_from_geoms(geoms, out_dir, strict_validation=True)
+    return run_from_geoms(geoms, out_dir, strict_validation=True, counts=counts)
 
 
 # grelha a que cada troféu pertence — o mapa mostra os do zoom activo
@@ -106,7 +106,43 @@ def write_trophies(trophies, counts, out_dir):
     print(f"trophies -> {path}")
 
 
-def run_from_geoms(geoms, out_dir, strict_validation):
+def write_suggestions(visitados_por_grelha, counts, out_dir):
+    """data/suggestions.json — o que falta para o próximo übersquadrat.
+
+    Antes de sugerir seja o que for, `verify_rules` confirma que as nossas
+    regras reproduzem o yard e o übersquadrat que o servidor reporta. Se
+    divergirem, aborta: uma sugestão calculada com regras erradas parece
+    rigorosa e não é.
+    """
+    from suggestions import verify_rules, proximo_ubersquadrat
+
+    out = {}
+    for grelha, (visitados, zoom) in visitados_por_grelha.items():
+        yard_name, _, uber_name = TROPHY_GRID[grelha]
+        esperado_yard, esperado_uber = counts.get(yard_name), counts.get(uber_name)
+        if esperado_yard is None or esperado_uber is None:
+            continue
+        verify_rules(visitados, esperado_yard, esperado_uber, grelha)
+        s = proximo_ubersquadrat(visitados, esperado_uber)
+        if s is None:
+            continue
+        cx, cy = s["canto"]
+        out[grelha] = {
+            "zoom": zoom,
+            "atual": esperado_uber,
+            "alvo": s["n_alvo"],
+            "faltam": s["faltam"],
+            "canto": {"x": cx, "y": cy},
+            "squares": [{"x": x, "y": y} for x, y in s["squares_em_falta"]],
+        }
+
+    path = os.path.join(out_dir, "suggestions.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"suggestions -> {path}")
+
+
+def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
     classifier = Classifier(
         os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
@@ -119,6 +155,7 @@ def run_from_geoms(geoms, out_dir, strict_validation):
     zkey_by_type = {"squadrats": "z14", "squadratinhos": "z17"}
 
     summary = {}
+    visitados_por_grelha = {}
     stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "country_es": {}, "foreign": {}}
 
     for type_name, zoom in ZOOM_BY_TYPE.items():
@@ -169,6 +206,8 @@ def run_from_geoms(geoms, out_dir, strict_validation):
                     # (mesmo comportamento de antes desta iteração)
                     unclassified_foreign += 1
 
+        visitados_por_grelha[type_name] = ({(s["x"], s["y"]) for s in out}, zoom)
+
         out_path = os.path.join(out_dir, f"tile_info_{type_name}.json")
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
@@ -203,6 +242,9 @@ def run_from_geoms(geoms, out_dir, strict_validation):
         }
         stats["country_es"][zkey] = {"captured": es_captured, "total": None, "pct": None}
         stats["foreign"][zkey] = {**by_foreign_captured, "unclassified": unclassified_foreign}
+
+    if counts:
+        write_suggestions(visitados_por_grelha, counts, out_dir)
 
     stats_path = os.path.join(out_dir, "stats.json")
     with open(stats_path, "w", encoding="utf-8") as f:
