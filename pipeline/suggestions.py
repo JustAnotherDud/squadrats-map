@@ -10,14 +10,18 @@ from collections import deque
 VIZINHOS4 = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
 
+def viz4(s):
+    return [(s[0] + dx, s[1] + dy) for dx, dy in VIZINHOS4]
+
+
+def fechados(visitados):
+    """Square fechado = visitado E com os 4 vizinhos cardinais visitados."""
+    return {s for s in visitados if all(v in visitados for v in viz4(s))}
+
+
 def clusters_fechados(visitados):
-    """Squares fechados (visitados com os 4 vizinhos cardinais também
-    visitados), agrupados em componentes 4-conexas."""
-    fechados = {
-        s for s in visitados
-        if all((s[0] + dx, s[1] + dy) in visitados for dx, dy in VIZINHOS4)
-    }
-    porver, clusters = set(fechados), []
+    """Squares fechados agrupados em componentes 4-conexas."""
+    porver, clusters = fechados(visitados), []
     while porver:
         raiz = porver.pop()
         comp, fila = {raiz}, deque([raiz])
@@ -58,6 +62,82 @@ def verify_rules(visitados, esperado_yard, esperado_uber, label):
             f"übersquadrat calculado={uber} (servidor diz {esperado_uber}). "
             f"A abortar sem publicar sugestões (seriam inventadas)."
         )
+
+
+class _Dsu:
+    def __init__(self):
+        self.pai, self.peso = {}, {}
+
+    def add(self, no, peso):
+        if no not in self.pai:
+            self.pai[no], self.peso[no] = no, peso
+
+    def find(self, no):
+        while self.pai[no] != no:
+            self.pai[no] = self.pai[self.pai[no]]
+            no = self.pai[no]
+        return no
+
+    def union(self, a, b):
+        ra, rb = self.find(a), self.find(b)
+        if ra != rb:
+            self.pai[rb] = ra
+            self.peso[ra] += self.peso[rb]
+
+    def maior(self):
+        return max((self.peso[r] for r in self.pai if self.find(r) == r), default=0)
+
+
+def melhor_ligacao(visitados, top=8):
+    """Que square, capturado sozinho, faz o yard crescer mais?
+
+    Capturar um square só pode mudar o estado "fechado" dele próprio e dos 4
+    vizinhos — nada mais longe depende dele. Por isso não é preciso recalcular
+    os clusters todos por candidato: basta ver que fechados nascem e que
+    clusters existentes eles colam uns aos outros (union-find).
+
+    É isto que explica os backyards órfãos: muitos estão a um ou dois squares
+    de colar ao yard principal.
+    """
+    fech = fechados(visitados)
+    comps = clusters_fechados(visitados)
+    comp_id = {s: i for i, c in enumerate(comps) for s in c}
+    tam = [len(c) for c in comps]
+    yard_atual = max(tam, default=0)
+
+    candidatos = {v for s in visitados for v in viz4(s) if v not in visitados}
+
+    resultados = []
+    for c in candidatos:
+        # que squares passam a fechados se `c` for capturado
+        novos = set()
+        for s in [c] + viz4(c):
+            if s in fech or (s != c and s not in visitados):
+                continue
+            if all(v in visitados or v == c for v in viz4(s)):
+                novos.add(s)
+        if not novos:
+            continue
+
+        dsu = _Dsu()
+        for s in novos:
+            dsu.add(("novo", s), 1)
+        for s in novos:
+            for v in viz4(s):
+                if v in novos:
+                    dsu.union(("novo", s), ("novo", v))
+                elif v in comp_id:
+                    i = comp_id[v]
+                    dsu.add(("comp", i), tam[i])
+                    dsu.union(("novo", s), ("comp", i))
+
+        novo_yard = max(yard_atual, dsu.maior())
+        if novo_yard > yard_atual:
+            resultados.append({"x": c[0], "y": c[1], "novo_yard": novo_yard,
+                               "ganho": novo_yard - yard_atual})
+
+    resultados.sort(key=lambda r: (-r["ganho"], r["x"], r["y"]))
+    return {"yard_atual": yard_atual, "melhores": resultados[:top]}
 
 
 def proximo_ubersquadrat(visitados, n_atual, margem=2):
