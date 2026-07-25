@@ -10,7 +10,7 @@ clube, consumido pelo `club-koms` como o `prs.json`.
 ## Estrutura
 
 - `index.html` — o mapa (GitHub Pages serve isto na raiz)
-- `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube)
+- `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube) + `trophies.json` (formas de yard/backyards/übersquadrat, para as camadas opcionais do mapa)
 - `pipeline/` — busca os squares do José e produz os ficheiros em `data/`
   - `tiles_fetch.py` — **fonte principal**: fetch directo aos vector tiles da Squadrats
     (`tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf`, endpoint não documentado, ver
@@ -60,6 +60,12 @@ Logo `yard + backyards` **não** é somável: dos 10 backyards do Zé, 1 é o ya
 squares) e os outros 9 somam 11 squares entre todos — quase todos um único square fechado
 isolado, invisíveis no mapa e não renderizados pela app. Isto fecha a questão que estava em
 aberto no brief de investigação (§10.1).
+
+**No mapa:** estas formas estão em `data/trophies.json` e podem ser ligadas nos chips do topo
+(desligadas por defeito), seguindo a grelha activa — em Squadrats mostram yard/backyards/über, em
+Squadratinhos as versões "-inho". A geometria de `backyards` publicada aí é a dos clusters
+**secundários** (subtrai-se o yard, para as duas camadas poderem estar ligadas ao mesmo tempo sem
+se taparem); o `size` continua a ser o do servidor, com o yard incluído.
 
 ## Regras de uso do endpoint de vector tiles
 

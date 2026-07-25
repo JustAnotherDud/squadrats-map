@@ -24,10 +24,15 @@ REQUEST_TIMEOUT = 15
 # camadas com geometria útil para classificação por concelho/distrito —
 # reconstruídas em squares individuais (mesmo formato do parse de KML)
 GEOMETRY_LAYERS = {"squadrats": 14, "squadratinhos": 17}
-# camadas só de contagem global — lidas do atributo `size`, sem decode de geometria
-COUNT_ONLY_LAYERS = [
+# camadas de "troféu". O `size` NÃO significa o mesmo em todas (ver README):
+# yard/yardinho = nº de squares do maior cluster fechado;
+# ubersquadrat/-inho = o N do quadrado NxN;
+# backyards/-inhos = nº de CLUSTERS fechados, incluindo o próprio yard.
+# A geometria delas só é descodificada com `with_trophy_geometry=True`.
+TROPHY_LAYERS = [
     "yard", "yardinho", "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos",
 ]
+COUNT_ONLY_LAYERS = TROPHY_LAYERS  # nome antigo, mantido p/ não partir imports
 
 # Descoberta em cascata (zoom baixo -> cada vez mais fino): começa muito
 # barato (z4, ~200 tiles cobrindo praticamente todas as terras habitadas) e
@@ -186,12 +191,17 @@ def discover_coverage(uid, bbox=WORLD_BBOX, levels=DISCOVERY_LEVELS):
     return current
 
 
-def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12):
+def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
+                 with_trophy_geometry=False):
     """Varre a cobertura do atleta e devolve:
     - geometries: {layer_name: (size, shapely_geom)} para squadrats/squadratinhos
       (mesmo formato do kml_parse.parse_kml_geometries, para reutilizar
       reconstruct_squares sem alterações)
-    - counts: {layer_name: size} para as camadas só de contagem
+    - counts: {layer_name: size} para as camadas de troféu
+
+    Com `with_trophy_geometry=True` devolve um 3º valor,
+    trophies: {layer_name: shapely_geom} — só quando é preciso desenhar as
+    formas (mapa), não quando só interessam os totais (club-koms).
     """
     coarse_covered = discover_coverage(uid, bbox, levels=discovery_levels)
     discovery_zoom = discovery_levels[-1]
@@ -205,6 +215,8 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
     print(f"a buscar {len(fine_candidates)} tiles z{fetch_zoom}...")
 
     polys_by_layer = {name: [] for name in GEOMETRY_LAYERS}
+    if with_trophy_geometry:
+        polys_by_layer.update({name: [] for name in TROPHY_LAYERS})
     size_by_layer = {}
 
     session = requests.Session()
@@ -224,7 +236,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
                     size = feat["properties"].get("size")
                     if size is not None and layer_name not in size_by_layer:
                         size_by_layer[layer_name] = size  # global — primeiro valor não-nulo chega
-                    if layer_name in GEOMETRY_LAYERS:
+                    if layer_name in polys_by_layer:
                         polys_by_layer[layer_name].extend(
                             _project_geometry(feat["geometry"], fetch_zoom, x, y, layer["extent"])
                         )
@@ -236,5 +248,13 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
         merged = unary_union(polys_by_layer[name])
         geometries[name] = (size_by_layer.get(name), merged)
 
-    counts = {name: size_by_layer[name] for name in COUNT_ONLY_LAYERS if name in size_by_layer}
-    return geometries, counts
+    counts = {name: size_by_layer[name] for name in TROPHY_LAYERS if name in size_by_layer}
+
+    if not with_trophy_geometry:
+        return geometries, counts
+
+    trophies = {
+        name: unary_union(polys_by_layer[name])
+        for name in TROPHY_LAYERS if polys_by_layer.get(name)
+    }
+    return geometries, counts, trophies

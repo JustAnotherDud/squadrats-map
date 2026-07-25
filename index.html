@@ -57,6 +57,16 @@
   #btn-color-mode { align-self:flex-start; margin-top:2px; pointer-events:auto; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
   #btn-color-mode.active { background:#3d7bf5; border-color:#3d7bf5; }
 
+  #trofeus { display:flex; gap:4px; flex-wrap:wrap; pointer-events:auto; }
+  #trofeus button {
+    background:rgba(21,24,33,.92); color:#9aa2b1; border:1px solid #2c3242;
+    border-radius:999px; padding:4px 10px; font-size:11px; cursor:pointer;
+    backdrop-filter: blur(4px); display:inline-flex; align-items:center; gap:5px;
+  }
+  #trofeus button .dot { width:8px; height:8px; border-radius:2px; background:currentColor; opacity:.55; }
+  #trofeus button.active { color:#fff; border-color:currentColor; }
+  #trofeus button.active .dot { opacity:1; }
+
   #sheet-detail { padding:2px 0 0; }
   #sheet-detail .detail-back { background:none; border:none; color:#7ab8ff; font-size:12px; padding:0 0 10px; cursor:pointer; }
   #sheet-detail h2 { margin:0 0 8px; font-size:16px; }
@@ -84,6 +94,7 @@
     <button data-val="distritos">Distritos</button>
     <button data-val="concelhos">Concelhos</button>
   </div>
+  <div id="trofeus"></div>
   <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
 </div>
 
@@ -107,6 +118,7 @@ const DATA_URLS = {
   provinciasEs: 'data/provincias_es.geojson',
   spain: 'data/spain_outline.geojson',
   adjacency: 'data/adjacency.json',
+  trophies: 'data/trophies.json',
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
@@ -120,6 +132,7 @@ let state = {
 let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
+let trophyLayer = L.layerGroup();
 let boundaryLayersByName = {}; // nome -> layer Leaflet, reconstruído a cada drawBoundaries()
 
 const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([39.6, -8.5], 7);
@@ -128,6 +141,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 }).addTo(map);
 squaresLayer.addTo(map);
 boundaryLayer.addTo(map);
+trophyLayer.addTo(map); // por cima dos squares, por baixo das fronteiras
 
 // --- slippy-tile math (mesma convenção do pipeline: kml_parse.py) ---
 function tileNW(x, y, z) {
@@ -142,9 +156,19 @@ function tileBounds(x, y, z) {
   return [[nw[0], nw[1]], [se[0], se[1]]];
 }
 
+// ficheiros sem os quais o mapa ainda funciona — falham para {} em vez de
+// impedirem o arranque (trophies.json só existe depois de um run do
+// pipeline via vector tiles)
+const DATA_OPCIONAIS = new Set(['trophies']);
+
 async function loadAll() {
   const entries = Object.entries(DATA_URLS);
-  const results = await Promise.all(entries.map(([, url]) => fetch(url).then(r => r.json())));
+  const results = await Promise.all(entries.map(([key, url]) =>
+    fetch(url).then(r => r.json())
+      .catch(err => {
+        if (DATA_OPCIONAIS.has(key)) return {};
+        throw err;
+      })));
   entries.forEach(([key], i) => { cache[key] = results[i]; });
 }
 
@@ -507,9 +531,69 @@ document.getElementById('sheet-list').addEventListener('click', e => {
   if (row) selectItem(row.dataset.name, { fromMap: false });
 });
 
+// --- troféus (yard / backyards / übersquadrat) ---
+// camadas opcionais, desligadas por defeito. Seguem a grelha activa: em
+// Squadrats mostram yard/backyards/ubersquadrat, em Squadratinhos as
+// versões "-inho". Ver README para o que cada `size` conta — não é o mesmo
+// em todas (yard = squares, backyards = clusters, über = o N do NxN).
+const TROFEUS = {
+  squadrats: [
+    { k: 'yard', label: 'Yard', cor: '#ffd400', fmt: v => `${v} squares` },
+    { k: 'backyards', label: 'Backyards', cor: '#ff8c42', fmt: v => `${v} clusters (inclui o yard)` },
+    { k: 'ubersquadrat', label: 'Über', cor: '#e6194b', fmt: v => `${v}×${v}` },
+  ],
+  squadratinhos: [
+    { k: 'yardinho', label: 'Yardinho', cor: '#ffd400', fmt: v => `${v} squares` },
+    { k: 'backyardinhos', label: 'Backyardinhos', cor: '#ff8c42', fmt: v => `${v} clusters (inclui o yardinho)` },
+    { k: 'ubersquadratinho', label: 'Über', cor: '#e6194b', fmt: v => `${v}×${v}` },
+  ],
+};
+const trofeusActivos = new Set();
+
+function drawTrophies() {
+  trophyLayer.clearLayers();
+  const bloco = (cache.trophies || {})[state.grelha];
+  if (!bloco) return;
+  for (const t of TROFEUS[state.grelha]) {
+    if (!trofeusActivos.has(t.k) || !bloco[t.k]) continue;
+    const info = bloco[t.k];
+    // übersquadrat só faz sentido como contorno (é uma área cheia que já
+    // está desenhada por baixo); os outros levam preenchimento leve
+    const isUber = t.k.startsWith('ubersquadrat');
+    L.geoJSON(info.geometry, {
+      style: {
+        color: t.cor, weight: isUber ? 3 : 2, opacity: 1,
+        fill: !isUber, fillColor: t.cor, fillOpacity: 0.25,
+      },
+    }).bindTooltip(`<b>${t.label}</b><br>${t.fmt(info.size)}`, { sticky: true })
+      .addTo(trophyLayer);
+  }
+}
+
+function renderTrofeus() {
+  const box = document.getElementById('trofeus');
+  const bloco = (cache.trophies || {})[state.grelha];
+  if (!bloco) { box.innerHTML = ''; return; }
+  box.innerHTML = TROFEUS[state.grelha]
+    .filter(t => bloco[t.k])
+    .map(t => `<button data-t="${t.k}" class="${trofeusActivos.has(t.k) ? 'active' : ''}"
+      style="color:${trofeusActivos.has(t.k) ? t.cor : ''}">
+      <span class="dot" style="background:${t.cor}"></span>${t.label}</button>`).join('');
+  box.querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      const k = b.dataset.t;
+      trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
+      renderTrofeus();
+      drawTrophies();
+    };
+  });
+}
+
 function render() {
   drawSquares();
   drawBoundaries();
+  drawTrophies();
+  renderTrofeus();
   renderStats();
 }
 
