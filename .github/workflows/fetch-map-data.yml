@@ -43,7 +43,7 @@ jobs:
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json"
+          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json"
 
           if git diff --quiet -- $FILES; then
             echo "sem alterações reais — nada a commitar."

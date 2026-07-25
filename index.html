@@ -119,6 +119,7 @@ const DATA_URLS = {
   spain: 'data/spain_outline.geojson',
   adjacency: 'data/adjacency.json',
   trophies: 'data/trophies.json',
+  suggestions: 'data/suggestions.json',
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
@@ -159,7 +160,7 @@ function tileBounds(x, y, z) {
 // ficheiros sem os quais o mapa ainda funciona — falham para {} em vez de
 // impedirem o arranque (trophies.json só existe depois de um run do
 // pipeline via vector tiles)
-const DATA_OPCIONAIS = new Set(['trophies']);
+const DATA_OPCIONAIS = new Set(['trophies', 'suggestions']);
 
 async function loadAll() {
   const entries = Object.entries(DATA_URLS);
@@ -550,6 +551,29 @@ const TROFEUS = {
 };
 const trofeusActivos = new Set();
 
+// "o que falta para o próximo über" — a janela NxN mais barata de fechar,
+// calculada no pipeline (ver pipeline/suggestions.py). Cor deliberadamente
+// diferente das dos troféus: isto não é conquistado, é alvo.
+const COR_SUGESTAO = '#00d4ff';
+let sugestaoActiva = false;
+
+function drawSugestao() {
+  const s = (cache.suggestions || {})[state.grelha];
+  if (!sugestaoActiva || !s) return;
+
+  const nw = tileNW(s.canto.x, s.canto.y, s.zoom);
+  const se = tileNW(s.canto.x + s.alvo, s.canto.y + s.alvo, s.zoom);
+  L.rectangle([nw, se], { color: COR_SUGESTAO, weight: 3, dashArray: '6 4', fill: false })
+    .bindTooltip(`<b>Próximo über ${s.alvo}×${s.alvo}</b><br>faltam ${s.faltam} squares`, { sticky: true })
+    .addTo(trophyLayer);
+
+  s.squares.forEach(q => {
+    L.rectangle(tileBounds(q.x, q.y, s.zoom), {
+      color: COR_SUGESTAO, weight: 1, fillColor: COR_SUGESTAO, fillOpacity: 0.45,
+    }).addTo(trophyLayer);
+  });
+}
+
 function drawTrophies() {
   trophyLayer.clearLayers();
   const bloco = (cache.trophies || {})[state.grelha];
@@ -568,21 +592,33 @@ function drawTrophies() {
     }).bindTooltip(`<b>${t.label}</b><br>${t.fmt(info.size)}`, { sticky: true })
       .addTo(trophyLayer);
   }
+  drawSugestao();
 }
 
 function renderTrofeus() {
   const box = document.getElementById('trofeus');
   const bloco = (cache.trophies || {})[state.grelha];
-  if (!bloco) { box.innerHTML = ''; return; }
-  box.innerHTML = TROFEUS[state.grelha]
-    .filter(t => bloco[t.k])
+  const sug = (cache.suggestions || {})[state.grelha];
+  if (!bloco && !sug) { box.innerHTML = ''; return; }
+  const botoes = TROFEUS[state.grelha]
+    .filter(t => bloco && bloco[t.k])
     .map(t => `<button data-t="${t.k}" class="${trofeusActivos.has(t.k) ? 'active' : ''}"
       style="color:${trofeusActivos.has(t.k) ? t.cor : ''}">
-      <span class="dot" style="background:${t.cor}"></span>${t.label}</button>`).join('');
+      <span class="dot" style="background:${t.cor}"></span>${t.label}</button>`);
+  if (sug) {
+    botoes.push(`<button data-sug="1" class="${sugestaoActiva ? 'active' : ''}"
+      title="Janela ${sug.alvo}×${sug.alvo} mais barata de fechar — faltam ${sug.faltam} squares"
+      style="color:${sugestaoActiva ? COR_SUGESTAO : ''}">
+      <span class="dot" style="background:${COR_SUGESTAO}"></span>Próximo über</button>`);
+  }
+  box.innerHTML = botoes.join('');
   box.querySelectorAll('button').forEach(b => {
     b.onclick = () => {
-      const k = b.dataset.t;
-      trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
+      if (b.dataset.sug) sugestaoActiva = !sugestaoActiva;
+      else {
+        const k = b.dataset.t;
+        trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
+      }
       renderTrofeus();
       drawTrophies();
     };
