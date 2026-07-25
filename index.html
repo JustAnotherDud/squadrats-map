@@ -54,8 +54,8 @@
   .note { font-size:10px; color:#6b7285; padding:8px 0 0; }
   .zero-toggle { font-size:11.5px; color:#7ab8ff; padding:7px 4px; cursor:pointer; user-select:none; }
   .zero-toggle:active { opacity:.7; }
-  #btn-color-mode { align-self:flex-start; margin-top:2px; pointer-events:auto; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
-  #btn-color-mode.active { background:#3d7bf5; border-color:#3d7bf5; }
+  #btn-color-mode, #btn-grelha-linhas { align-self:flex-start; margin-top:2px; pointer-events:auto; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
+  #btn-color-mode.active, #btn-grelha-linhas.active { background:#3d7bf5; border-color:#3d7bf5; }
 
   #trofeus { display:flex; gap:4px; flex-wrap:wrap; pointer-events:auto; }
   #trofeus button {
@@ -95,6 +95,7 @@
     <button data-val="concelhos">Concelhos</button>
   </div>
   <div id="trofeus"></div>
+  <button id="btn-grelha-linhas">Grelha</button>
   <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
 </div>
 
@@ -155,6 +156,61 @@ function tileBounds(x, y, z) {
   const nw = tileNW(x, y, z);
   const se = tileNW(x + 1, y + 1, z);
   return [[nw[0], nw[1]], [se[0], se[1]]];
+}
+
+// --- grelha de squares (linhas), para ver onde caem as fronteiras ---
+// Pane próprio acima do overlayPane (400): senão as linhas ficavam por baixo
+// dos squares preenchidos, que é precisamente onde interessa vê-las.
+map.createPane('grelhaPane');
+map.getPane('grelhaPane').style.zIndex = 450;
+map.getPane('grelhaPane').style.pointerEvents = 'none';
+
+// Desenhada em canvas por tile em vez de milhares de L.rectangle: a z17 um
+// ecrã inteiro tem dezenas de milhares de células e o Leaflet não aguenta
+// isso em SVG. Abaixo de MIN_PX por célula não se desenha — seria ruído.
+const MIN_PX = 6;
+const GrelhaLinhas = L.GridLayer.extend({
+  createTile: function (coords) {
+    const t = document.createElement('canvas');
+    const lado = this.getTileSize().x;
+    t.width = t.height = lado;
+    const z = ZOOM_GRELHA[state.grelha];
+    const celula = lado * Math.pow(2, coords.z - z); // px de um square neste zoom
+    if (celula >= MIN_PX) {
+      const ctx = t.getContext('2d');
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 1;
+      const orig = coords.x * lado, origY = coords.y * lado;
+      const primeiro = v => Math.ceil(v / celula) * celula - v;
+      ctx.beginPath();
+      for (let p = primeiro(orig); p < lado; p += celula) {
+        ctx.moveTo(Math.round(p) + 0.5, 0); ctx.lineTo(Math.round(p) + 0.5, lado);
+      }
+      for (let p = primeiro(origY); p < lado; p += celula) {
+        ctx.moveTo(0, Math.round(p) + 0.5); ctx.lineTo(lado, Math.round(p) + 0.5);
+      }
+      ctx.stroke();
+    }
+    return t;
+  },
+});
+const ZOOM_GRELHA = { squadrats: 14, squadratinhos: 17 };
+let grelhaLinhas = null;
+
+function toggleGrelhaLinhas() {
+  const btn = document.getElementById('btn-grelha-linhas');
+  if (grelhaLinhas) {
+    map.removeLayer(grelhaLinhas);
+    grelhaLinhas = null;
+  } else {
+    grelhaLinhas = new GrelhaLinhas({ pane: 'grelhaPane' }).addTo(map);
+  }
+  btn.classList.toggle('active', !!grelhaLinhas);
+}
+
+// a grelha activa muda com o segmento squadrats/squadratinhos — redesenhar
+function refreshGrelhaLinhas() {
+  if (grelhaLinhas) grelhaLinhas.redraw();
 }
 
 // ficheiros sem os quais o mapa ainda funciona — falham para {} em vez de
@@ -554,24 +610,42 @@ const trofeusActivos = new Set();
 // "o que falta para o próximo über" — a janela NxN mais barata de fechar,
 // calculada no pipeline (ver pipeline/suggestions.py). Cor deliberadamente
 // diferente das dos troféus: isto não é conquistado, é alvo.
-const COR_SUGESTAO = '#00d4ff';
-let sugestaoActiva = false;
+const COR_SUGESTAO = '#00d4ff'; // próximo über
+const COR_LIGACAO = '#b04fff';  // squares que fazem o yard crescer
+const sugestoesActivas = new Set(); // 'uber' | 'ligacao'
 
 function drawSugestao() {
   const s = (cache.suggestions || {})[state.grelha];
-  if (!sugestaoActiva || !s) return;
+  if (!s) return;
 
-  const nw = tileNW(s.canto.x, s.canto.y, s.zoom);
-  const se = tileNW(s.canto.x + s.alvo, s.canto.y + s.alvo, s.zoom);
-  L.rectangle([nw, se], { color: COR_SUGESTAO, weight: 3, dashArray: '6 4', fill: false })
-    .bindTooltip(`<b>Próximo über ${s.alvo}×${s.alvo}</b><br>faltam ${s.faltam} squares`, { sticky: true })
-    .addTo(trophyLayer);
+  if (sugestoesActivas.has('uber') && s.uber) {
+    const u = s.uber;
+    const nw = tileNW(u.canto.x, u.canto.y, s.zoom);
+    const se = tileNW(u.canto.x + u.alvo, u.canto.y + u.alvo, s.zoom);
+    L.rectangle([nw, se], { color: COR_SUGESTAO, weight: 3, dashArray: '6 4', fill: false })
+      .bindTooltip(`<b>Próximo über ${u.alvo}×${u.alvo}</b><br>faltam ${u.faltam} squares`, { sticky: true })
+      .addTo(trophyLayer);
+    u.squares.forEach(q => {
+      L.rectangle(tileBounds(q.x, q.y, s.zoom), {
+        color: COR_SUGESTAO, weight: 1, fillColor: COR_SUGESTAO, fillOpacity: 0.45,
+      }).addTo(trophyLayer);
+    });
+  }
 
-  s.squares.forEach(q => {
-    L.rectangle(tileBounds(q.x, q.y, s.zoom), {
-      color: COR_SUGESTAO, weight: 1, fillColor: COR_SUGESTAO, fillOpacity: 0.45,
-    }).addTo(trophyLayer);
-  });
+  if (sugestoesActivas.has('ligacao') && s.ligacao) {
+    const { yard_atual, melhores } = s.ligacao;
+    const maxGanho = Math.max(...melhores.map(m => m.ganho), 1);
+    melhores.forEach(m => {
+      // opacidade proporcional ao ganho: o melhor square salta à vista
+      L.rectangle(tileBounds(m.x, m.y, s.zoom), {
+        color: COR_LIGACAO, weight: 2,
+        fillColor: COR_LIGACAO, fillOpacity: 0.2 + 0.5 * (m.ganho / maxGanho),
+      }).bindTooltip(
+        `<b>+${m.ganho} ao yard</b><br>${yard_atual} → ${m.novo_yard} squares`,
+        { sticky: true },
+      ).addTo(trophyLayer);
+    });
+  }
 }
 
 function drawTrophies() {
@@ -605,17 +679,32 @@ function renderTrofeus() {
     .map(t => `<button data-t="${t.k}" class="${trofeusActivos.has(t.k) ? 'active' : ''}"
       style="color:${trofeusActivos.has(t.k) ? t.cor : ''}">
       <span class="dot" style="background:${t.cor}"></span>${t.label}</button>`);
-  if (sug) {
-    botoes.push(`<button data-sug="1" class="${sugestaoActiva ? 'active' : ''}"
-      title="Janela ${sug.alvo}×${sug.alvo} mais barata de fechar — faltam ${sug.faltam} squares"
-      style="color:${sugestaoActiva ? COR_SUGESTAO : ''}">
-      <span class="dot" style="background:${COR_SUGESTAO}"></span>Próximo über</button>`);
+  const extras = [];
+  if (sug && sug.uber) {
+    extras.push({
+      k: 'uber', label: 'Próximo über', cor: COR_SUGESTAO,
+      title: `Janela ${sug.uber.alvo}×${sug.uber.alvo} mais barata de fechar — faltam ${sug.uber.faltam} squares`,
+    });
   }
+  if (sug && sug.ligacao && sug.ligacao.melhores.length) {
+    const melhor = sug.ligacao.melhores[0];
+    extras.push({
+      k: 'ligacao', label: 'Crescer yard', cor: COR_LIGACAO,
+      title: `Squares que mais aumentam o yard — o melhor dá +${melhor.ganho}`,
+    });
+  }
+  extras.forEach(e => botoes.push(
+    `<button data-sug="${e.k}" class="${sugestoesActivas.has(e.k) ? 'active' : ''}"
+      title="${e.title}" style="color:${sugestoesActivas.has(e.k) ? e.cor : ''}">
+      <span class="dot" style="background:${e.cor}"></span>${e.label}</button>`));
+
   box.innerHTML = botoes.join('');
   box.querySelectorAll('button').forEach(b => {
     b.onclick = () => {
-      if (b.dataset.sug) sugestaoActiva = !sugestaoActiva;
-      else {
+      if (b.dataset.sug) {
+        const k = b.dataset.sug;
+        sugestoesActivas.has(k) ? sugestoesActivas.delete(k) : sugestoesActivas.add(k);
+      } else {
         const k = b.dataset.t;
         trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
       }
@@ -630,6 +719,7 @@ function render() {
   drawBoundaries();
   drawTrophies();
   renderTrofeus();
+  refreshGrelhaLinhas();
   renderStats();
 }
 
@@ -647,6 +737,8 @@ document.getElementById('btn-color-mode').onclick = () => {
   updateColorToggleVisibility();
   drawSquares();
 };
+
+document.getElementById('btn-grelha-linhas').onclick = toggleGrelhaLinhas;
 
 function resetSelectionUI() {
   if (sheet.classList.contains('detail')) {

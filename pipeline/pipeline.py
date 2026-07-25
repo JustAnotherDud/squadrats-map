@@ -114,7 +114,7 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
     divergirem, aborta: uma sugestão calculada com regras erradas parece
     rigorosa e não é.
     """
-    from suggestions import verify_rules, proximo_ubersquadrat
+    from suggestions import verify_rules, proximo_ubersquadrat, melhor_ligacao
 
     out = {}
     for grelha, (visitados, zoom) in visitados_por_grelha.items():
@@ -123,18 +123,20 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
         if esperado_yard is None or esperado_uber is None:
             continue
         verify_rules(visitados, esperado_yard, esperado_uber, grelha)
+
+        bloco = {"zoom": zoom, "ligacao": melhor_ligacao(visitados)}
+
         s = proximo_ubersquadrat(visitados, esperado_uber)
-        if s is None:
-            continue
-        cx, cy = s["canto"]
-        out[grelha] = {
-            "zoom": zoom,
-            "atual": esperado_uber,
-            "alvo": s["n_alvo"],
-            "faltam": s["faltam"],
-            "canto": {"x": cx, "y": cy},
-            "squares": [{"x": x, "y": y} for x, y in s["squares_em_falta"]],
-        }
+        if s is not None:
+            cx, cy = s["canto"]
+            bloco["uber"] = {
+                "atual": esperado_uber,
+                "alvo": s["n_alvo"],
+                "faltam": s["faltam"],
+                "canto": {"x": cx, "y": cy},
+                "squares": [{"x": x, "y": y} for x, y in s["squares_em_falta"]],
+            }
+        out[grelha] = bloco
 
     path = os.path.join(out_dir, "suggestions.json")
     with open(path, "w", encoding="utf-8") as f:
