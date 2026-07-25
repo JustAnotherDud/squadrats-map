@@ -39,6 +39,28 @@ clube, consumido pelo `club-koms` como o `prs.json`.
   - `fetch-map-data.yml` — **principal**, cron semanal, sem dependência do Drive
   - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
 
+## O que significa cada camada (`size`)
+
+Confirmado empiricamente (`pipeline/spikes/backyards_probe.py`, 25 jul 2026) — o `size` **não
+significa a mesma coisa em todas as camadas**:
+
+| Camada | `size` é… | Verificado (Zé) |
+|---|---|---|
+| `squadrats` / `squadratinhos` | nº de **squares** visitados | 392 squares / 5050 squares |
+| `yard` / `yardinho` | nº de **squares** do maior cluster fechado | 90 squares em 1 cluster / 480 em 1 |
+| `ubersquadrat` / `ubersquadratinho` | o **N** do maior quadrado cheio NxN | 6 → 6x6 |
+| `backyards` / `backyardinhos` | nº de **clusters** fechados, **incluindo o principal** | 10 clusters (101 squares) / 144 clusters (1264 squares) |
+
+"Cluster fechado" = conjunto contíguo de squares visitados em que cada um tem os 4 vizinhos
+(N/E/S/O) também visitados.
+
+**A pegadinha do `backyards`:** conta clusters, não squares — e a sua geometria **contém** a do
+`yard` (verificado: `backyards.contains(yard) == True`, área da interseção idêntica à do yard).
+Logo `yard + backyards` **não** é somável: dos 10 backyards do Zé, 1 é o yard principal (90
+squares) e os outros 9 somam 11 squares entre todos — quase todos um único square fechado
+isolado, invisíveis no mapa e não renderizados pela app. Isto fecha a questão que estava em
+aberto no brief de investigação (§10.1).
+
 ## Regras de uso do endpoint de vector tiles
 
 `tiles1.squadrats.com` não é uma API pública nem documentada — são dados que os atletas tornaram
