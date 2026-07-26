@@ -10,11 +10,13 @@ clube, consumido pelo `club-koms` como o `prs.json`.
 ## Estrutura
 
 - `index.html` — o mapa detalhado do José (GitHub Pages serve isto na raiz)
-- `amigos.html` — página do club (o ficheiro mantém o nome antigo: o URL já foi partilhado).
-  Comparativa: squadratinhos dos três atletas com conta Squadrats,
+- `club.html` — página do club: squadratinhos dos três atletas com conta Squadrats,
   cor por combinação de quem partilha cada square. Sem classificação por concelho nem troféus —
-  é outro assunto e outro ficheiro de dados (`data/amigos.json`). Squares desenhados em canvas
+  é outro assunto e outro ficheiro de dados (`data/club.json`). Squares desenhados em canvas
   (~9000; em SVG o mapa engasgava a arrastar).
+- `amigos.html` — redirect para o `club.html`. A página chamou-se assim durante um dia e o URL
+  chegou a ser partilhado; o ficheiro fica para não partir esse link. Apagável quando já não
+  aparecer nos acessos.
 - `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube) + `trophies.json` (formas de yard/backyards/übersquadrat, para as camadas opcionais do mapa)
 - `pipeline/` — busca os squares do José e produz os ficheiros em `data/`
   - `tiles_fetch.py` — **fonte principal**: fetch directo aos vector tiles da Squadrats
@@ -28,8 +30,9 @@ clube, consumido pelo `club-koms` como o `prs.json`.
   - `pipeline.py` — orquestrador. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
     ou `py pipeline.py --kml <caminho.kml> <out_dir>` (fallback, ver abaixo)
   - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`
-  - `fetch_amigos.py` — squadratinhos dos mesmos três, com bitmask de quem tem cada square →
-    `data/amigos.json`. A ordem da lista `ATLETAS` fixa a atribuição dos bits: não reordenar
+  - `fetch_club_squares.py` — squadratinhos dos mesmos três, com bitmask de quem tem cada square →
+    `data/club.json` (o `fetch_club_koms.py` só traz totais; este traz as coordenadas).
+    A ordem da lista `ATLETAS` fixa a atribuição dos bits: não reordenar
     sem regenerar o ficheiro.
   - `kml_parse.py` — **fallback**: parse de KML exportado manualmente + reconstrução dos squares
     individuais (x, y, zoom) por varrimento da grelha XYZ. `reconstruct_squares()` é partilhado

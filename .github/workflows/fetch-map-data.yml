@@ -39,14 +39,14 @@ jobs:
         run: python3 pipeline/fetch_club_koms.py data
 
       - name: Squares do club (squadratinhos) — para a página do club
-        run: python3 pipeline/fetch_amigos.py data
+        run: python3 pipeline/fetch_club_squares.py data
 
       - name: Commitar só se houver diferença real
         run: |
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/amigos.json"
+          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json"
 
           if git diff --quiet -- $FILES; then
             echo "sem alterações reais — nada a commitar."
