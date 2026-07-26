@@ -63,15 +63,19 @@
 // dois sítios separados, e quem recebe este link não deve cair no outro.
 
 // Cor de cada pessoa, para os squares que só ela tem. Tons quentes, para não
-// colidirem com a escala de partilha (fria). As últimas entradas são reserva
-// para quem vier a seguir — a ordem tem de acompanhar a lista ATLETAS do
-// pipeline/fetch_club_squares.py, que é quem fixa os bits.
+// colidirem com a escala de partilha (fria). A ordem tem de acompanhar a lista
+// ATLETAS do pipeline/fetch_club_squares.py, que é quem fixa os bits.
+//
+// O rosa da Inês fica a 30° do vermelho do Zé, que não é muito — mas verde era
+// pior: com quatro pessoas a escala de partilha passa a usar o menta do "4
+// pessoas", e um verde saturado ao lado dele confundia-se. Entre os dois
+// riscos, o rosa é o menor.
 const COR_ATLETA = [
   '#ef4444', // Zé
   '#a855f7', // Xeira
   '#facc15', // Carolina
+  '#ec4899', // Inês — rosa
   '#f97316', // reserva
-  '#ec4899', // reserva
 ];
 
 // Escala de partilha: a cor diz **quantas pessoas** têm o square, não quais.
