@@ -118,7 +118,8 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
     divergirem, aborta: uma sugestão calculada com regras erradas parece
     rigorosa e não é.
     """
-    from suggestions import verify_rules, proximo_ubersquadrat, melhor_ligacao
+    from suggestions import (verify_rules, proximo_ubersquadrat, melhor_ligacao,
+                             corredores)
 
     out = {}
     for grelha, (visitados, zoom) in visitados_por_grelha.items():
@@ -128,7 +129,11 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
             continue
         verify_rules(visitados, esperado_yard, esperado_uber, grelha)
 
-        bloco = {"zoom": zoom, "ligacao": melhor_ligacao(visitados)}
+        bloco = {
+            "zoom": zoom,
+            "ligacao": melhor_ligacao(visitados),
+            "corredores": corredores(visitados),
+        }
 
         s = proximo_ubersquadrat(visitados, esperado_uber)
         if s is not None:

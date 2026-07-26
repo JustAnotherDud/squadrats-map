@@ -28,6 +28,12 @@ clube, consumido pelo `club-koms` como o `prs.json`.
     processo, para cada atleta ser varrido uma vez só. Em passos separados, o José era varrido
     três vezes por run e a Xeira/Carolina duas — ~1200 pedidos em duplicado. A cache está no
     `tiles_fetch.scan_athlete`. Os três scripts continuam a correr sozinhos, para debug.
+  - `suggestions.py` — sugestões de progresso -> `data/suggestions.json`. `verify_rules()` é o
+    guard: confirma que reproduzimos o yard/übersquadrat que o servidor reporta antes de
+    publicar seja o que for. `corredores()` procura o caminho mais barato para ligar um
+    cluster fechado ao yard — é onde estão os saltos grandes (capturas isoladas nunca
+    passam de +4/+5). O ganho publicado vem sempre de recalcular os clusters, nunca de
+    aritmética sobre tamanhos.
   - `pipeline.py` — orquestrador do mapa detalhado. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
     ou `py pipeline.py --kml <caminho.kml> <out_dir>` (fallback, ver abaixo)
   - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`

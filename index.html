@@ -610,9 +610,10 @@ const trofeusActivos = new Set();
 // "o que falta para o próximo über" — a janela NxN mais barata de fechar,
 // calculada no pipeline (ver pipeline/suggestions.py). Cor deliberadamente
 // diferente das dos troféus: isto não é conquistado, é alvo.
-const COR_SUGESTAO = '#00d4ff'; // próximo über
-const COR_LIGACAO = '#b04fff';  // squares que fazem o yard crescer
-const sugestoesActivas = new Set(); // 'uber' | 'ligacao'
+const COR_SUGESTAO = '#00d4ff';  // próximo über
+const COR_LIGACAO = '#b04fff';   // squares que fazem o yard crescer sozinhos
+const COR_CORREDOR = '#ff4fa3';  // squares que ligam um cluster inteiro ao yard
+const sugestoesActivas = new Set(); // 'uber' | 'ligacao' | 'corredores'
 
 function drawSugestao() {
   const s = (cache.suggestions || {})[state.grelha];
@@ -629,6 +630,25 @@ function drawSugestao() {
       L.rectangle(tileBounds(q.x, q.y, s.zoom), {
         color: COR_SUGESTAO, weight: 1, fillColor: COR_SUGESTAO, fillOpacity: 0.45,
       }).addTo(trophyLayer);
+    });
+  }
+
+  // Corredores: ligar um cluster fechado inteiro ao yard. É onde estão os
+  // saltos grandes — capturar squares isolados nunca passa de +4 ou +5.
+  if (sugestoesActivas.has('corredores') && s.corredores) {
+    s.corredores.forEach((c, i) => {
+      const grupo = L.layerGroup();
+      c.squares.forEach(q => {
+        L.rectangle(tileBounds(q.x, q.y, s.zoom), {
+          color: COR_CORREDOR, weight: 1,
+          fillColor: COR_CORREDOR, fillOpacity: i === 0 ? 0.65 : 0.4,
+        }).addTo(grupo);
+      });
+      grupo.bindTooltip(
+        `<b>+${c.ganho} no yard</b><br>capturar ${c.custo} squares para ligar ` +
+        `um cluster de ${c.alvo}<br>yard ${c.novo_yard - c.ganho} → ${c.novo_yard}`,
+        { sticky: true },
+      ).addTo(trophyLayer);
     });
   }
 
@@ -669,6 +689,26 @@ function drawTrophies() {
   drawSugestao();
 }
 
+// Leva a vista até à sugestão que se acabou de ligar. Coordenadas num painel
+// não dizem nada a ninguém — o que interessa é ver o sítio.
+function voarPara(k, sug) {
+  if (!sug) return;
+  let squares = [];
+  if (k === 'uber' && sug.uber) squares = sug.uber.squares;
+  else if (k === 'ligacao' && sug.ligacao) squares = sug.ligacao.melhores;
+  else if (k === 'corredores' && sug.corredores && sug.corredores.length) {
+    // o de melhor razão ganho/custo, não o de maior ganho: é o que se
+    // apanha numa corrida
+    squares = sug.corredores.reduce(
+      (a, b) => (b.ganho / b.custo > a.ganho / a.custo ? b : a)).squares;
+  }
+  if (!squares.length) return;
+  const cantos = squares.flatMap(q => tileBounds(q.x, q.y, sug.zoom));
+  // pad pequeno: um corredor são poucos squares e um pad generoso inflava
+  // tanto os limites que a vista ficava onde estava
+  map.flyToBounds(L.latLngBounds(cantos).pad(0.4), { maxZoom: 15, duration: 0.8 });
+}
+
 function renderTrofeus() {
   const box = document.getElementById('trofeus');
   const bloco = (cache.trophies || {})[state.grelha];
@@ -690,7 +730,16 @@ function renderTrofeus() {
     const melhor = sug.ligacao.melhores[0];
     extras.push({
       k: 'ligacao', label: 'Crescer yard', cor: COR_LIGACAO,
-      title: `Squares que mais aumentam o yard — o melhor dá +${melhor.ganho}`,
+      title: `Squares que mais aumentam o yard sozinhos — o melhor dá +${melhor.ganho}`,
+    });
+  }
+  if (sug && sug.corredores && sug.corredores.length) {
+    const melhorRacio = sug.corredores.reduce(
+      (a, b) => (b.ganho / b.custo > a.ganho / a.custo ? b : a));
+    extras.push({
+      k: 'corredores', label: 'Corredores', cor: COR_CORREDOR,
+      title: `Ligar clusters inteiros ao yard — o melhor negócio são `
+        + `${melhorRacio.custo} squares por +${melhorRacio.ganho}`,
     });
   }
   extras.forEach(e => botoes.push(
@@ -703,7 +752,11 @@ function renderTrofeus() {
     b.onclick = () => {
       if (b.dataset.sug) {
         const k = b.dataset.sug;
-        sugestoesActivas.has(k) ? sugestoesActivas.delete(k) : sugestoesActivas.add(k);
+        const ligou = !sugestoesActivas.has(k);
+        ligou ? sugestoesActivas.add(k) : sugestoesActivas.delete(k);
+        // as sugestões são punhados de squares algures no mapa — ao ligar,
+        // levar a vista até lá, senão fica-se a olhar para nada
+        if (ligou) voarPara(k, sug);
       } else {
         const k = b.dataset.t;
         trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
