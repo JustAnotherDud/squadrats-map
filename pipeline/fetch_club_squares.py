@@ -1,5 +1,5 @@
 """Squares dos três atletas com conta Squadrats, num ficheiro só, para a
-página comparativa (amigos.html).
+página do club (club.html).
 
 Só squadratinhos: a z14 os squares são grandes demais para a sobreposição
 dizer alguma coisa — toda a gente partilha o mesmo punhado de quadrados.
@@ -11,7 +11,7 @@ a maioria — vivem todos na mesma zona.
 
 Não classifica por concelho: aqui não serve para nada e é a parte lenta.
 
-Uso: py fetch_amigos.py [pasta_saida]
+Uso: py fetch_club_squares.py [pasta_saida]
 """
 import argparse
 import datetime
@@ -47,7 +47,7 @@ def squares_de(uid):
         raise RuntimeError(
             f"UID '{uid}': {CAMADA} — reconstruídos {len(squares)}, servidor diz "
             f"{declared_size}. Varrimento incompleto ou bug de geometria — a abortar "
-            f"sem publicar amigos.json."
+            f"sem publicar club.json."
         )
     return squares
 
@@ -89,7 +89,7 @@ def main(out_dir):
         "squares": [[x, y, m] for (x, y), m in sorted(mascaras.items())],
     }
 
-    out_path = os.path.join(out_dir, "amigos.json")
+    out_path = os.path.join(out_dir, "club.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(resultado, f, ensure_ascii=False, separators=(",", ":"))
     print(f"{len(mascaras)} squares distintos -> {out_path}")
