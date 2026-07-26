@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Squadrats — Amigos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<style>
+  html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
+  #map { position:absolute; inset:0; }
+
+  #topbar { position:absolute; top:0; left:0; right:0; z-index:1000; padding:8px 10px; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
+  #topbar .linha { display:flex; align-items:baseline; gap:8px; }
+  #topbar h1 { font-size:14px; margin:0; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.8); }
+  #topbar a { pointer-events:auto; font-size:11.5px; color:#7ab8ff; text-decoration:none; text-shadow:0 1px 3px rgba(0,0,0,.8); }
+  .seg { display:flex; gap:4px; pointer-events:auto; flex-wrap:wrap; }
+  .seg button { background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 9px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:5px; }
+  .seg button.off { opacity:.45; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+
+  #painel { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:#151821; border-top:1px solid #262b38; border-radius:14px 14px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.4); max-height:58vh; display:flex; flex-direction:column; }
+  #painel-cabeca { padding:10px 14px; display:flex; justify-content:space-between; align-items:center; font-size:13px; cursor:pointer; user-select:none; }
+  #painel-cabeca b { color:#fff; }
+  #painel-corpo { padding:0 14px 16px; overflow-y:auto; display:none; }
+  #painel.aberto #painel-corpo { display:block; }
+  .linha-stat { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; }
+  .linha-stat b { color:#fff; white-space:nowrap; }
+  .esq { display:flex; align-items:center; gap:7px; overflow:hidden; }
+  .esq span.txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .titulo-seccao { margin-top:12px; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
+  .nota { font-size:10px; color:#6b7285; padding:8px 0 0; line-height:1.45; }
+
+  #hover { position:absolute; z-index:1001; top:auto; bottom:calc(100% + 8px); left:10px; right:10px; background:rgba(21,24,33,.96); border:1px solid #2c3242; border-radius:9px; padding:8px 11px; font-size:12px; display:none; backdrop-filter: blur(4px); pointer-events:none; }
+  #hover.visivel { display:block; }
+  #hover .quem { color:#fff; font-weight:600; }
+  #hover .coord { color:#6b7285; font-size:10.5px; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="topbar">
+  <div class="linha">
+    <h1>Squadrats — Amigos</h1>
+    <a href="index.html">← mapa detalhado</a>
+  </div>
+  <div class="seg" id="seg-atletas"></div>
+</div>
+
+<div id="painel">
+  <div id="hover"><div class="quem"></div><div class="coord"></div></div>
+  <div id="painel-cabeca"><span id="painel-resumo"></span><span style="color:#7d8598">▲</span></div>
+  <div id="painel-corpo"></div>
+</div>
+
+<script>
+// Página comparativa: só squadratinhos, só os três que têm conta Squadrats.
+// O mapa detalhado (index.html) é outra coisa — este não classifica por
+// concelho nem mostra troféus, o assunto aqui é quem partilha o quê.
+const COR_ATLETA = ['#3d7bf5', '#ff6b35', '#2ec4b6']; // ordem = bits em amigos.json
+
+// Cor por combinação. Exclusivos ficam com a cor da pessoa; as sobreposições
+// levam matizes próprias em vez de misturas — misturar dava castanhos que
+// não se distinguem uns dos outros num mapa escuro.
+const COR_MASK = {
+  1: '#3d7bf5', 2: '#ff6b35', 4: '#2ec4b6',
+  3: '#a259ff', 5: '#4ade80', 6: '#f4d35e',
+  7: '#ffffff',
+};
+
+let dados = null;
+let porCoord = new Map();     // "x,y" -> mask
+let activos = 0;              // bitmask dos atletas ligados
+let camadaSquares = null;
+
+const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([39.5, -8.8], 9);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  subdomains: 'abcd', maxZoom: 19,
+}).addTo(map);
+
+function nomes(mask) {
+  return dados.atletas.filter((_, i) => mask & (1 << i)).map(a => a.nome);
+}
+
+function rotulo(mask) {
+  const ns = nomes(mask);
+  return ns.length === dados.atletas.length ? 'Todos' : ns.join(' + ');
+}
+
+// --- desenho ---
+// Canvas por tile, não L.rectangle: são ~9000 squares e em SVG o mapa
+// engasga a arrastar. Cada tile percorre a lista toda — a 9000 entradas o
+// filtro é mais barato do que manter um índice espacial sincronizado.
+const CamadaSquares = L.GridLayer.extend({
+  createTile: function (coords) {
+    const t = document.createElement('canvas');
+    const lado = this.getTileSize().x;
+    t.width = t.height = lado;
+    if (!dados) return t;
+
+    const ctx = t.getContext('2d');
+    const escala = 256 * Math.pow(2, coords.z - dados.zoom); // px de um square
+    const ox = coords.x * lado, oy = coords.y * lado;
+    // abaixo de 1px o square desaparecia entre pixéis; forçar 1px mantém a
+    // mancha legível quando se afasta a vista
+    const desenho = Math.max(escala, 1);
+
+    for (const [sx, sy, m] of dados.squares) {
+      const em = m & activos;
+      if (!em) continue;
+      const px = sx * escala - ox, py = sy * escala - oy;
+      if (px + escala < 0 || px > lado || py + escala < 0 || py > lado) continue;
+      ctx.fillStyle = COR_MASK[em];
+      // partilhados um pouco mais opacos — são o assunto da página
+      ctx.globalAlpha = contaBits(em) > 1 ? 0.85 : 0.65;
+      ctx.fillRect(px, py, desenho, desenho);
+    }
+    return t;
+  },
+});
+
+function contaBits(n) {
+  let c = 0;
+  while (n) { c += n & 1; n >>= 1; }
+  return c;
+}
+
+function redesenhar() {
+  if (camadaSquares) camadaSquares.redraw();
+}
+
+// --- interacção ---
+function coordDoPonto(latlng) {
+  const n = Math.pow(2, dados.zoom);
+  const rad = latlng.lat * Math.PI / 180;
+  return [
+    Math.floor((latlng.lng + 180) / 360 * n),
+    Math.floor((1 - Math.asinh(Math.tan(rad)) / Math.PI) / 2 * n),
+  ];
+}
+
+const hover = document.getElementById('hover');
+function mostrarSquare(latlng) {
+  if (!dados) return;
+  const [x, y] = coordDoPonto(latlng);
+  const m = porCoord.get(x + ',' + y);
+  const em = m ? m & activos : 0;
+  if (!em) { hover.classList.remove('visivel'); return; }
+  hover.querySelector('.quem').innerHTML =
+    `<span class="dot" style="background:${COR_MASK[em]}"></span> ` +
+    (contaBits(em) === 1 ? `Só ${rotulo(em)}` : rotulo(em));
+  hover.querySelector('.coord').textContent =
+    `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)} · square ${x}/${y}`;
+  hover.classList.add('visivel');
+}
+map.on('mousemove', e => mostrarSquare(e.latlng));
+map.on('click', e => mostrarSquare(e.latlng));
+map.on('mouseout', () => hover.classList.remove('visivel'));
+
+// --- controlos e painel ---
+function renderAtletas() {
+  const box = document.getElementById('seg-atletas');
+  box.innerHTML = dados.atletas.map((a, i) => {
+    const ligado = activos & (1 << i);
+    return `<button data-i="${i}" class="${ligado ? '' : 'off'}">
+      <span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}</button>`;
+  }).join('');
+  box.querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      activos ^= (1 << Number(b.dataset.i));
+      renderAtletas();
+      renderPainel();
+      redesenhar();
+      hover.classList.remove('visivel');
+    };
+  });
+}
+
+function renderPainel() {
+  const visiveis = dados.squares.reduce((n, s) => n + ((s[2] & activos) ? 1 : 0), 0);
+  document.getElementById('painel-resumo').innerHTML =
+    `<b>${visiveis.toLocaleString('pt-PT')}</b> squadratinhos visíveis`;
+
+  // contar pelas máscaras efectivas (m & activos), não pelas do ficheiro:
+  // com a Xeira desligada, um square Xeira+Carolina aparece no mapa com a cor
+  // da Carolina, e a legenda tem de dizer o mesmo — senão explica cores que
+  // lá não estão e omite as que estão
+  const efectivas = new Map();
+  for (const s of dados.squares) {
+    const em = s[2] & activos;
+    if (em) efectivas.set(em, (efectivas.get(em) || 0) + 1);
+  }
+  const combos = [...efectivas.keys()]
+    .sort((a, b) => contaBits(a) - contaBits(b) || a - b);
+
+  const linhas = [];
+  linhas.push('<div class="titulo-seccao">Por atleta</div>');
+  dados.atletas.forEach((a, i) => {
+    const ligado = activos & (1 << i);
+    linhas.push(`<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
+      <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+      <span class="txt">${a.nome}</span></span>
+      <b>${a.total.toLocaleString('pt-PT')}</b></div>`);
+  });
+
+  linhas.push('<div class="titulo-seccao">Por combinação</div>');
+  combos.forEach(m => {
+    const n = efectivas.get(m);
+    const so = contaBits(m) === 1 ? 'Só ' : '';
+    linhas.push(`<div class="linha-stat">
+      <span class="esq"><span class="dot" style="background:${COR_MASK[m]}"></span>
+      <span class="txt">${so}${rotulo(m)}</span></span>
+      <b>${n.toLocaleString('pt-PT')}</b></div>`);
+  });
+
+  linhas.push(`<div class="nota">Squadratinhos (zoom 17, ~201 m de lado).
+    Os totais por atleta são sempre os reais; as combinações contam o que está
+    no mapa neste momento, por isso mudam quando se desliga alguém.<br>
+    Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
+
+  document.getElementById('painel-corpo').innerHTML = linhas.join('');
+}
+
+const painel = document.getElementById('painel');
+document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle('aberto');
+
+(async function () {
+  const r = await fetch('data/amigos.json');
+  if (!r.ok) {
+    document.getElementById('painel-resumo').textContent = 'amigos.json não encontrado';
+    return;
+  }
+  dados = await r.json();
+  dados.squares.forEach(([x, y, m]) => porCoord.set(x + ',' + y, m));
+  activos = (1 << dados.atletas.length) - 1;
+
+  camadaSquares = new CamadaSquares().addTo(map);
+  renderAtletas();
+  renderPainel();
+})();
+</script>
+</body>
+</html>
