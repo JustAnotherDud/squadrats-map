@@ -66,15 +66,15 @@
 // colidirem com a escala de partilha (fria). A ordem tem de acompanhar a lista
 // ATLETAS do pipeline/fetch_club_squares.py, que é quem fixa os bits.
 //
-// O rosa da Inês fica a 30° do vermelho do Zé, que não é muito — mas verde era
-// pior: com quatro pessoas a escala de partilha passa a usar o menta do "4
-// pessoas", e um verde saturado ao lado dele confundia-se. Entre os dois
-// riscos, o rosa é o menor.
+// A Inês S. começou em rosa e não resultou: a 30° do vermelho do Zé, no mapa
+// os dois baralhavam-se (e o roxo da Xeira também não ajudava). Passou a
+// verde, que é o que fica mais longe de toda a gente — custou mudar o 4º
+// degrau da rampa de partilha, que ocupava essa zona.
 const COR_ATLETA = [
-  '#ef4444', // Zé
-  '#a855f7', // Xeira
-  '#facc15', // Carolina
-  '#ec4899', // Inês — rosa
+  '#ef4444', // Zé — vermelho
+  '#a855f7', // Xeira — roxo
+  '#facc15', // Carolina — amarelo
+  '#22c55e', // Inês S. — verde
   '#f97316', // reserva
 ];
 
@@ -83,7 +83,10 @@ const COR_ATLETA = [
 // dão 15, cinco dão 31, e não há 15 cores que se distingam num mapa escuro em
 // squares de poucos pixéis. Quem partilha o quê fica no tooltip e nos toggles.
 // A rampa clareia com o número de pessoas, para se ler como escala.
-const COR_PARTILHA = ['#3b82f6', '#22d3ee', '#a7f3d0', '#ffffff']; // 2, 3, 4, 5+
+// O 4º degrau era menta (#a7f3d0) e ocupava a zona verde do círculo. Passou a
+// branco para libertar o verde para a Inês S. — perde-se um degrau de rampa
+// mas ganha-se uma pessoa distinguível, que conta mais.
+const COR_PARTILHA = ['#3b82f6', '#22d3ee', '#ffffff', '#ffffff']; // 2, 3, 4, 5+
 
 function corDe(mask) {
   const n = contaBits(mask);
