@@ -140,6 +140,99 @@ def melhor_ligacao(visitados, top=8):
     return {"yard_atual": yard_atual, "melhores": resultados[:top]}
 
 
+def corredores(visitados, quantos=6, custo_max=80):
+    """Quanto custa ligar cada cluster fechado ao yard, e por onde.
+
+    O `melhor_ligacao` só olha para capturas isoladas e por isso nunca vê mais
+    do que +4 ou +5. Os saltos grandes estão nos clusters já fechados que estão
+    ao lado — ligar um cluster de 29 ao yard pode custar 2 squares e valer +34.
+
+    Um square só fecha com os 4 vizinhos visitados, por isso o corredor precisa
+    de largura e não é uma linha: custa mais do que a distância. Dijkstra sobre
+    posições, em que entrar numa posição custa os squares por capturar da sua
+    cruz. Esse custo por nó sobrestima (nós vizinhos partilham células), por
+    isso no fim reconstrói-se o caminho e conta-se a união real.
+
+    O ganho publicado vem sempre de recalcular os clusters com os squares
+    adicionados — nunca de aritmética sobre os tamanhos.
+    """
+    import heapq
+
+    comps = sorted(clusters_fechados(visitados), key=len, reverse=True)
+    if len(comps) < 2:
+        return []
+    yard, yard_tam = comps[0], len(comps[0])
+
+    def cruz(p):
+        return [p] + viz4(p)
+
+    def custo(p):
+        return sum(1 for c in cruz(p) if c not in visitados)
+
+    def ligar(destino):
+        xs = [p[0] for p in yard | destino]
+        ys = [p[1] for p in yard | destino]
+        x0, x1, y0, y1 = min(xs) - 4, max(xs) + 4, min(ys) - 4, max(ys) + 4
+        dist, antes, fila = {}, {}, []
+        for p in yard:
+            dist[p] = 0
+            heapq.heappush(fila, (0, p))
+        fim = None
+        while fila:
+            d, p = heapq.heappop(fila)
+            if d > dist.get(p, float("inf")):
+                continue
+            if p in destino:
+                fim = p
+                break
+            # o corte tem de ser folgado: `d` soma o custo de cada nó como se
+            # nada fosse partilhado, e a união real do caminho é bastante
+            # menor. Cortar em custo_max aqui matava os corredores longos —
+            # justamente os que valem mais. Filtra-se pela união, lá abaixo.
+            if d > custo_max * 4:
+                break
+            for q in viz4(p):
+                if not (x0 <= q[0] <= x1 and y0 <= q[1] <= y1):
+                    continue
+                nd = d + custo(q)
+                if nd < dist.get(q, float("inf")):
+                    dist[q], antes[q] = nd, p
+                    heapq.heappush(fila, (nd, q))
+        if fim is None:
+            return None
+        caminho, p = [], fim
+        while p is not None:
+            caminho.append(p)
+            p = antes.get(p)
+        uniao = set()
+        for p in caminho:
+            uniao |= {c for c in cruz(p) if c not in visitados}
+        return uniao
+
+    achados = []
+    # só os maiores: há 144 clusters em squadratinhos e a esmagadora maioria
+    # são um square isolado, que não vale a pena ligar a nada
+    for alvo in comps[1:9]:
+        uniao = ligar(alvo)
+        if uniao is None or not uniao or len(uniao) > custo_max:
+            continue
+        novo = max(len(c) for c in clusters_fechados(visitados | uniao))
+        if novo <= yard_tam:
+            continue
+        achados.append({
+            "alvo": len(alvo),
+            "custo": len(uniao),
+            "novo_yard": novo,
+            "ganho": novo - yard_tam,
+            "squares": [{"x": x, "y": y} for x, y in sorted(uniao)],
+        })
+
+    # por ganho, não por custo: ordenar por custo enche a lista de clusters de
+    # 1 square colados ao yard, que custam pouco e não valem nada
+    achados.sort(key=lambda a: (-a["ganho"], a["custo"]))
+    return achados[:quantos]
+
+
 def proximo_ubersquadrat(visitados, n_atual, margem=2):
     """Para o alvo N = n_atual+1, encontra a janela NxN com menos squares em
     falta. Prefix-sum sobre a bbox dos visitados (+ margem) para não ter de
