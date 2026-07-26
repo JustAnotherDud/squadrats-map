@@ -59,15 +59,21 @@
 // Página comparativa: só squadratinhos, só os três que têm conta Squadrats.
 // O mapa detalhado (index.html) é outra coisa — este não classifica por
 // concelho nem mostra troféus, o assunto aqui é quem partilha o quê.
-const COR_ATLETA = ['#3d7bf5', '#ff6b35', '#2ec4b6']; // ordem = bits em amigos.json
+const COR_ATLETA = ['#ef4444', '#a855f7', '#facc15']; // Zé, Xeira, Carolina
 
-// Cor por combinação. Exclusivos ficam com a cor da pessoa; as sobreposições
-// levam matizes próprias em vez de misturas — misturar dava castanhos que
-// não se distinguem uns dos outros num mapa escuro.
+// Cor por combinação. Os exclusivos ficam com a cor da pessoa; as
+// sobreposições vão todas para a metade fria do círculo cromático, que está
+// livre. Misturar as cores das pessoas seria mais intuitivo (vermelho +
+// amarelo = laranja) mas dava três tons quentes encostados uns aos outros —
+// num mapa escuro, com squares de poucos pixéis, não se distinguiam.
 const COR_MASK = {
-  1: '#3d7bf5', 2: '#ff6b35', 4: '#2ec4b6',
-  3: '#a259ff', 5: '#4ade80', 6: '#f4d35e',
-  7: '#ffffff',
+  1: '#ef4444', // Zé
+  2: '#a855f7', // Xeira
+  4: '#facc15', // Carolina
+  3: '#4ade80', // Zé + Xeira
+  5: '#22d3ee', // Zé + Carolina
+  6: '#3b82f6', // Xeira + Carolina
+  7: '#ffffff', // todos
 };
 
 let dados = null;
