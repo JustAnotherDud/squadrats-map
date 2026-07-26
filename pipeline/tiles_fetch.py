@@ -191,8 +191,36 @@ def discover_coverage(uid, bbox=WORLD_BBOX, levels=DISCOVERY_LEVELS):
     return current
 
 
+_CACHE = {}
+
+
 def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
                  with_trophy_geometry=False):
+    """Varre o atleta uma vez por processo e guarda o resultado.
+
+    Há três consumidores dos mesmos UIDs (`pipeline.py`, `fetch_club_koms.py`,
+    `fetch_club_squares.py`). Corridos em processos separados, cada um varria
+    tudo outra vez — o José era varrido três vezes por run. Com esta cache e o
+    `run_all.py` a chamá-los no mesmo processo, é um varrimento por atleta.
+
+    Varre-se sempre com a geometria de troféus (é um superconjunto e não custa
+    pedidos nenhuns a mais), e devolve-se conforme o que o chamador pediu.
+    """
+    chave = (uid, bbox, discovery_levels, fetch_zoom)
+    if chave not in _CACHE:
+        _CACHE[chave] = _scan_athlete(uid, bbox, discovery_levels, fetch_zoom,
+                                      with_trophy_geometry=True)
+    else:
+        print(f"{uid}: já varrido neste processo, a reutilizar")
+
+    geometries, counts, trophies = _CACHE[chave]
+    if with_trophy_geometry:
+        return geometries, counts, trophies
+    return geometries, counts
+
+
+def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
+                  with_trophy_geometry=False):
     """Varre a cobertura do atleta e devolve:
     - geometries: {layer_name: (size, shapely_geom)} para squadrats/squadratinhos
       (mesmo formato do kml_parse.parse_kml_geometries, para reutilizar
