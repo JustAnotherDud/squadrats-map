@@ -77,6 +77,8 @@
 
   a { color:#7ab8ff; }
   #loading { position:absolute; inset:0; z-index:2000; background:#0f1115; display:flex; align-items:center; justify-content:center; font-size:13px; color:#9aa2b1; }
+  /* levantar o zoom acima do sheet colapsado (54px) */
+  .leaflet-bottom.leaflet-right { bottom:60px; }
 </style>
 </head>
 <body>
@@ -137,7 +139,11 @@ let boundaryLayer = L.layerGroup();
 let trophyLayer = L.layerGroup();
 let boundaryLayersByName = {}; // nome -> layer Leaflet, reconstruído a cada drawBoundaries()
 
-const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([39.6, -8.5], 7);
+// zoom em baixo à direita: o topbar ocupa a largura toda (os segmentos vão de
+// margem a margem), por isso tanto o canto superior esquerdo como o direito
+// ficavam por baixo dele. Em baixo também fica mais à mão no telemóvel.
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([39.6, -8.5], 7);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd', maxZoom: 19,
 }).addTo(map);
@@ -263,7 +269,9 @@ function drawSquares() {
   squares.forEach(sq => {
     const color = squareColor(sq);
     const rect = L.rectangle(tileBounds(sq.x, sq.y, sq.zoom), {
-      color, weight, fillColor: color, fillOpacity: 0.55,
+      // fill leve de propósito: os squares tapam o mapa por baixo e a graça é
+      // ver por onde se passou, não só a mancha
+      color, weight, fillColor: color, fillOpacity: 0.32,
     });
     let where;
     if (sq.in_portugal) where = `${sq.concelho}, ${sq.district}`;
@@ -704,9 +712,10 @@ function voarPara(k, sug) {
   }
   if (!squares.length) return;
   const cantos = squares.flatMap(q => tileBounds(q.x, q.y, sug.zoom));
-  // pad pequeno: um corredor são poucos squares e um pad generoso inflava
-  // tanto os limites que a vista ficava onde estava
-  map.flyToBounds(L.latLngBounds(cantos).pad(0.4), { maxZoom: 15, duration: 0.8 });
+  // maxZoom travado em 14: um corredor de 2 squares tem limites minúsculos e
+  // sem tecto a vista ia parar a z17, colada aos quadrados e sem contexto
+  // nenhum à volta — o que interessa é ver onde é, não o quadrado ampliado
+  map.flyToBounds(L.latLngBounds(cantos).pad(0.6), { maxZoom: 14, duration: 0.8 });
 }
 
 function renderTrofeus() {

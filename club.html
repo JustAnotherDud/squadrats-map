@@ -32,6 +32,8 @@
   .detalhe-toggle .seta { color:#7ab8ff; text-transform:none; letter-spacing:0; font-size:11px; }
   .detalhe-toggle:active { opacity:.7; }
   .fraco { color:#7d8598; font-weight:400; font-size:11px; }
+  /* levantar o zoom acima do painel colapsado */
+  .leaflet-bottom.leaflet-right { bottom:52px; }
 
   #hover { position:absolute; z-index:1001; top:auto; bottom:calc(100% + 8px); left:10px; right:10px; background:rgba(21,24,33,.96); border:1px solid #2c3242; border-radius:9px; padding:8px 11px; font-size:12px; display:none; backdrop-filter: blur(4px); pointer-events:none; }
   #hover.visivel { display:block; }
@@ -59,6 +61,7 @@
 // Sem classificação por concelho nem troféus — o assunto aqui é quem
 // partilha o quê. Deliberadamente sem link para o mapa pessoal do José: são
 // dois sítios separados, e quem recebe este link não deve cair no outro.
+
 // Cor de cada pessoa, para os squares que só ela tem. Tons quentes, para não
 // colidirem com a escala de partilha (fria). As últimas entradas são reserva
 // para quem vier a seguir — a ordem tem de acompanhar a lista ATLETAS do
@@ -90,7 +93,10 @@ let activos = 0;              // bitmask dos atletas ligados
 let camadaSquares = null;
 let detalheAberto = false;
 
-const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([39.5, -8.8], 9);
+// zoom em baixo à direita: no canto superior esquerdo ficava por baixo do
+// título. Em baixo também fica mais à mão no telemóvel.
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([39.5, -8.8], 9);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd', maxZoom: 19,
 }).addTo(map);
@@ -254,7 +260,7 @@ function renderPainel() {
       const pct = a.total ? Math.round(100 * so / a.total) : 0;
       linhas.push(`<div class="linha-stat">
         <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-        <span class="txt">${a.nome} — só dele</span></span>
+        <span class="txt">${a.nome} — único</span></span>
         <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
     });
 
