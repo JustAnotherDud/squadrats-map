@@ -28,6 +28,10 @@
   .esq span.txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .titulo-seccao { margin-top:12px; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
   .nota { font-size:10px; color:#6b7285; padding:8px 0 0; line-height:1.45; }
+  .detalhe-toggle { display:flex; justify-content:space-between; align-items:baseline; cursor:pointer; user-select:none; }
+  .detalhe-toggle .seta { color:#7ab8ff; text-transform:none; letter-spacing:0; font-size:11px; }
+  .detalhe-toggle:active { opacity:.7; }
+  .fraco { color:#7d8598; font-weight:400; font-size:11px; }
 
   #hover { position:absolute; z-index:1001; top:auto; bottom:calc(100% + 8px); left:10px; right:10px; background:rgba(21,24,33,.96); border:1px solid #2c3242; border-radius:9px; padding:8px 11px; font-size:12px; display:none; backdrop-filter: blur(4px); pointer-events:none; }
   #hover.visivel { display:block; }
@@ -55,27 +59,36 @@
 // Sem classificação por concelho nem troféus — o assunto aqui é quem
 // partilha o quê. Deliberadamente sem link para o mapa pessoal do José: são
 // dois sítios separados, e quem recebe este link não deve cair no outro.
-const COR_ATLETA = ['#ef4444', '#a855f7', '#facc15']; // Zé, Xeira, Carolina
+// Cor de cada pessoa, para os squares que só ela tem. Tons quentes, para não
+// colidirem com a escala de partilha (fria). As últimas entradas são reserva
+// para quem vier a seguir — a ordem tem de acompanhar a lista ATLETAS do
+// pipeline/fetch_club_squares.py, que é quem fixa os bits.
+const COR_ATLETA = [
+  '#ef4444', // Zé
+  '#a855f7', // Xeira
+  '#facc15', // Carolina
+  '#f97316', // reserva
+  '#ec4899', // reserva
+];
 
-// Cor por combinação. Os exclusivos ficam com a cor da pessoa; as
-// sobreposições vão todas para a metade fria do círculo cromático, que está
-// livre. Misturar as cores das pessoas seria mais intuitivo (vermelho +
-// amarelo = laranja) mas dava três tons quentes encostados uns aos outros —
-// num mapa escuro, com squares de poucos pixéis, não se distinguiam.
-const COR_MASK = {
-  1: '#ef4444', // Zé
-  2: '#a855f7', // Xeira
-  4: '#facc15', // Carolina
-  3: '#4ade80', // Zé + Xeira
-  5: '#22d3ee', // Zé + Carolina
-  6: '#3b82f6', // Xeira + Carolina
-  7: '#ffffff', // todos
-};
+// Escala de partilha: a cor diz **quantas pessoas** têm o square, não quais.
+// Uma cor por combinação não escalava — três pessoas dão 7 combinações, quatro
+// dão 15, cinco dão 31, e não há 15 cores que se distingam num mapa escuro em
+// squares de poucos pixéis. Quem partilha o quê fica no tooltip e nos toggles.
+// A rampa clareia com o número de pessoas, para se ler como escala.
+const COR_PARTILHA = ['#3b82f6', '#22d3ee', '#a7f3d0', '#ffffff']; // 2, 3, 4, 5+
+
+function corDe(mask) {
+  const n = contaBits(mask);
+  if (n === 1) return COR_ATLETA[Math.log2(mask)];
+  return COR_PARTILHA[Math.min(n - 2, COR_PARTILHA.length - 1)];
+}
 
 let dados = null;
 let porCoord = new Map();     // "x,y" -> mask
 let activos = 0;              // bitmask dos atletas ligados
 let camadaSquares = null;
+let detalheAberto = false;
 
 const map = L.map('map', { zoomControl: true, attributionControl: false }).setView([39.5, -8.8], 9);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -114,9 +127,9 @@ const CamadaSquares = L.GridLayer.extend({
       if (!em) continue;
       const px = sx * escala - ox, py = sy * escala - oy;
       if (px + escala < 0 || px > lado || py + escala < 0 || py > lado) continue;
-      ctx.fillStyle = COR_MASK[em];
-      // partilhados um pouco mais opacos — são o assunto da página
-      ctx.globalAlpha = contaBits(em) > 1 ? 0.85 : 0.65;
+      ctx.fillStyle = corDe(em);
+      // mais gente = mais opaco, a reforçar a rampa de cor
+      ctx.globalAlpha = contaBits(em) > 1 ? 0.85 : 0.6;
       ctx.fillRect(px, py, desenho, desenho);
     }
     return t;
@@ -150,9 +163,10 @@ function mostrarSquare(latlng) {
   const m = porCoord.get(x + ',' + y);
   const em = m ? m & activos : 0;
   if (!em) { hover.classList.remove('visivel'); return; }
+  const n = contaBits(em);
   hover.querySelector('.quem').innerHTML =
-    `<span class="dot" style="background:${COR_MASK[em]}"></span> ` +
-    (contaBits(em) === 1 ? `Só ${rotulo(em)}` : rotulo(em));
+    `<span class="dot" style="background:${corDe(em)}"></span> ` +
+    (n === 1 ? `Só ${rotulo(em)}` : `${n} pessoas · ${nomes(em).join(', ')}`);
   hover.querySelector('.coord').textContent =
     `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)} · square ${x}/${y}`;
   hover.classList.add('visivel');
@@ -194,8 +208,15 @@ function renderPainel() {
     const em = s[2] & activos;
     if (em) efectivas.set(em, (efectivas.get(em) || 0) + 1);
   }
-  const combos = [...efectivas.keys()]
-    .sort((a, b) => contaBits(a) - contaBits(b) || a - b);
+  // exclusivos ficam por pessoa (uma linha cada); partilhados juntam-se pelo
+  // número de pessoas, que é o que a cor no mapa passou a dizer
+  const soDe = new Map();     // índice do atleta -> nº de squares só dele
+  const partilhados = new Map(); // nº de pessoas -> nº de squares
+  for (const [m, n] of efectivas) {
+    const c = contaBits(m);
+    if (c === 1) soDe.set(Math.log2(m), n);
+    else partilhados.set(c, (partilhados.get(c) || 0) + n);
+  }
 
   const linhas = [];
   linhas.push('<div class="titulo-seccao">Por atleta</div>');
@@ -207,22 +228,58 @@ function renderPainel() {
       <b>${a.total.toLocaleString('pt-PT')}</b></div>`);
   });
 
-  linhas.push('<div class="titulo-seccao">Por combinação</div>');
-  combos.forEach(m => {
-    const n = efectivas.get(m);
-    const so = contaBits(m) === 1 ? 'Só ' : '';
+  linhas.push('<div class="titulo-seccao">No mapa</div>');
+  dados.atletas.forEach((a, i) => {
+    if (!soDe.has(i)) return;
     linhas.push(`<div class="linha-stat">
-      <span class="esq"><span class="dot" style="background:${COR_MASK[m]}"></span>
-      <span class="txt">${so}${rotulo(m)}</span></span>
-      <b>${n.toLocaleString('pt-PT')}</b></div>`);
+      <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+      <span class="txt">Só ${a.nome}</span></span>
+      <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`);
+  });
+  [...partilhados.keys()].sort((a, b) => a - b).forEach(c => {
+    linhas.push(`<div class="linha-stat">
+      <span class="esq"><span class="dot" style="background:${corDe((1 << c) - 1)}"></span>
+      <span class="txt">${c} pessoas</span></span>
+      <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`);
   });
 
+  // A cor já não diz *quem* partilha, só quantos. Esse detalhe passou a viver
+  // aqui — escondido por defeito para o painel não ficar uma parede de números.
+  linhas.push(`<div class="titulo-seccao detalhe-toggle">Detalhe
+    <span class="seta">${detalheAberto ? 'esconder' : 'mostrar'}</span></div>`);
+  if (detalheAberto) {
+    dados.atletas.forEach((a, i) => {
+      if (!(activos & (1 << i))) return;
+      const so = soDe.get(i) || 0;
+      const pct = a.total ? Math.round(100 * so / a.total) : 0;
+      linhas.push(`<div class="linha-stat">
+        <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+        <span class="txt">${a.nome} — só dele</span></span>
+        <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
+    });
+
+    const pares = [...efectivas.keys()].filter(m => contaBits(m) > 1)
+      .sort((a, b) => contaBits(a) - contaBits(b) || efectivas.get(b) - efectivas.get(a));
+    pares.forEach(m => {
+      linhas.push(`<div class="linha-stat">
+        <span class="esq"><span class="dot" style="background:${corDe(m)}"></span>
+        <span class="txt">${rotulo(m)}</span></span>
+        <b>${efectivas.get(m).toLocaleString('pt-PT')}</b></div>`);
+    });
+  }
+
   linhas.push(`<div class="nota">Squadratinhos (zoom 17, ~201 m de lado).
-    Os totais por atleta são sempre os reais; as combinações contam o que está
-    no mapa neste momento, por isso mudam quando se desliga alguém.<br>
+    A cor diz quantas pessoas têm o square; quem são está no tooltip e no detalhe.
+    Os totais por atleta são sempre os reais; as linhas de baixo contam o que
+    está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
     Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
 
-  document.getElementById('painel-corpo').innerHTML = linhas.join('');
+  const corpo = document.getElementById('painel-corpo');
+  corpo.innerHTML = linhas.join('');
+  corpo.querySelector('.detalhe-toggle').onclick = () => {
+    detalheAberto = !detalheAberto;
+    renderPainel();
+  };
 }
 
 const painel = document.getElementById('painel');
