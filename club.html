@@ -296,7 +296,10 @@ const painel = document.getElementById('painel');
 document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle('aberto');
 
 (async function () {
-  const r = await fetch('data/club.json');
+  // no-cache = revalidar sempre com o servidor (304 quando não mudou, por isso
+  // não custa tráfego). Sem isto o browser servia o JSON de ontem depois de um
+  // run do pipeline e a página parecia parada.
+  const r = await fetch('data/club.json', { cache: 'no-cache' });
   if (!r.ok) {
     document.getElementById('painel-resumo').textContent = 'club.json não encontrado';
     return;
