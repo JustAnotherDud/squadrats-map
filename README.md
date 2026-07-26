@@ -10,7 +10,8 @@ clube, consumido pelo `club-koms` como o `prs.json`.
 ## Estrutura
 
 - `index.html` — o mapa detalhado do José (GitHub Pages serve isto na raiz)
-- `amigos.html` — página comparativa: squadratinhos dos três atletas com conta Squadrats,
+- `amigos.html` — página do club (o ficheiro mantém o nome antigo: o URL já foi partilhado).
+  Comparativa: squadratinhos dos três atletas com conta Squadrats,
   cor por combinação de quem partilha cada square. Sem classificação por concelho nem troféus —
   é outro assunto e outro ficheiro de dados (`data/amigos.json`). Squares desenhados em canvas
   (~9000; em SVG o mapa engasgava a arrastar).

@@ -38,7 +38,7 @@ jobs:
       - name: Totais do clube (Zé/Xeira/Carolina) — para o club-koms
         run: python3 pipeline/fetch_club_koms.py data
 
-      - name: Squares dos amigos (squadratinhos) — para o amigos.html
+      - name: Squares do club (squadratinhos) — para a página do club
         run: python3 pipeline/fetch_amigos.py data
 
       - name: Commitar só se houver diferença real
