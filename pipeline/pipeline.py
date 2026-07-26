@@ -69,9 +69,13 @@ def write_trophies(trophies, counts, out_dir):
     taparem — o `size` publicado continua a ser o do servidor (nº de
     clusters, yard incluído), só a geometria é que é a dos secundários.
     """
-    from shapely.geometry import mapping
+    from shapely.geometry import MultiPolygon, mapping
 
     def simplificar(geom):
+        # mesma razão do sort dos tile_info: a ordem dos polígonos dentro de um
+        # MultiPolygon não é estável entre plataformas
+        if isinstance(geom, MultiPolygon):
+            geom = MultiPolygon(sorted(geom.geoms, key=lambda p: p.bounds))
         # a grelha é ortogonal: simplificar tira vértices redundantes das
         # bordas clipadas sem mexer no desenho
         g = geom.simplify(1e-6, preserve_topology=True)
@@ -209,6 +213,11 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
                     unclassified_foreign += 1
 
         visitados_por_grelha[type_name] = ({(s["x"], s["y"]) for s in out}, zoom)
+
+        # ordem estável: a de `reconstruct_squares` varia com a plataforma/versão
+        # do shapely, e sem isto o `git diff --quiet` do workflow via sempre
+        # diferença e comitava todos os dias mesmo sem squares novos
+        out.sort(key=lambda s: (s["x"], s["y"]))
 
         out_path = os.path.join(out_dir, f"tile_info_{type_name}.json")
         with open(out_path, "w", encoding="utf-8") as f:

@@ -24,7 +24,11 @@ clube, consumido pelo `club-koms` como o `prs.json`.
     `squadrats`/`squadratinhos` tem de bater exatamente com o `size` que o próprio servidor
     reporta — se não bater, `pipeline.py`/`fetch_club_koms.py` rebentam em vez de publicar dados
     errados.
-  - `pipeline.py` — orquestrador. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
+  - `run_all.py` — **ponto de entrada do workflow**: corre os três consumidores no mesmo
+    processo, para cada atleta ser varrido uma vez só. Em passos separados, o José era varrido
+    três vezes por run e a Xeira/Carolina duas — ~1200 pedidos em duplicado. A cache está no
+    `tiles_fetch.scan_athlete`. Os três scripts continuam a correr sozinhos, para debug.
+  - `pipeline.py` — orquestrador do mapa detalhado. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
     ou `py pipeline.py --kml <caminho.kml> <out_dir>` (fallback, ver abaixo)
   - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`
   - `fetch_club_squares.py` — squadratinhos dos mesmos três, com bitmask de quem tem cada square →
@@ -83,7 +87,8 @@ já expõe o UID). Para não abusar:
 
 - Correr no máximo uma vez por dia (o `fetch-map-data.yml` está em cron diário). Era semanal;
   passou a diário para o mapa não andar uma semana atrás das corridas. Um varrimento completo
-  são ~1200 pedidos pelos três atletas — pouco, mas não subir a frequência sem motivo
+  são ~1200 pedidos pelos três atletas (uma vez só cada um, ver `run_all.py`) — pouco, mas
+  não subir a frequência sem motivo
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
 - Concorrência baixa (`MAX_CONCURRENCY = 4` em `tiles_fetch.py`, não subir sem motivo)
 - Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)

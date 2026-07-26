@@ -32,14 +32,11 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Mapa detalhado (José) — vector tiles -> concelho/distrito
-        run: python3 pipeline/pipeline.py --uid PjHY1RpxbmgMrQG3ITdTeDa7t6M2 data
-
-      - name: Totais do clube (Zé/Xeira/Carolina) — para o club-koms
-        run: python3 pipeline/fetch_club_koms.py data
-
-      - name: Squares do club (squadratinhos) — para a página do club
-        run: python3 pipeline/fetch_club_squares.py data
+      # Um passo só, de propósito: os três consumidores partilham o varrimento
+      # (ver pipeline/run_all.py). Em passos separados, cada um varria os
+      # mesmos UIDs outra vez.
+      - name: Varrer e gerar tudo (mapa detalhado + totais do clube + club)
+        run: python3 pipeline/run_all.py data
 
       - name: Commitar só se houver diferença real
         run: |
