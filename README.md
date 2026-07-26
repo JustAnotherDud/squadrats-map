@@ -2,7 +2,7 @@
 
 Mapa de squares (squadrats/squadratinhos) capturados, com % por concelho/distrito de Portugal, servido via GitHub Pages.
 
-O ciclo é automático: `fetch-map-data.yml` corre semanalmente, busca os dados **diretamente aos
+O ciclo é automático: `fetch-map-data.yml` corre diariamente, busca os dados **diretamente aos
 vector tiles da Squadrats** (sem export manual de KML) e comita se houver diferença real. Também
 publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os 3 atletas do
 clube, consumido pelo `club-koms` como o `prs.json`.
@@ -14,9 +14,6 @@ clube, consumido pelo `club-koms` como o `prs.json`.
   cor por combinação de quem partilha cada square. Sem classificação por concelho nem troféus —
   é outro assunto e outro ficheiro de dados (`data/club.json`). Squares desenhados em canvas
   (~9000; em SVG o mapa engasgava a arrastar).
-- `amigos.html` — redirect para o `club.html`. A página chamou-se assim durante um dia e o URL
-  chegou a ser partilhado; o ficheiro fica para não partir esse link. Apagável quando já não
-  aparecer nos acessos.
 - `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube) + `trophies.json` (formas de yard/backyards/übersquadrat, para as camadas opcionais do mapa)
 - `pipeline/` — busca os squares do José e produz os ficheiros em `data/`
   - `tiles_fetch.py` — **fonte principal**: fetch directo aos vector tiles da Squadrats
@@ -47,7 +44,7 @@ clube, consumido pelo `club-koms` como o `prs.json`.
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
 - `supabase/functions/` — Edge Functions do caminho **fallback** por KML (ver arquitetura abaixo)
 - `.github/workflows/`
-  - `fetch-map-data.yml` — **principal**, cron semanal, sem dependência do Drive
+  - `fetch-map-data.yml` — **principal**, cron diário (06:00 UTC), sem dependência do Drive
   - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
 
 ## O que significa cada camada (`size`)
@@ -84,7 +81,9 @@ se taparem); o `size` continua a ser o do servidor, com o yard incluído.
 públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
 já expõe o UID). Para não abusar:
 
-- Correr no máximo semanalmente (o `fetch-map-data.yml` já está assim)
+- Correr no máximo uma vez por dia (o `fetch-map-data.yml` está em cron diário). Era semanal;
+  passou a diário para o mapa não andar uma semana atrás das corridas. Um varrimento completo
+  são ~1200 pedidos pelos três atletas — pouco, mas não subir a frequência sem motivo
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
 - Concorrência baixa (`MAX_CONCURRENCY = 4` em `tiles_fetch.py`, não subir sem motivo)
 - Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)
