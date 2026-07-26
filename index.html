@@ -227,7 +227,10 @@ const DATA_OPCIONAIS = new Set(['trophies', 'suggestions']);
 async function loadAll() {
   const entries = Object.entries(DATA_URLS);
   const results = await Promise.all(entries.map(([key, url]) =>
-    fetch(url).then(r => r.json())
+    // no-cache = revalidar sempre com o servidor. Sem isto o browser servia
+    // JSON guardado e mostrava dados de ontem depois de um run do pipeline —
+    // não é "cache: none", é 304 quando não mudou, portanto não custa tráfego
+    fetch(url, { cache: 'no-cache' }).then(r => r.json())
       .catch(err => {
         if (DATA_OPCIONAIS.has(key)) return {};
         throw err;
