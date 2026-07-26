@@ -1,0 +1,103 @@
+"""Squares dos três atletas com conta Squadrats, num ficheiro só, para a
+página comparativa (amigos.html).
+
+Só squadratinhos: a z14 os squares são grandes demais para a sobreposição
+dizer alguma coisa — toda a gente partilha o mesmo punhado de quadrados.
+
+Cada square sai como [x, y, mask], em que mask é um bitmask de quem o tem
+(bit 0 = primeiro atleta da lista, e por aí fora). Um ficheiro em vez de
+três evita mandar as coordenadas repetidas dos squares partilhados, que são
+a maioria — vivem todos na mesma zona.
+
+Não classifica por concelho: aqui não serve para nada e é a parte lenta.
+
+Uso: py fetch_amigos.py [pasta_saida]
+"""
+import argparse
+import datetime
+import json
+import os
+
+from kml_parse import reconstruct_squares
+from tiles_fetch import scan_athlete
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
+
+CAMADA = "squadratinhos"
+ZOOM = 17
+
+# a ordem fixa a atribuição dos bits — não reordenar sem regenerar o ficheiro
+ATLETAS = [
+    ("Zé", "PjHY1RpxbmgMrQG3ITdTeDa7t6M2"),
+    ("Xeira", "yIVPnafX3WcNbDt5MKWqEZMqUD42"),
+    ("Carolina", "ZF81dc6PXFQm3iEfyNFMsUPlSHz2"),
+]
+
+
+def squares_de(uid):
+    """Conjunto de (x, y) do atleta, validado contra o `size` do servidor."""
+    geometries, _ = scan_athlete(uid)
+    if CAMADA not in geometries:
+        raise RuntimeError(f"UID '{uid}': camada '{CAMADA}' em falta no varrimento")
+
+    declared_size, geom = geometries[CAMADA]
+    squares = {(x, y) for x, y, _lon, _lat in reconstruct_squares(geom, ZOOM)}
+    if declared_size is None or len(squares) != declared_size:
+        raise RuntimeError(
+            f"UID '{uid}': {CAMADA} — reconstruídos {len(squares)}, servidor diz "
+            f"{declared_size}. Varrimento incompleto ou bug de geometria — a abortar "
+            f"sem publicar amigos.json."
+        )
+    return squares
+
+
+def main(out_dir):
+    por_atleta = {}
+    for nome, uid in ATLETAS:
+        print(f"a varrer {nome} ({uid})...")
+        por_atleta[nome] = squares_de(uid)
+        print(f"{nome}: {len(por_atleta[nome])} squadratinhos")
+
+    mascaras = {}
+    for i, (nome, _uid) in enumerate(ATLETAS):
+        for s in por_atleta[nome]:
+            mascaras[s] = mascaras.get(s, 0) | (1 << i)
+
+    # exclusivo = mask com um bit só, e esse bit é o do atleta
+    atletas_out = []
+    for i, (nome, _uid) in enumerate(ATLETAS):
+        bit = 1 << i
+        exclusivos = sum(1 for m in mascaras.values() if m == bit)
+        atletas_out.append({
+            "nome": nome,
+            "total": len(por_atleta[nome]),
+            "exclusivos": exclusivos,
+            "partilhados": len(por_atleta[nome]) - exclusivos,
+        })
+
+    # quantos squares por combinação — a legenda mostra isto sem ter de contar
+    por_mask = {}
+    for m in mascaras.values():
+        por_mask[m] = por_mask.get(m, 0) + 1
+
+    resultado = {
+        "atualizado": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "zoom": ZOOM,
+        "atletas": atletas_out,
+        "por_mask": {str(k): v for k, v in sorted(por_mask.items())},
+        "squares": [[x, y, m] for (x, y), m in sorted(mascaras.items())],
+    }
+
+    out_path = os.path.join(out_dir, "amigos.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(resultado, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"{len(mascaras)} squares distintos -> {out_path}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("out_dir", nargs="?", default=DATA_DIR)
+    args = parser.parse_args()
+    os.makedirs(args.out_dir, exist_ok=True)
+    main(args.out_dir)
