@@ -14,7 +14,7 @@ on:
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
-  group: fetch-map-data-push
+  group: squadrats-data-push
   cancel-in-progress: false
 
 jobs:
