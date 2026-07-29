@@ -22,7 +22,7 @@ on:
 # primeiro terminar (checkout já traz o commit dele), por isso o "git diff
 # --quiet" do passo de commit trata-o como no-op se não houver nada de novo.
 concurrency:
-  group: process-kml-push
+  group: squadrats-data-push
   cancel-in-progress: false
 
 jobs:
