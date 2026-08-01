@@ -33,6 +33,7 @@ ATLETAS = [
     ("Xeira", "yIVPnafX3WcNbDt5MKWqEZMqUD42"),
     ("Carolina", "ZF81dc6PXFQm3iEfyNFMsUPlSHz2"),
     ("Inês S.", "C4bIQgAqI7SlSo7SPsudWM4LSwq2"),
+    ("Pedro", "zrId7ywBfCQPt28q5VAzpva01ST2"),
 ]
 
 
