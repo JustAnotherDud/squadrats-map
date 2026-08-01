@@ -62,36 +62,73 @@
 // partilha o quê. Deliberadamente sem link para o mapa pessoal do José: são
 // dois sítios separados, e quem recebe este link não deve cair no outro.
 
-// Cor de cada pessoa, para os squares que só ela tem. Tons quentes, para não
-// colidirem com a escala de partilha (fria). A ordem tem de acompanhar a lista
-// ATLETAS do pipeline/fetch_club_squares.py, que é quem fixa os bits.
+// Uma cor por pessoa, e mais nada. Os squares partilhados são pintados às
+// riscas com as cores de quem os tem — não é preciso inventar cor nenhuma
+// para as combinações.
 //
-// A Inês S. começou em rosa e não resultou: a 30° do vermelho do Zé, no mapa
-// os dois baralhavam-se (e o roxo da Xeira também não ajudava). Passou a
-// verde, que é o que fica mais longe de toda a gente — custou mudar o 4º
-// degrau da rampa de partilha, que ocupava essa zona.
+// Foi isto que resolveu o problema de escala: com 5 pessoas há 26 combinações
+// possíveis, e não existem 26 cores que se distingam num mapa escuro. Antes
+// havia uma rampa a dizer *quantas* pessoas tinham o square e perdia-se logo
+// *quem*; agora vê-se as duas coisas ao mesmo tempo. E o círculo de cores fica
+// todo livre para as pessoas, que era o que estava a apertar.
+//
+// Matizes escolhidas o mais afastadas possível umas das outras: 0 (vermelho),
+// 48 (amarelo), 142 (verde), 199 (azul), 271 (roxo). A ordem tem de acompanhar
+// a lista ATLETAS do pipeline/fetch_club_squares.py, que é quem fixa os bits.
 const COR_ATLETA = [
   '#ef4444', // Zé — vermelho
   '#a855f7', // Xeira — roxo
   '#facc15', // Carolina — amarelo
   '#22c55e', // Inês S. — verde
-  '#f97316', // reserva
+  '#38bdf8', // Pedro — azul
 ];
 
-// Escala de partilha: a cor diz **quantas pessoas** têm o square, não quais.
-// Uma cor por combinação não escalava — três pessoas dão 7 combinações, quatro
-// dão 15, cinco dão 31, e não há 15 cores que se distingam num mapa escuro em
-// squares de poucos pixéis. Quem partilha o quê fica no tooltip e nos toggles.
-// A rampa clareia com o número de pessoas, para se ler como escala.
-// O 4º degrau era menta (#a7f3d0) e ocupava a zona verde do círculo. Passou a
-// branco para libertar o verde para a Inês S. — perde-se um degrau de rampa
-// mas ganha-se uma pessoa distinguível, que conta mais.
-const COR_PARTILHA = ['#3b82f6', '#22d3ee', '#ffffff', '#ffffff']; // 2, 3, 4, 5+
+function coresDe(mask) {
+  const out = [];
+  for (let i = 0; i < COR_ATLETA.length; i++) if (mask & (1 << i)) out.push(COR_ATLETA[i]);
+  return out;
+}
 
-function corDe(mask) {
-  const n = contaBits(mask);
-  if (n === 1) return COR_ATLETA[Math.log2(mask)];
-  return COR_PARTILHA[Math.min(n - 2, COR_PARTILHA.length - 1)];
+// Abaixo disto um square não tem pixéis que cheguem para riscas legíveis;
+// pinta-se de cinzento claro, que lê como "partilhado, aproxima para ver quem"
+const PX_MIN_RISCAS = 7;
+const COR_PARTILHADO_LONGE = '#cbd5e1';
+
+/** Riscas diagonais dentro do square, uma por pessoa. */
+function pintarRiscas(ctx, px, py, lado, cores) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(px, py, lado, lado);
+  ctx.clip();
+  ctx.translate(px + lado / 2, py + lado / 2);
+  ctx.rotate(Math.PI / 4);
+  const diag = lado * Math.SQRT2;
+  const banda = diag / cores.length;
+  for (let i = 0; i < cores.length; i++) {
+    ctx.fillStyle = cores[i];
+    // +0.6 para as bandas encavalitarem e não deixarem fresta entre elas
+    ctx.fillRect(-diag / 2, -diag / 2 + i * banda, diag, banda + 0.6);
+  }
+  ctx.restore();
+}
+
+/** Riscas cinzentas para as linhas genéricas ("3 pessoas"): dizem "riscado,
+ *  três bandas" sem inventar de quem são as cores. */
+function riscasNeutras(n) {
+  const passo = 3;
+  const paradas = Array.from({ length: n }, (_, i) =>
+    `${i % 2 ? '#5b6373' : '#aab2c0'} ${i * passo}px ${(i + 1) * passo}px`).join(', ');
+  return `repeating-linear-gradient(45deg, ${paradas})`;
+}
+
+/** Mesmo padrão em CSS, para as bolinhas da legenda. */
+function fundoDe(mask) {
+  const cores = coresDe(mask);
+  if (cores.length === 1) return cores[0];
+  const passo = 3;
+  const paradas = cores.map((c, i) =>
+    `${c} ${i * passo}px ${(i + 1) * passo}px`).join(', ');
+  return `repeating-linear-gradient(45deg, ${paradas})`;
 }
 
 let dados = null;
@@ -140,10 +177,21 @@ const CamadaSquares = L.GridLayer.extend({
       if (!em) continue;
       const px = sx * escala - ox, py = sy * escala - oy;
       if (px + escala < 0 || px > lado || py + escala < 0 || py > lado) continue;
-      ctx.fillStyle = corDe(em);
-      // mais gente = mais opaco, a reforçar a rampa de cor
-      ctx.globalAlpha = contaBits(em) > 1 ? 0.85 : 0.6;
-      ctx.fillRect(px, py, desenho, desenho);
+
+      const n = contaBits(em);
+      if (n === 1) {
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = COR_ATLETA[Math.log2(em)];
+        ctx.fillRect(px, py, desenho, desenho);
+      } else if (desenho >= PX_MIN_RISCAS) {
+        ctx.globalAlpha = 0.85; // partilhados mais opacos — são o assunto
+        pintarRiscas(ctx, px, py, desenho, coresDe(em));
+      } else {
+        // longe demais para riscas: cinzento a dizer "partilhado"
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = COR_PARTILHADO_LONGE;
+        ctx.fillRect(px, py, desenho, desenho);
+      }
     }
     return t;
   },
@@ -177,9 +225,13 @@ function mostrarSquare(latlng) {
   const em = m ? m & activos : 0;
   if (!em) { hover.classList.remove('visivel'); return; }
   const n = contaBits(em);
+  // cada nome com a bolinha da sua cor — é o que as riscas do square dizem
+  const quem = dados.atletas
+    .map((a, i) => [a, i]).filter(([, i]) => em & (1 << i))
+    .map(([a, i]) => `<span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}`)
+    .join(' ');
   hover.querySelector('.quem').innerHTML =
-    `<span class="dot" style="background:${corDe(em)}"></span> ` +
-    (n === 1 ? `Só ${rotulo(em)}` : `${n} pessoas · ${nomes(em).join(', ')}`);
+    (n === 1 ? 'Só ' : `<b>${n} pessoas</b> · `) + quem;
   hover.querySelector('.coord').textContent =
     `${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)} · square ${x}/${y}`;
   hover.classList.add('visivel');
@@ -213,17 +265,18 @@ function renderPainel() {
     `<b>${visiveis.toLocaleString('pt-PT')}</b> squadratinhos visíveis`;
 
   // contar pelas máscaras efectivas (m & activos), não pelas do ficheiro:
-  // com a Xeira desligada, um square Xeira+Carolina aparece no mapa com a cor
-  // da Carolina, e a legenda tem de dizer o mesmo — senão explica cores que
-  // lá não estão e omite as que estão
+  // com a Xeira desligada, um square Xeira+Carolina passa a ser só da Carolina
+  // no mapa, e a legenda tem de dizer o mesmo — senão explica riscas que lá não
+  // estão e omite as que estão
   const efectivas = new Map();
   for (const s of dados.squares) {
     const em = s[2] & activos;
     if (em) efectivas.set(em, (efectivas.get(em) || 0) + 1);
   }
-  // exclusivos ficam por pessoa (uma linha cada); partilhados juntam-se pelo
-  // número de pessoas, que é o que a cor no mapa passou a dizer
-  const soDe = new Map();     // índice do atleta -> nº de squares só dele
+  // exclusivos ficam por pessoa (uma linha cada); partilhados agrupam-se pelo
+  // número de pessoas, senão com 5 atletas eram 26 linhas. As combinações
+  // concretas, com as riscas certas, ficam no Detalhe.
+  const soDe = new Map();        // índice do atleta -> nº de squares só dele
   const partilhados = new Map(); // nº de pessoas -> nº de squares
   for (const [m, n] of efectivas) {
     const c = contaBits(m);
@@ -251,13 +304,13 @@ function renderPainel() {
   });
   [...partilhados.keys()].sort((a, b) => a - b).forEach(c => {
     linhas.push(`<div class="linha-stat">
-      <span class="esq"><span class="dot" style="background:${corDe((1 << c) - 1)}"></span>
+      <span class="esq"><span class="dot" style="background:${riscasNeutras(c)}"></span>
       <span class="txt">${c} pessoas</span></span>
       <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`);
   });
 
-  // A cor já não diz *quem* partilha, só quantos. Esse detalhe passou a viver
-  // aqui — escondido por defeito para o painel não ficar uma parede de números.
+  // Quem partilha com quem vive aqui, com as riscas certas de cada combinação —
+  // escondido por defeito para o painel não ficar uma parede de números.
   linhas.push(`<div class="titulo-seccao detalhe-toggle">Detalhe
     <span class="seta">${detalheAberto ? 'esconder' : 'mostrar'}</span></div>`);
   if (detalheAberto) {
@@ -275,14 +328,16 @@ function renderPainel() {
       .sort((a, b) => contaBits(a) - contaBits(b) || efectivas.get(b) - efectivas.get(a));
     pares.forEach(m => {
       linhas.push(`<div class="linha-stat">
-        <span class="esq"><span class="dot" style="background:${corDe(m)}"></span>
+        <span class="esq"><span class="dot" style="background:${fundoDe(m)}"></span>
         <span class="txt">${rotulo(m)}</span></span>
         <b>${efectivas.get(m).toLocaleString('pt-PT')}</b></div>`);
     });
   }
 
   linhas.push(`<div class="nota">Squadratinhos (zoom 17, ~201 m de lado).
-    A cor diz quantas pessoas têm o square; quem são está no tooltip e no detalhe.
+    Cada pessoa tem a sua cor; os squares partilhados são pintados às riscas com
+    as cores de quem os tem. Muito longe as riscas não cabem no square e ficam
+    cinzentas — aproxima para ver quem é.
     Os totais por atleta são sempre os reais; as linhas de baixo contam o que
     está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
     Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);

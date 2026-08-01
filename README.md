@@ -10,8 +10,10 @@ clube, consumido pelo `club-koms` como o `prs.json`.
 ## Estrutura
 
 - `index.html` — o mapa detalhado do José (GitHub Pages serve isto na raiz)
-- `club.html` — página do club: squadratinhos dos três atletas com conta Squadrats,
-  cor por combinação de quem partilha cada square. Sem classificação por concelho nem troféus —
+- `club.html` — página do club: squadratinhos dos atletas com conta Squadrats. Uma cor por
+  pessoa; os squares partilhados são pintados às riscas com as cores de quem os tem, o que
+  evita ter de inventar cores para combinações (com 5 atletas seriam 26). Abaixo de 7px por
+  square as riscas não cabem e fica cinzento. Sem classificação por concelho nem troféus —
   é outro assunto e outro ficheiro de dados (`data/club.json`). Squares desenhados em canvas
   (~9000; em SVG o mapa engasgava a arrastar).
 - `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube) + `trophies.json` (formas de yard/backyards/übersquadrat, para as camadas opcionais do mapa)
