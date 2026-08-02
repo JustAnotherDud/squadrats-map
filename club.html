@@ -15,6 +15,8 @@
   .seg { display:flex; gap:4px; pointer-events:auto; flex-wrap:wrap; }
   .seg button { background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 9px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:5px; }
   .seg button.off { opacity:.45; }
+  #seg-modo button { opacity:.5; }
+  #seg-modo button.on { opacity:1; border-color:#4b5568; background:rgba(45,52,68,.95); }
   .dot { display:inline-block; width:9px; height:9px; border-radius:2px; flex-shrink:0; }
 
   #painel { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:#151821; border-top:1px solid #262b38; border-radius:14px 14px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.4); max-height:58vh; display:flex; flex-direction:column; }
@@ -48,6 +50,10 @@
 <div id="topbar">
   <h1>Squadrats — Club</h1>
   <div class="seg" id="seg-atletas"></div>
+  <div class="seg" id="seg-modo">
+    <button data-m="quantos" class="on">Quantos</button>
+    <button data-m="quem">Quem</button>
+  </div>
 </div>
 
 <div id="painel">
@@ -62,15 +68,19 @@
 // partilha o quê. Deliberadamente sem link para o mapa pessoal do José: são
 // dois sítios separados, e quem recebe este link não deve cair no outro.
 
-// Uma cor por pessoa, e mais nada. Os squares partilhados são pintados às
-// riscas com as cores de quem os tem — não é preciso inventar cor nenhuma
-// para as combinações.
+// Dois modos, porque são duas perguntas diferentes e nenhuma vista responde
+// bem às duas:
 //
-// Foi isto que resolveu o problema de escala: com 5 pessoas há 26 combinações
-// possíveis, e não existem 26 cores que se distingam num mapa escuro. Antes
-// havia uma rampa a dizer *quantas* pessoas tinham o square e perdia-se logo
-// *quem*; agora vê-se as duas coisas ao mesmo tempo. E o círculo de cores fica
-// todo livre para as pessoas, que era o que estava a apertar.
+//   "quantos" — cor da pessoa nos exclusivos, escala neutra (cinzento a branco)
+//               nos partilhados. É o modo legível de longe, e o que está por
+//               defeito: vê-se o território de cada um sem ruído.
+//   "quem"    — partilhados às riscas com as cores dos donos. Diz mais, mas a
+//               zooms normais um square tem poucos pixéis e 3 a 5 riscas
+//               tornam-se ruído. Serve para aproximar e investigar.
+//
+// A escala do "quantos" é deliberadamente neutra: com 5 pessoas há 26
+// combinações possíveis e não existem 26 cores distinguíveis, portanto não se
+// tenta — o *quem* fica no tooltip, no detalhe e no modo "quem".
 //
 // Matizes escolhidas o mais afastadas possível umas das outras: 0 (vermelho),
 // 48 (amarelo), 142 (verde), 199 (azul), 271 (roxo). A ordem tem de acompanhar
@@ -89,10 +99,17 @@ function coresDe(mask) {
   return out;
 }
 
-// Abaixo disto um square não tem pixéis que cheguem para riscas legíveis;
-// pinta-se de cinzento claro, que lê como "partilhado, aproxima para ver quem"
-const PX_MIN_RISCAS = 7;
-const COR_PARTILHADO_LONGE = '#cbd5e1';
+// Escala neutra do modo "quantos": não compete com nenhuma cor de pessoa
+// (não tem matiz nenhuma) e clareia com o número de donos.
+const ESCALA_PARTILHA = ['#7c8698', '#a9b3c4', '#d5dbe6', '#ffffff']; // 2,3,4,5+
+
+function corPartilha(n) {
+  return ESCALA_PARTILHA[Math.min(n - 2, ESCALA_PARTILHA.length - 1)];
+}
+
+// Abaixo de 10px por square, 3 a 5 riscas ficam com 2-3px cada e leem-se como
+// ruído — nesse caso o modo "quem" cai para a escala neutra do "quantos".
+const PX_MIN_RISCAS = 10;
 
 /** Riscas diagonais dentro do square, uma por pessoa. */
 function pintarRiscas(ctx, px, py, lado, cores) {
@@ -136,6 +153,7 @@ let porCoord = new Map();     // "x,y" -> mask
 let activos = 0;              // bitmask dos atletas ligados
 let camadaSquares = null;
 let detalheAberto = false;
+let modo = 'quantos';   // 'quantos' (legível de longe) | 'quem' (riscas)
 
 // zoom em baixo à direita: no canto superior esquerdo ficava por baixo do
 // título. Em baixo também fica mais à mão no telemóvel.
@@ -183,13 +201,12 @@ const CamadaSquares = L.GridLayer.extend({
         ctx.globalAlpha = 0.6;
         ctx.fillStyle = COR_ATLETA[Math.log2(em)];
         ctx.fillRect(px, py, desenho, desenho);
-      } else if (desenho >= PX_MIN_RISCAS) {
+      } else if (modo === 'quem' && desenho >= PX_MIN_RISCAS) {
         ctx.globalAlpha = 0.85; // partilhados mais opacos — são o assunto
         pintarRiscas(ctx, px, py, desenho, coresDe(em));
       } else {
-        // longe demais para riscas: cinzento a dizer "partilhado"
-        ctx.globalAlpha = 0.85;
-        ctx.fillStyle = COR_PARTILHADO_LONGE;
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = corPartilha(n);
         ctx.fillRect(px, py, desenho, desenho);
       }
     }
@@ -304,7 +321,7 @@ function renderPainel() {
   });
   [...partilhados.keys()].sort((a, b) => a - b).forEach(c => {
     linhas.push(`<div class="linha-stat">
-      <span class="esq"><span class="dot" style="background:${riscasNeutras(c)}"></span>
+      <span class="esq"><span class="dot" style="background:${modo === 'quem' ? riscasNeutras(c) : corPartilha(c)}"></span>
       <span class="txt">${c} pessoas</span></span>
       <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`);
   });
@@ -328,16 +345,17 @@ function renderPainel() {
       .sort((a, b) => contaBits(a) - contaBits(b) || efectivas.get(b) - efectivas.get(a));
     pares.forEach(m => {
       linhas.push(`<div class="linha-stat">
-        <span class="esq"><span class="dot" style="background:${fundoDe(m)}"></span>
+        <span class="esq"><span class="dot" style="background:${modo === 'quem' ? fundoDe(m) : corPartilha(contaBits(m))}"></span>
         <span class="txt">${rotulo(m)}</span></span>
         <b>${efectivas.get(m).toLocaleString('pt-PT')}</b></div>`);
     });
   }
 
   linhas.push(`<div class="nota">Squadratinhos (zoom 17, ~201 m de lado).
-    Cada pessoa tem a sua cor; os squares partilhados são pintados às riscas com
-    as cores de quem os tem. Muito longe as riscas não cabem no square e ficam
-    cinzentas — aproxima para ver quem é.
+    Cada pessoa tem a sua cor. Em <b>Quantos</b>, os partilhados seguem uma escala
+    cinzenta que clareia com o número de donos. Em <b>Quem</b>, levam riscas com as
+    cores de quem os tem — mas só a partir de certo zoom, senão as riscas ficam
+    mais finas que o legível.
     Os totais por atleta são sempre os reais; as linhas de baixo contam o que
     está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
     Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
@@ -349,6 +367,17 @@ function renderPainel() {
     renderPainel();
   };
 }
+
+document.querySelectorAll('#seg-modo button').forEach(b => {
+  b.onclick = () => {
+    modo = b.dataset.m;
+    document.querySelectorAll('#seg-modo button').forEach(o =>
+      o.classList.toggle('on', o.dataset.m === modo));
+    redesenhar();
+    renderPainel();
+    hover.classList.remove('visivel');
+  };
+});
 
 const painel = document.getElementById('painel');
 document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle('aberto');
