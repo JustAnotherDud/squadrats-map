@@ -82,6 +82,26 @@ def tile_center(x, y, z):
     return (lon1 + lon2) / 2, (lat1 + lat2) / 2
 
 
+# Instrumentação temporária: quantificar quanto do custo de
+# reconstruct_squares é trabalho repetido sobre a MESMA geometria, chamada a
+# partir de pipeline.py / fetch_club_koms.py / fetch_club_squares.py. id(geom)
+# é estável dentro de um processo porque tiles_fetch._CACHE mantém o objeto
+# vivo (mesma referência devolvida a cada chamador) — não há risco de reuso
+# de id() por garbage collection enquanto isso for verdade. Remover depois de
+# decidir se vale a pena cachear (ver print_reconstruct_stats).
+import time as _time
+
+_RECONSTRUCT_STATS = {"calls": 0, "total_s": 0.0, "repeat_calls": 0, "repeat_s": 0.0, "seen": set()}
+
+
+def print_reconstruct_stats():
+    s = _RECONSTRUCT_STATS
+    print(
+        f"reconstruct_squares: {s['calls']} chamadas, {s['total_s']:.2f}s total | "
+        f"{s['repeat_calls']} repetidas (geometria já vista), {s['repeat_s']:.2f}s desperdiçados nelas"
+    )
+
+
 def reconstruct_squares(geom, zoom):
     """Varre a grelha de tiles XYZ e devolve os (x, y) cujo centro cai dentro
     do polígono (mesma convenção usada para classificar os squares originalmente).
@@ -94,6 +114,10 @@ def reconstruct_squares(geom, zoom):
     """
     from shapely.geometry import Point
     from shapely.prepared import prep
+
+    _t0 = _time.time()
+    _repeat = id(geom) in _RECONSTRUCT_STATS["seen"]
+    _RECONSTRUCT_STATS["seen"].add(id(geom))
 
     components = list(geom.geoms) if hasattr(geom, "geoms") else [geom]
 
@@ -111,4 +135,11 @@ def reconstruct_squares(geom, zoom):
                 cx, cy = tile_center(x, y, zoom)
                 if prepared.contains(Point(cx, cy)):
                     squares.append((x, y, cx, cy))
+
+    _elapsed = _time.time() - _t0
+    _RECONSTRUCT_STATS["calls"] += 1
+    _RECONSTRUCT_STATS["total_s"] += _elapsed
+    if _repeat:
+        _RECONSTRUCT_STATS["repeat_calls"] += 1
+        _RECONSTRUCT_STATS["repeat_s"] += _elapsed
     return squares
