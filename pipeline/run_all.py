@@ -41,6 +41,7 @@ def main(out_dir):
         print(f"--- {nome}: {time.time() - t:.0f}s", flush=True)
 
     print(f"\ntotal: {time.time() - inicio:.0f}s")
+    kml_parse.print_reconstruct_stats()  # instrumentação temporária — ver kml_parse.py
 
 
 if __name__ == "__main__":
