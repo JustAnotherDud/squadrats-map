@@ -1,5 +1,5 @@
 {
-  "atualizado": "2026-08-04T13:48:00Z",
+  "atualizado": "2026-08-04T19:57:51Z",
   "atletas": {
     "Zé": {
       "yard": 90,
@@ -7,9 +7,9 @@
       "ubersquadrat": 6,
       "ubersquadratinho": 13,
       "backyards": 11,
-      "backyardinhos": 151,
-      "squadrats": 419,
-      "squadratinhos": 5336
+      "backyardinhos": 153,
+      "squadrats": 425,
+      "squadratinhos": 5368
     },
     "Xeira": {
       "yard": 116,
@@ -46,8 +46,8 @@
       "ubersquadratinho": 4,
       "backyards": 8,
       "backyardinhos": 51,
-      "squadrats": 177,
-      "squadratinhos": 1493
+      "squadrats": 181,
+      "squadratinhos": 1512
     }
   }
 }
