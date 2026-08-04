@@ -17,6 +17,7 @@ import sys
 import time
 
 import fetch_club_koms
+import kml_parse
 import fetch_club_squares
 import pipeline
 
