@@ -1,6 +1,7 @@
 """One-off: calcula o total de tiles (zoom14/17) que existem em cada concelho/
 distrito/país de Portugal, usando o MESMO critério de atribuição do classify.py
-(centro do tile, STRtree "within" + fallback de buffer costeiro + nearest).
+(maior área de intersecção do tile, sem limiar mínimo; se nada intersecta,
+fallback de proximidade simétrico PT/estrangeiro dentro de COASTAL_BUFFER_DEG).
 
 Corre uma vez, commita o output (pipeline/refdata/grid_totals.json). O pipeline.py
 NUNCA recalcula isto — só conta capturados contra estes totais estáticos.
@@ -16,7 +17,7 @@ from shapely.geometry import shape, Point
 from shapely.prepared import prep
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kml_parse import lonlat_to_tile, tile_center
+from kml_parse import lonlat_to_tile, tile_bounds
 from classify import Classifier
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +47,7 @@ def main():
 
     result = {
         "generated": date.today().isoformat(),
-        "method": "tile-center-in-polygon (classify.py: STRtree within + buffer 0.05deg + nearest fallback)",
+        "method": "maior-area-de-intersecao, sem limiar; fallback de proximidade simetrico PT/estrangeiro se nada intersecta (classify.py)",
         "by_concelho": {},
         "by_distrito": {},
         "country_pt": {},
@@ -67,8 +68,7 @@ def main():
         total_pt = 0
         done = 0
         for x, y in candidates:
-            cx, cy = tile_center(x, y, zoom)
-            info = classifier.classify(cx, cy)
+            info = classifier.classify(tile_bounds(x, y, zoom))
             if info["in_portugal"]:
                 total_pt += 1
                 by_concelho[info["concelho"]] = by_concelho.get(info["concelho"], 0) + 1

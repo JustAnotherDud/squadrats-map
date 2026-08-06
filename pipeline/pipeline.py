@@ -10,7 +10,7 @@ import json
 import os
 import sys
 
-from kml_parse import parse_kml_geometries, reconstruct_squares, ZOOM_BY_TYPE
+from kml_parse import parse_kml_geometries, reconstruct_squares, tile_bounds, ZOOM_BY_TYPE
 from classify import Classifier
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -168,6 +168,9 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
     summary = {}
     visitados_por_grelha = {}
     stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "country_es": {}, "foreign": {}}
+    total_squares = 0
+    not_on_land = 0
+    fallback_events = []  # squares resolvidos por proximidade (país e/ou concelho), não por área
 
     for type_name, zoom in ZOOM_BY_TYPE.items():
         if type_name not in geoms:
@@ -195,12 +198,35 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
         unclassified_foreign = 0
         pt_captured = es_captured = 0
         for x, y, lon, lat in squares:
-            info = classifier.classify(lon, lat)
+            info = classifier.classify(tile_bounds(x, y, zoom))
             out.append({
                 "x": x, "y": y, "zoom": zoom,
                 "lon": round(lon, 6), "lat": round(lat, 6),
-                **info,
+                "in_portugal": info["in_portugal"],
+                "district": info["district"],
+                "concelho": info["concelho"],
+                "country": info["country"],
+                "region": info["region"],
             })
+            total_squares += 1
+            if not info["on_land"]:
+                not_on_land += 1
+
+            for level, deg in (
+                ("country", info["country_fallback_deg"]),
+                ("concelho", info["concelho_fallback_deg"]),
+            ):
+                if deg is not None:
+                    fallback_events.append({
+                        "x": x, "y": y, "zoom": zoom,
+                        "lon": round(lon, 6), "lat": round(lat, 6),
+                        "level": level,
+                        "resolved_to": info["concelho"] if level == "concelho"
+                                       else (info["district"] if info["in_portugal"] else f"{info['country']}/{info['region']}"),
+                        "distance_deg": round(deg, 6),
+                        "distance_m_approx": round(deg * 111_000),  # aproximado, sem correcção de latitude
+                    })
+
             if info["in_portugal"]:
                 pt_captured += 1
                 by_concelho_captured[info["concelho"]] = by_concelho_captured.get(info["concelho"], 0) + 1
@@ -266,6 +292,22 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
     with open(stats_path, "w", encoding="utf-8") as f:
         json.dump(stats, f, ensure_ascii=False, separators=(",", ":"))
     print(f"stats -> {stats_path}")
+
+    # ficheiro à parte (não no stats.json): quantos squares não estão em
+    # terra nenhuma, e a lista de quem foi resolvido por proximidade em vez
+    # de área — país e/ou concelho. distance_m_approx separa fenda de dados
+    # (metros) de água genuína (centenas de metros/km), sem impor um corte.
+    fallbacks_path = os.path.join(out_dir, "classification_fallbacks.json")
+    with open(fallbacks_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "total_squares": total_squares,
+            "not_on_land": not_on_land,
+            "fallback_events": len(fallback_events),
+            "events": fallback_events,
+        }, f, ensure_ascii=False, indent=2)
+    print(f"classificação: {not_on_land}/{total_squares} squares não estão em terra "
+          f"nenhuma (resolvidos por proximidade ou sem classificação); "
+          f"{len(fallback_events)} campos (país/concelho) resolvidos por proximidade -> {fallbacks_path}")
 
     return summary
 
