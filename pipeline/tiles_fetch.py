@@ -8,6 +8,7 @@ tiles em bruto).
 """
 import gzip
 import math
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -18,7 +19,12 @@ from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 USER_AGENT = "squadrats-map-sync/1.0 (+github.com/JustAnotherDud/squadrats-map)"
-MAX_CONCURRENCY = 4
+# dois limites separados: a descoberta (z4/z7/z10) é a cascata barata — só
+# desce de zoom dentro dos tiles que já mostraram cobertura, por isso varre
+# poucos candidatos por natureza. O fetch fino (z12) é sempre o batch grande.
+# Separados para poder ajustar um sem arrastar o outro.
+DISCOVERY_CONCURRENCY = 4
+FETCH_CONCURRENCY = 4
 REQUEST_TIMEOUT = 15
 
 # camadas com geometria útil para classificação por concelho/distrito —
@@ -74,8 +80,27 @@ class SquadratsHttpError(RuntimeError):
     nunca devolver o último valor bom em silêncio."""
 
 
-def fetch_tile(uid, z, x, y, session):
-    resp = session.get(
+_thread_local = threading.local()
+
+
+def _thread_session():
+    """Uma requests.Session por thread, criada uma vez e reutilizada.
+
+    requests.Session não tem garantia documentada de ser thread-safe — só o
+    connection pool do urllib3 por baixo é. Passar a mesma Session a todas as
+    threads de um ThreadPoolExecutor (como se fazia antes) funcionava por
+    sorte com pouca concorrência; com FETCH_CONCURRENCY a poder subir isso
+    deixa de ser um risco só teórico. Cada worker fica com a sua sessão e
+    mantém o connection pooling dentro da própria thread."""
+    session = getattr(_thread_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        _thread_local.session = session
+    return session
+
+
+def fetch_tile(uid, z, x, y):
+    resp = _thread_session().get(
         tile_url(uid, z, x, y),
         headers={"User-Agent": USER_AGENT},
         timeout=REQUEST_TIMEOUT,
@@ -150,11 +175,11 @@ def _project_geometry(geom, z, x, y, extent):
     return projected
 
 
-def _fetch_batch(uid, z, candidates, session):
+def _fetch_batch(uid, z, candidates):
     """Devolve o subconjunto de `candidates` (x, y) com cobertura (200) a este zoom."""
     covered = []
-    with ThreadPoolExecutor(max_workers=MAX_CONCURRENCY) as pool:
-        futures = {pool.submit(fetch_tile, uid, z, x, y, session): (x, y) for x, y in candidates}
+    with ThreadPoolExecutor(max_workers=DISCOVERY_CONCURRENCY) as pool:
+        futures = {pool.submit(fetch_tile, uid, z, x, y): (x, y) for x, y in candidates}
         for fut, xy in futures.items():
             if fut.result() is not None:
                 covered.append(xy)
@@ -175,9 +200,8 @@ def discover_coverage(uid, bbox=WORLD_BBOX, levels=DISCOVERY_LEVELS):
     ylo, yhi = min(y0, y1), max(y0, y1)
     current = [(x, y) for x in range(xlo, xhi + 1) for y in range(ylo, yhi + 1)]
 
-    session = requests.Session()
     for i, z in enumerate(levels):
-        hits = _fetch_batch(uid, z, current, session)
+        hits = _fetch_batch(uid, z, current)
         print(f"descoberta z{z}: {len(hits)}/{len(current)} tiles com cobertura")
         if i == len(levels) - 1:
             return hits
@@ -247,10 +271,9 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
         polys_by_layer.update({name: [] for name in TROPHY_LAYERS})
     size_by_layer = {}
 
-    session = requests.Session()
-    with ThreadPoolExecutor(max_workers=MAX_CONCURRENCY) as pool:
+    with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
         futures = {
-            pool.submit(fetch_tile, uid, fetch_zoom, x, y, session): (x, y)
+            pool.submit(fetch_tile, uid, fetch_zoom, x, y): (x, y)
             for x, y in fine_candidates
         }
         for fut, (x, y) in futures.items():
