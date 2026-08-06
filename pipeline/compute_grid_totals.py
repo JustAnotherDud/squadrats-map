@@ -43,6 +43,13 @@ def main():
     classifier = Classifier(
         os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
+        foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
+        # sem isto self.foreign fica None e o fallback de proximidade (classify.py)
+        # deixa de competir com Espanha — Portugal ganha todos os empates da
+        # fronteira/costa por omissão, reintroduzindo o viés que a regra nova
+        # existe para eliminar. Inofensivo no critério antigo (a decisão de
+        # in_portugal nunca dependia de self.foreign), por isso passou
+        # despercebido até agora — bug encontrado em 2026-08-06.
     )
 
     result = {
