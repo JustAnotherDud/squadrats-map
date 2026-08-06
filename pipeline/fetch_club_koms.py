@@ -35,7 +35,16 @@ def fetch_totals(uid):
     totals = dict(counts)
     for name in GEOMETRY_LAYERS:
         if name not in geometries:
-            raise RuntimeError(f"UID '{uid}': camada '{name}' em falta no varrimento")
+            # camada sem cobertura: o scan chegou aqui sem levantar erro, e uma
+            # falha real (500, geometria inválida) já teria abortado antes disto.
+            # Mas isto também é o que um UID válido mas ERRADO (conta trocada,
+            # sem actividade) produz — 204 em todos os tiles, sem excepção — e
+            # o servidor não distingue os dois casos. Por isso: zero continua a
+            # ser aceite como resultado (não aborta o run todo), mas nunca em
+            # silêncio — fica visível para confirmares o UID à mão.
+            print(f"ATENÇÃO: UID '{uid}' devolveu 0 squares em '{name}' — confirma se o UID está certo (squadrats.com/map/{uid}/17)")
+            totals[name] = 0
+            continue
         declared_size, geom = geometries[name]
         zoom = GEOMETRY_LAYERS[name]
         reconstructed = len(reconstruct_squares(geom, zoom))
