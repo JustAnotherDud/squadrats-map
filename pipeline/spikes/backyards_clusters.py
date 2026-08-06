@@ -3,10 +3,9 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from concurrent.futures import ThreadPoolExecutor
-import requests
 from shapely.ops import unary_union
 
-from tiles_fetch import fetch_tile, discover_coverage, _project_geometry, MAX_CONCURRENCY
+from tiles_fetch import fetch_tile, discover_coverage, _project_geometry, FETCH_CONCURRENCY
 from kml_parse import reconstruct_squares
 
 UID = "PjHY1RpxbmgMrQG3ITdTeDa7t6M2"
@@ -18,9 +17,8 @@ candidates = [(cx * factor + dx, cy * factor + dy)
               for cx, cy in coarse for dx in range(factor) for dy in range(factor)]
 
 polys = []
-session = requests.Session()
-with ThreadPoolExecutor(max_workers=MAX_CONCURRENCY) as pool:
-    futures = {pool.submit(fetch_tile, UID, FETCH_ZOOM, x, y, session): (x, y)
+with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
+    futures = {pool.submit(fetch_tile, UID, FETCH_ZOOM, x, y): (x, y)
                for x, y in candidates}
     for fut, (x, y) in futures.items():
         d = fut.result()

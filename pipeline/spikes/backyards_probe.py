@@ -12,11 +12,10 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from concurrent.futures import ThreadPoolExecutor
-import requests
 from shapely.ops import unary_union
 
 from tiles_fetch import (
-    fetch_tile, discover_coverage, _project_geometry, MAX_CONCURRENCY,
+    fetch_tile, discover_coverage, _project_geometry, FETCH_CONCURRENCY,
 )
 from kml_parse import reconstruct_squares
 
@@ -37,10 +36,9 @@ def scan_layers(uid):
 
     polys = {name: [] for name in LAYERS}
     sizes = {}
-    session = requests.Session()
-    with ThreadPoolExecutor(max_workers=MAX_CONCURRENCY) as pool:
+    with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
         futures = {
-            pool.submit(fetch_tile, uid, FETCH_ZOOM, x, y, session): (x, y)
+            pool.submit(fetch_tile, uid, FETCH_ZOOM, x, y): (x, y)
             for x, y in candidates
         }
         for fut, (x, y) in futures.items():
