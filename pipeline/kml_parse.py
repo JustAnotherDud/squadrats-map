@@ -69,17 +69,29 @@ def lonlat_to_tile(lon, lat, z):
     return x, y
 
 
-def tile_center(x, y, z):
+def _tile_nw(x, y, z):
+    """Canto NW (lon, lat) do tile x/y no zoom z, convenção XYZ standard."""
     n = 2 ** z
+    lon = x / n * 360.0 - 180.0
+    lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y / n))))
+    return lon, lat
 
-    def nw(x, y):
-        lon = x / n * 360.0 - 180.0
-        lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * y / n))))
-        return lon, lat
 
-    lon1, lat1 = nw(x, y)
-    lon2, lat2 = nw(x + 1, y + 1)
+def tile_center(x, y, z):
+    lon1, lat1 = _tile_nw(x, y, z)
+    lon2, lat2 = _tile_nw(x + 1, y + 1, z)
     return (lon1 + lon2) / 2, (lat1 + lat2) / 2
+
+
+def tile_bounds(x, y, z):
+    """Polígono (shapely box) da área coberta pelo tile x/y/zoom — mesma
+    convenção do tile_center. Usado pela classificação por área
+    (classify.py), que precisa da forma toda do square, não só do centro."""
+    from shapely.geometry import box
+
+    lon1, lat1 = _tile_nw(x, y, z)
+    lon2, lat2 = _tile_nw(x + 1, y + 1, z)
+    return box(min(lon1, lon2), min(lat1, lat2), max(lon1, lon2), max(lat1, lat2))
 
 
 def reconstruct_squares(geom, zoom):
