@@ -98,14 +98,28 @@ def main():
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"escrito: {out_path}")
 
-    # validação obrigatória — Rio Maior tem de bater certo com os números já confirmados
-    # (78/4882: recalculado com a MESMA fonte GADM que o classify.py usa em produção —
-    # o valor histórico "4881" vinha de uma fronteira OSM/Overpass ad-hoc, fonte diferente
-    # da que classifica os squares capturados; ver discussão no chat de 2026-07-19)
+    # validação obrigatória — Rio Maior tem de bater certo com os números já confirmados.
+    # ESTES NÚMEROS DEPENDEM DO CRITÉRIO DE CLASSIFICAÇÃO (classify.py) — mudar a regra
+    # muda os totais, não é sinal de bug por si só. Histórico:
+    #   78 / 4882  — critério antigo (centro do tile, point-in-polygon + buffer costeiro
+    #                só do lado de PT); "4881" antes disso vinha de fronteira OSM/Overpass
+    #                ad-hoc, fonte diferente da que classifica os squares capturados
+    #                (discussão 2026-07-19).
+    #   78 / 4873  — 2026-08-06: mudança para maior-área-de-intersecção sem limiar; z14
+    #                não mexeu (Rio Maior não é costeiro/fronteiriço, o critério novo só
+    #                difere do antigo perto de água/raia); z17 perdeu 9 squares — os do
+    #                Portela do Home (Terras de Bouro) que a régua antiga levava a PT por
+    #                estarem a <5,5km sem competir com Espanha, e que agora perdem esse
+    #                desempate correctamente para Ourense.
+    #   78 / 4873  — 2026-08-06 (mesmo dia): recalculado depois de corrigir compute_grid_totals.py
+    #                para passar foreign_dir ao Classifier (antes disso o fallback de
+    #                proximidade não competia com Espanha em lado nenhum do país — só
+    #                afectava z14/country_pt/outros concelhos costeiros, não a Rio Maior,
+    #                por isso o valor aqui não mudou nesta correcção).
     rm = result["by_concelho"].get("Rio Maior", {})
-    print(f"Rio Maior: z14={rm.get('z14')} (esperado 78), z17={rm.get('z17')} (esperado 4882)")
+    print(f"Rio Maior: z14={rm.get('z14')} (esperado 78), z17={rm.get('z17')} (esperado 4873)")
     assert rm.get("z14") == 78, f"Rio Maior z14 devia ser 78, é {rm.get('z14')}"
-    assert rm.get("z17") == 4882, f"Rio Maior z17 devia ser 4882, é {rm.get('z17')}"
+    assert rm.get("z17") == 4873, f"Rio Maior z17 devia ser 4873, é {rm.get('z17')}"
     print("validação Rio Maior: OK")
 
     all_concelho_names = {f["properties"]["NAME_2"] for f in json.load(
