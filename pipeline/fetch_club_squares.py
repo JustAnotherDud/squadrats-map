@@ -41,7 +41,14 @@ def squares_de(uid):
     """Conjunto de (x, y) do atleta, validado contra o `size` do servidor."""
     geometries, _ = scan_athlete(uid)
     if CAMADA not in geometries:
-        raise RuntimeError(f"UID '{uid}': camada '{CAMADA}' em falta no varrimento")
+        # sem cobertura: o scan chegou aqui sem levantar erro, e uma falha real
+        # (500, geometria inválida) já teria abortado antes disto. Mas isto
+        # também é o que um UID válido mas ERRADO (conta trocada, sem
+        # actividade) produz — 204 em todos os tiles, sem excepção — e o
+        # servidor não distingue os dois casos. Por isso: zero continua a ser
+        # aceite (não aborta o run todo), mas nunca em silêncio.
+        print(f"ATENÇÃO: UID '{uid}' devolveu 0 squares em '{CAMADA}' — confirma se o UID está certo (squadrats.com/map/{uid}/17)")
+        return set()
 
     declared_size, geom = geometries[CAMADA]
     squares = {(x, y) for x, y, _lon, _lat in reconstruct_squares(geom, ZOOM)}
