@@ -9,6 +9,13 @@ name: fetch-map-data
 # detectada — um atleta que sincroniza tarde ficava com o ganho atribuído ao
 # dia da corrida seguinte, não ao dia real (ver daily_gains.py). Não subir
 # mais sem recalcular o orçamento de pedidos/dia primeiro.
+# Horas escolhidas (13h/23h UTC, não 6h/18h) para a corrida tardia ficar o
+# mais perto possível da meia-noite local (Lisboa) — 23h UTC = ~00h em
+# Lisboa no verão, ~23h no inverno — e apanhar o dia quase inteiro antes de
+# qualquer detecção transitar para o dia seguinte. O "dia" do daily_gains.py
+# é sempre por data UTC no momento da corrida, não hora local — a corrida
+# das 23h UTC nunca é ambígua quanto a isso, vira sempre bem dentro do dia
+# UTC certo.
 # Commit condicional (git diff --quiet) garante que corridas sem
 # sincronização nova não geram ruído nenhum, só custo de correr.
 # TODO: trigger por atividade real (Garmin/Strava/intervals.icu/calendário)
@@ -17,7 +24,7 @@ name: fetch-map-data
 # das regras de uso do endpoint antes de desenhar isso).
 on:
   schedule:
-    - cron: "0 6,18 * * *" # 2x/dia, 06:00 e 18:00 UTC
+    - cron: "0 13,23 * * *" # 2x/dia, 13:00 e 23:00 UTC
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
