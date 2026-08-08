@@ -1,6 +1,5 @@
 """Parse o KML exportado do Squadrats e reconstrói os squares individuais (x, y, zoom)."""
 import math
-import re
 import xml.etree.ElementTree as ET
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
