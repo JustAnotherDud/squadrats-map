@@ -76,13 +76,13 @@ def main(out_dir):
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"escrito: {out_path}")
 
-    # baseline = último squadrats.json COMMITADO antes de hoje — por isso só
-    # reflecte ganhos reais na próxima corrida, depois deste run ser commitado
-    ganhos_hoje = daily_gains.actualizar(out_dir, REPO_DIR, result["atletas"])
-    if ganhos_hoje:
-        print(f"ganhos de hoje: {ganhos_hoje}")
+    # baseline = ultimo_total guardado no próprio daily_gains.json (sem git,
+    # por causa do checkout shallow no CI — ver daily_gains.py)
+    delta = daily_gains.actualizar(out_dir, result["atletas"])
+    if delta:
+        print(f"ganhos desde a última corrida: {delta}")
     else:
-        print("ganhos de hoje: nenhum (ou sem baseline de ontem)")
+        print("ganhos desde a última corrida: nenhum")
 
 
 if __name__ == "__main__":
