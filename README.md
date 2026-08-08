@@ -68,7 +68,7 @@ clube, consumido pelo `club-koms` como o `prs.json`.
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
 - `supabase/functions/` — Edge Functions do caminho **fallback** por KML (ver arquitetura abaixo)
 - `.github/workflows/`
-  - `fetch-map-data.yml` — **principal**, cron diário (06:00 UTC), sem dependência do Drive
+  - `fetch-map-data.yml` — **principal**, cron 2x/dia (06:00 e 18:00 UTC), sem dependência do Drive
   - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
 
 ## O que significa cada camada (`size`)
@@ -105,12 +105,17 @@ se taparem); o `size` continua a ser o do servidor, com o yard incluído.
 públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
 já expõe o UID). Para não abusar:
 
-- Correr no máximo uma vez por dia (o `fetch-map-data.yml` está em cron diário). Era semanal;
-  passou a diário para o mapa não andar uma semana atrás das corridas. Um varrimento completo
-  são ~1200 pedidos pelos três atletas (uma vez só cada um, ver `run_all.py`) — pouco, mas
-  não subir a frequência sem motivo
+- Correr no máximo 2x/dia (`fetch-map-data.yml`, cron `0 6,18 * * *`). Era semanal, depois diário,
+  subiu a 2x/dia em 2026-08-08 para encolher o atraso entre uma actividade acontecer e ser
+  detectada (ver `daily_gains.py`) — só ficou justificável depois da cache de cobertura
+  (`tiles_fetch.py`) cortar o custo por corrida em 68%. Um varrimento completo pelos 5 atletas
+  (ver `ATHLETES` em `fetch_club_koms.py`) são ~2032 pedidos com a cache a acertar (~6274 sem
+  ela — descoberta completa, só acontece quando um atleta captura nalgum sítio novo). A 2x/dia
+  isso fica em ~4064 pedidos/dia, ainda abaixo do regime antigo de 1x/dia sem cache. Não subir a
+  frequência sem recalcular este orçamento primeiro.
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
-- Concorrência baixa (`DISCOVERY_CONCURRENCY`/`FETCH_CONCURRENCY = 4` em `tiles_fetch.py`, não subir sem motivo)
+- Concorrência baixa (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` em `tiles_fetch.py` — subiu de
+  4 em 2026-08-08, testado sem 500s/lentidão; não subir mais sem repetir essa verificação)
 - Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)
 - O `{TS}` no URL tem de ser fresco (`int(time.time()*1000)`) a cada pedido — o servidor ignora o
   valor mas a resposta vem com `cache-control: max-age=31536000` e o URL é a chave de cache; um
@@ -150,10 +155,10 @@ Fallback por KML (ver secção própria): `py pipeline/pipeline.py --kml data/sa
 
 ## Arquitetura
 
-### Caminho principal — vector tiles (`fetch-map-data.yml`, cron semanal)
+### Caminho principal — vector tiles (`fetch-map-data.yml`, cron 2x/dia)
 
 ```
-[fetch-map-data.yml, cron semanal ou workflow_dispatch]
+[fetch-map-data.yml, cron 2x/dia ou workflow_dispatch]
                     |
                     v
 [tiles_fetch.py] --fetch--> tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf

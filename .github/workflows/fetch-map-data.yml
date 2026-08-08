@@ -2,15 +2,22 @@ name: fetch-map-data
 
 # Caminho principal (substitui o process-kml.yml/Drive, mantido como
 # fallback): fetch directo aos vector tiles da Squadrats, sem export manual.
-# Diário por agora — commit condicional (git diff --quiet) já garante que
-# dias sem sincronização nova não geram ruído nenhum, só custo de correr.
+# 2x/dia (2026-08-08, subiu de 1x): com a cache de cobertura (tiles_fetch.py)
+# uma corrida normal já só custa ~2032 pedidos, não os ~6274 de antes — 2x/dia
+# fica em ~4064/dia, ainda abaixo do regime antigo de 1x/dia sem cache.
+# Motivo de subir: encolher a janela entre uma actividade acontecer e ser
+# detectada — um atleta que sincroniza tarde ficava com o ganho atribuído ao
+# dia da corrida seguinte, não ao dia real (ver daily_gains.py). Não subir
+# mais sem recalcular o orçamento de pedidos/dia primeiro.
+# Commit condicional (git diff --quiet) garante que corridas sem
+# sincronização nova não geram ruído nenhum, só custo de correr.
 # TODO: trigger por atividade real (Garmin/Strava/intervals.icu/calendário)
 # em vez de tempo fixo, para não haver atraso entre sincronizar e o mapa
 # atualizar — precisa de webhook novo, não implementado ainda (ver README
 # das regras de uso do endpoint antes de desenhar isso).
 on:
   schedule:
-    - cron: "0 6 * * *" # diário, 06:00 UTC
+    - cron: "0 6,18 * * *" # 2x/dia, 06:00 e 18:00 UTC
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
