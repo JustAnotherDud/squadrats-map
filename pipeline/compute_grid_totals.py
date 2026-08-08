@@ -13,9 +13,6 @@ import os
 import sys
 from datetime import date
 
-from shapely.geometry import shape, Point
-from shapely.prepared import prep
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kml_parse import lonlat_to_tile, tile_bounds
 from classify import Classifier

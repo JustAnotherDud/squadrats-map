@@ -40,7 +40,6 @@ GEOMETRY_LAYERS = {"squadrats": 14, "squadratinhos": 17}
 TROPHY_LAYERS = [
     "yard", "yardinho", "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos",
 ]
-COUNT_ONLY_LAYERS = TROPHY_LAYERS  # nome antigo, mantido p/ não partir imports
 
 # Descoberta em cascata (zoom baixo -> cada vez mais fino): começa muito
 # barato (z4, ~200 tiles cobrindo praticamente todas as terras habitadas) e
@@ -317,7 +316,7 @@ def _assemble_layers(results, fetch_zoom, with_trophy_geometry):
         if decoded is None:
             continue
         for layer_name, layer in decoded.items():
-            if layer_name not in GEOMETRY_LAYERS and layer_name not in COUNT_ONLY_LAYERS:
+            if layer_name not in GEOMETRY_LAYERS and layer_name not in TROPHY_LAYERS:
                 continue  # ex: squadratsoutline, só decoração
             for feat in layer["features"]:
                 size = feat["properties"].get("size")
