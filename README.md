@@ -28,6 +28,12 @@ clube, consumido pelo `club-koms` como o `prs.json`.
     `squadrats`/`squadratinhos` tem de bater exatamente com o `size` que o próprio servidor
     reporta — se não bater, `pipeline.py`/`fetch_club_koms.py` rebentam em vez de publicar dados
     errados.
+    A cascata só corre quando é precisa: a cobertura z10 de cada atleta fica em
+    `data/scan_cache.json` (coordenadas derivadas, nunca tiles em bruto; mais grosseiro do que o
+    que o `club.json` já publica) e a corrida seguinte vai directa aos filhos z12 — era ~2/3 dos
+    pedidos de cada corrida. Seguro porque a cobertura nunca encolhe e a auto-validação acima
+    invalida a cache sozinha: se o atleta capturou numa zona nova, a reconstrução não bate com o
+    `size`, faz-se a descoberta completa (sem repetir os z12 já buscados) e a cache refaz-se.
   - `run_all.py` — **ponto de entrada do workflow**: corre os três consumidores no mesmo
     processo, para cada atleta ser varrido uma vez só. Em passos separados, o José era varrido
     três vezes por run e a Xeira/Carolina duas — ~1200 pedidos em duplicado. A cache está no
@@ -104,7 +110,7 @@ já expõe o UID). Para não abusar:
   são ~1200 pedidos pelos três atletas (uma vez só cada um, ver `run_all.py`) — pouco, mas
   não subir a frequência sem motivo
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
-- Concorrência baixa (`MAX_CONCURRENCY = 4` em `tiles_fetch.py`, não subir sem motivo)
+- Concorrência baixa (`DISCOVERY_CONCURRENCY`/`FETCH_CONCURRENCY = 4` em `tiles_fetch.py`, não subir sem motivo)
 - Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)
 - O `{TS}` no URL tem de ser fresco (`int(time.time()*1000)`) a cada pedido — o servidor ignora o
   valor mas a resposta vem com `cache-control: max-age=31536000` e o URL é a chave de cache; um

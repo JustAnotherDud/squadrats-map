@@ -7,7 +7,9 @@ Endpoint não documentado, sem API pública — ver README para as regras de uso
 tiles em bruto).
 """
 import gzip
+import json
 import math
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -51,6 +53,49 @@ COUNT_ONLY_LAYERS = TROPHY_LAYERS  # nome antigo, mantido p/ não partir imports
 # há capturas possíveis, para não desperdiçar pedidos.
 WORLD_BBOX = (-180.0, -60.0, 180.0, 75.0)
 DISCOVERY_LEVELS = (4, 7, 10)  # zooms intermédios da cascata
+
+# Cache de cobertura entre corridas: a descoberta em cascata era ~2/3 dos
+# pedidos de cada corrida (medido: 4242 de 6274) e re-derivava do zero algo
+# que quase nunca muda — em que tiles z10 do mundo cada atleta tem squares.
+# Guardamos essa lista por UID e saltamos a cascata na corrida seguinte.
+#
+# Porque é que isto é seguro:
+# - cobertura nunca encolhe (squares são cumulativos), por isso a cache
+#   nunca fica com tiles a mais que deixem de ser válidos;
+# - se ficar com tiles a MENOS (atleta capturou numa zona nova), a
+#   reconstrução não bate com o `size` que o próprio servidor reporta nos
+#   tiles — detecta-se, faz-se a descoberta completa e refaz-se a cache,
+#   reaproveitando os tiles z12 já buscados. A auto-validação que já era a
+#   rede de segurança do pipeline passa a ser também o invalidador da cache.
+#
+# O ficheiro guarda coordenadas z10 derivadas (nunca tiles em bruto — ver
+# regras no README) e é mais grosseiro do que o que o club.json já publica
+# (squares z17 individuais), portanto não expõe nada de novo.
+COVERAGE_CACHE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "scan_cache.json"
+)
+
+
+def _read_coverage_cache():
+    try:
+        with open(COVERAGE_CACHE_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, tiles):
+    cache = _read_coverage_cache()
+    cache[uid] = {
+        "bbox": list(bbox),
+        "discovery_levels": list(discovery_levels),
+        "fetch_zoom": fetch_zoom,
+        "coarse_zoom": discovery_levels[-1],
+        "tiles": sorted(list(t) for t in tiles),
+    }
+    os.makedirs(os.path.dirname(COVERAGE_CACHE_PATH), exist_ok=True)
+    with open(COVERAGE_CACHE_PATH, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, separators=(",", ":"))
 
 
 def deg2num(lon, lat, z):
@@ -243,6 +288,84 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
     return geometries, counts
 
 
+def _children(tiles, factor):
+    return [(cx * factor + dx, cy * factor + dy)
+            for cx, cy in tiles
+            for dx in range(factor) for dy in range(factor)]
+
+
+def _fetch_missing(uid, zoom, candidates, results):
+    """Busca os `candidates` que ainda não estão em `results` e acumula lá
+    ({(x, y): decoded|None}). No caminho de fallback da cache, evita repetir
+    os tiles z12 já buscados na tentativa com cache."""
+    to_fetch = [xy for xy in candidates if xy not in results]
+    with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
+        futures = {pool.submit(fetch_tile, uid, zoom, x, y): (x, y) for x, y in to_fetch}
+        for fut, xy in futures.items():
+            results[xy] = fut.result()
+
+
+def _assemble_layers(results, fetch_zoom, with_trophy_geometry):
+    """Projecta e une os tiles descodificados nas camadas finais — devolve
+    (geometries, counts, trophies); trophies é None sem with_trophy_geometry."""
+    polys_by_layer = {name: [] for name in GEOMETRY_LAYERS}
+    if with_trophy_geometry:
+        polys_by_layer.update({name: [] for name in TROPHY_LAYERS})
+    size_by_layer = {}
+
+    for (x, y), decoded in results.items():
+        if decoded is None:
+            continue
+        for layer_name, layer in decoded.items():
+            if layer_name not in GEOMETRY_LAYERS and layer_name not in COUNT_ONLY_LAYERS:
+                continue  # ex: squadratsoutline, só decoração
+            for feat in layer["features"]:
+                size = feat["properties"].get("size")
+                if size is not None and layer_name not in size_by_layer:
+                    size_by_layer[layer_name] = size  # global — primeiro valor não-nulo chega
+                if layer_name in polys_by_layer:
+                    polys_by_layer[layer_name].extend(
+                        _project_geometry(feat["geometry"], fetch_zoom, x, y, layer["extent"])
+                    )
+
+    geometries = {}
+    for name in GEOMETRY_LAYERS:
+        if not polys_by_layer[name]:
+            continue
+        merged = unary_union(polys_by_layer[name])
+        geometries[name] = (size_by_layer.get(name), merged)
+
+    counts = {name: size_by_layer[name] for name in TROPHY_LAYERS if name in size_by_layer}
+
+    trophies = None
+    if with_trophy_geometry:
+        trophies = {
+            name: unary_union(polys_by_layer[name])
+            for name in TROPHY_LAYERS if polys_by_layer.get(name)
+        }
+    return geometries, counts, trophies
+
+
+def _coverage_complete(geometries):
+    """True se a reconstrução bate com o `size` do servidor em todas as
+    camadas de geometria presentes — a mesma auto-validação que os
+    consumidores fazem, usada aqui para decidir se a cache de cobertura
+    apanhou tudo. Custa ~1-2s de CPU por atleta (a instrumentação antiga de
+    reconstruct_squares mediu chamadas destas na ordem de décimas de
+    segundo), contra ~1000 pedidos de rede poupados quando a cache serve."""
+    from kml_parse import reconstruct_squares
+
+    if not geometries:
+        return False
+    for name, zoom in GEOMETRY_LAYERS.items():
+        if name not in geometries:
+            continue
+        declared, geom = geometries[name]
+        if declared is None or len(reconstruct_squares(geom, zoom)) != declared:
+            return False
+    return True
+
+
 def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
                   with_trophy_geometry=False):
     """Varre a cobertura do atleta e devolve:
@@ -254,58 +377,48 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     Com `with_trophy_geometry=True` devolve um 3º valor,
     trophies: {layer_name: shapely_geom} — só quando é preciso desenhar as
     formas (mapa), não quando só interessam os totais (club-koms).
+
+    Caminho normal: cobertura z10 vem de data/scan_cache.json (corrida
+    anterior), salta-se a cascata de descoberta e valida-se o resultado
+    contra o `size` do servidor. Se não bater (zona nova), cai-se na
+    descoberta completa — os tiles z12 já buscados não se repetem.
     """
+    coarse_zoom = discovery_levels[-1]
+    factor = 2 ** (fetch_zoom - coarse_zoom)
+    results = {}
+
+    entry = _read_coverage_cache().get(uid)
+    cache_applicable = (
+        entry is not None
+        and entry.get("bbox") == list(bbox)
+        and entry.get("discovery_levels") == list(discovery_levels)
+        and entry.get("fetch_zoom") == fetch_zoom
+    )
+    if cache_applicable:
+        cached_coarse = [tuple(t) for t in entry["tiles"]]
+        candidates = _children(cached_coarse, factor)
+        print(f"cobertura em cache: {len(cached_coarse)} tiles z{coarse_zoom} — "
+              f"a buscar {len(candidates)} tiles z{fetch_zoom} sem descoberta...")
+        _fetch_missing(uid, fetch_zoom, candidates, results)
+        geometries, counts, trophies = _assemble_layers(results, fetch_zoom, with_trophy_geometry)
+        if _coverage_complete(geometries):
+            if with_trophy_geometry:
+                return geometries, counts, trophies
+            return geometries, counts
+        print("cache de cobertura desatualizada (reconstrução não bate com o size "
+              "do servidor — squares numa zona nova?) — descoberta completa...")
+
     coarse_covered = discover_coverage(uid, bbox, levels=discovery_levels)
-    discovery_zoom = discovery_levels[-1]
+    candidates = _children(coarse_covered, factor)
+    print(f"a buscar {len(candidates)} tiles z{fetch_zoom}...")
+    _fetch_missing(uid, fetch_zoom, candidates, results)
+    geometries, counts, trophies = _assemble_layers(results, fetch_zoom, with_trophy_geometry)
 
-    factor = 2 ** (fetch_zoom - discovery_zoom)
-    fine_candidates = [
-        (cx * factor + dx, cy * factor + dy)
-        for cx, cy in coarse_covered
-        for dx in range(factor) for dy in range(factor)
-    ]
-    print(f"a buscar {len(fine_candidates)} tiles z{fetch_zoom}...")
+    # cobertura real = pais z10 dos tiles z12 que devolveram conteúdo (inclui
+    # também o que veio de uma cache parcial no caminho de fallback)
+    with_data = {(x // factor, y // factor) for (x, y), d in results.items() if d is not None}
+    _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, with_data)
 
-    polys_by_layer = {name: [] for name in GEOMETRY_LAYERS}
     if with_trophy_geometry:
-        polys_by_layer.update({name: [] for name in TROPHY_LAYERS})
-    size_by_layer = {}
-
-    with ThreadPoolExecutor(max_workers=FETCH_CONCURRENCY) as pool:
-        futures = {
-            pool.submit(fetch_tile, uid, fetch_zoom, x, y): (x, y)
-            for x, y in fine_candidates
-        }
-        for fut, (x, y) in futures.items():
-            decoded = fut.result()
-            if decoded is None:
-                continue
-            for layer_name, layer in decoded.items():
-                if layer_name not in GEOMETRY_LAYERS and layer_name not in COUNT_ONLY_LAYERS:
-                    continue  # ex: squadratsoutline, só decoração
-                for feat in layer["features"]:
-                    size = feat["properties"].get("size")
-                    if size is not None and layer_name not in size_by_layer:
-                        size_by_layer[layer_name] = size  # global — primeiro valor não-nulo chega
-                    if layer_name in polys_by_layer:
-                        polys_by_layer[layer_name].extend(
-                            _project_geometry(feat["geometry"], fetch_zoom, x, y, layer["extent"])
-                        )
-
-    geometries = {}
-    for name in GEOMETRY_LAYERS:
-        if not polys_by_layer[name]:
-            continue
-        merged = unary_union(polys_by_layer[name])
-        geometries[name] = (size_by_layer.get(name), merged)
-
-    counts = {name: size_by_layer[name] for name in TROPHY_LAYERS if name in size_by_layer}
-
-    if not with_trophy_geometry:
-        return geometries, counts
-
-    trophies = {
-        name: unary_union(polys_by_layer[name])
-        for name in TROPHY_LAYERS if polys_by_layer.get(name)
-    }
-    return geometries, counts, trophies
+        return geometries, counts, trophies
+    return geometries, counts
