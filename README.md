@@ -68,7 +68,8 @@ clube, consumido pelo `club-koms` como o `prs.json`.
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
 - `supabase/functions/` — Edge Functions do caminho **fallback** por KML (ver arquitetura abaixo)
 - `.github/workflows/`
-  - `fetch-map-data.yml` — **principal**, cron 2x/dia (06:00 e 18:00 UTC), sem dependência do Drive
+  - `fetch-map-data.yml` — **principal**, cron 2x/dia (13:00 e 23:00 UTC — a segunda o mais perto
+    possível da meia-noite em Lisboa, para apanhar o dia quase inteiro), sem dependência do Drive
   - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
 
 ## O que significa cada camada (`size`)
@@ -105,7 +106,7 @@ se taparem); o `size` continua a ser o do servidor, com o yard incluído.
 públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
 já expõe o UID). Para não abusar:
 
-- Correr no máximo 2x/dia (`fetch-map-data.yml`, cron `0 6,18 * * *`). Era semanal, depois diário,
+- Correr no máximo 2x/dia (`fetch-map-data.yml`, cron `0 13,23 * * *`). Era semanal, depois diário,
   subiu a 2x/dia em 2026-08-08 para encolher o atraso entre uma actividade acontecer e ser
   detectada (ver `daily_gains.py`) — só ficou justificável depois da cache de cobertura
   (`tiles_fetch.py`) cortar o custo por corrida em 68%. Um varrimento completo pelos 5 atletas
