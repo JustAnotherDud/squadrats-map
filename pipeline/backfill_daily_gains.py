@@ -91,8 +91,11 @@ def main():
             resultado.append({"data": dia, "atletas": ganhos})
         anterior_atletas = atletas
 
+    # ultimo_total: totais absolutos do snapshot mais recente — é a baseline
+    # que daily_gains.actualizar() usa daqui para a frente (não vai ao git)
     out = {
         "gerado": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ultimo_total": por_dia[dias_ordenados[-1]][1],
         "dias": resultado,
     }
     out_path = os.path.join(DATA_DIR, "daily_gains.json")

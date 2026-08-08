@@ -1,61 +1,41 @@
 """Ganhos diários por atleta — mantém data/daily_gains.json actualizado.
 
-Fonte da verdade para "que dia é este snapshot": o campo `atualizado` (UTC)
-DENTRO do próprio squadrats.json de cada commit — não a data do commit git
-(o bot corre a horas variáveis, às vezes 2x no mesmo dia UTC; ver
-backfill_daily_gains.py, que populou o histórico inicial com o mesmo
-critério).
+O ficheiro é auto-contido: além dos dias, guarda `ultimo_total` (os totais
+absolutos da última corrida observada). O ganho de uma corrida é o delta
+contra esse `ultimo_total`, acumulado na entrada do dia corrente.
 
-Atleta que aparece pela primeira vez não conta como "ganho" nesse dia — o
-total dele inteiro apareceria como um pico gigante só por ter sido
-acrescentado ao ATHLETES dict, não por ter corrido isso tudo num dia.
+NÃO consulta o git. A primeira versão disto procurava a baseline no
+histórico de commits do squadrats.json — funcionava localmente e falhava em
+silêncio no CI, onde actions/checkout usa fetch-depth: 1 e o histórico não
+existe (baseline None -> ganhos vazios -> a entrada do dia era removida sem
+ser reposta; perdeu-se o dia 2026-08-08 antes de isto ser apanhado). Ler
+apenas o próprio ficheiro elimina essa dependência.
+
+Efeitos de acumular contra `ultimo_total` em vez de comparar dias:
+- 2 corridas no mesmo dia somam o que cada uma trouxe de novo; correr duas
+  vezes sem dados novos não muda nada (delta zero), por isso é idempotente
+  na prática.
+- Se uma corrida gerar dados mas falhar antes do commit, o `ultimo_total`
+  fica atrasado e a corrida seguinte recupera o que ficou por contar, em
+  vez de o perder.
+
+Atleta que aparece pela primeira vez não conta como "ganho" — o total dele
+inteiro apareceria como um pico só por ter sido acrescentado ao ATHLETES.
 """
 import json
 import os
-import subprocess
 from datetime import datetime, timezone
 
 CAMPOS = ["squadrats", "squadratinhos", "yard", "yardinho",
           "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos"]
 
 
-def _git(repo_dir, *args):
-    return subprocess.run(
-        ["git", *args], capture_output=True, text=True, encoding="utf-8",
-        cwd=repo_dir, check=True,
-    ).stdout
-
-
-def ultimo_snapshot_antes_de(repo_dir, hoje_iso):
-    """{atleta: {...}} do último squadrats.json commitado com `atualizado`
-    de um dia anterior a `hoje_iso` (AAAA-MM-DD). None se não houver nenhum
-    (primeiro dia de sempre).
-
-    git log devolve do mais recente para o mais antigo — para na primeira
-    entrada de um dia anterior a hoje, que é sempre a mais recente desse
-    dia. Evita percorrer o histórico todo em cada corrida."""
-    commits = _git(repo_dir, "log", "--follow", "--format=%H", "--", "data/squadrats.json").strip().splitlines()
-    for h in commits:
-        try:
-            conteudo = _git(repo_dir, "show", f"{h}:data/squadrats.json")
-            d = json.loads(conteudo)
-        except subprocess.CalledProcessError:
-            continue  # ficheiro não existia ainda nesse commit
-        atualizado_raw = d.get("atualizado")
-        if not atualizado_raw:
-            continue
-        atualizado = datetime.fromisoformat(atualizado_raw.replace("Z", "+00:00"))
-        if atualizado.date().isoformat() < hoje_iso:
-            return d["atletas"]
-    return None
-
-
 def calcular_delta(antes, agora):
     """{atleta: {campo: delta}} — só campos que mudaram, só atletas com
-    baseline no dia anterior."""
+    baseline (os novos entram no baseline sem gerar ganho)."""
     ganhos = {}
     for nome, valores in agora.items():
-        if antes is None or nome not in antes:
+        if not antes or nome not in antes:
             continue
         base = antes[nome]
         delta = {}
@@ -68,13 +48,26 @@ def calcular_delta(antes, agora):
     return ganhos
 
 
-def actualizar(data_dir, repo_dir, atletas_hoje, hoje_iso=None):
-    """Actualiza data/daily_gains.json com a entrada do dia corrente.
+def _somar(destino, novo):
+    """Acumula `novo` em `destino` ({atleta: {campo: delta}}), campo a campo,
+    removendo campos que voltem a zero."""
+    resultado = {n: dict(v) for n, v in destino.items()}
+    for nome, campos in novo.items():
+        alvo = resultado.setdefault(nome, {})
+        for c, v in campos.items():
+            total = alvo.get(c, 0) + v
+            if total:
+                alvo[c] = total
+            else:
+                alvo.pop(c, None)
+        if not alvo:
+            resultado.pop(nome, None)
+    return resultado
 
-    Idempotente: se já existir uma entrada para hoje (2ª corrida no mesmo
-    dia), substitui-a em vez de duplicar — recalculada contra a mesma
-    baseline (o último dia ANTERIOR a hoje), por isso dá sempre o mesmo
-    resultado para o mesmo par de dias, run a run."""
+
+def actualizar(data_dir, atletas_agora, hoje_iso=None):
+    """Acumula na entrada do dia corrente o que mudou desde a última corrida.
+    Devolve o delta desta corrida ({} se nada mudou)."""
     hoje_iso = hoje_iso or datetime.now(timezone.utc).date().isoformat()
     path = os.path.join(data_dir, "daily_gains.json")
 
@@ -82,19 +75,22 @@ def actualizar(data_dir, repo_dir, atletas_hoje, hoje_iso=None):
         with open(path, encoding="utf-8") as f:
             actual = json.load(f)
     else:
-        actual = {"gerado": None, "dias": []}
+        actual = {"gerado": None, "ultimo_total": None, "dias": []}
+    actual.setdefault("dias", [])
+    actual.setdefault("ultimo_total", None)
 
-    antes = ultimo_snapshot_antes_de(repo_dir, hoje_iso)
-    ganhos_hoje = calcular_delta(antes, atletas_hoje)
+    delta = calcular_delta(actual["ultimo_total"], atletas_agora)
 
-    dias = [d for d in actual["dias"] if d["data"] != hoje_iso]
-    if ganhos_hoje:
-        dias.append({"data": hoje_iso, "atletas": ganhos_hoje})
-    dias.sort(key=lambda d: d["data"])
+    if delta:
+        dias = {d["data"]: d["atletas"] for d in actual["dias"]}
+        dias[hoje_iso] = _somar(dias.get(hoje_iso, {}), delta)
+        if not dias[hoje_iso]:
+            dias.pop(hoje_iso)
+        actual["dias"] = [{"data": d, "atletas": dias[d]} for d in sorted(dias)]
 
-    actual["dias"] = dias
+    actual["ultimo_total"] = atletas_agora
     actual["gerado"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     with open(path, "w", encoding="utf-8") as f:
         json.dump(actual, f, ensure_ascii=False, separators=(",", ":"))
-    return ganhos_hoje
+    return delta
