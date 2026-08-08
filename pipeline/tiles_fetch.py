@@ -26,7 +26,12 @@ USER_AGENT = "squadrats-map-sync/1.0 (+github.com/JustAnotherDud/squadrats-map)"
 # poucos candidatos por natureza. O fetch fino (z12) é sempre o batch grande.
 # Separados para poder ajustar um sem arrastar o outro.
 DISCOVERY_CONCURRENCY = 4
-FETCH_CONCURRENCY = 4
+# 4 -> 6 em 2026-08-08: a cache de cobertura já cortou 68% do volume total de
+# pedidos por corrida (a descoberta quase nunca corre), por isso subir aqui
+# continua a pesar menos no total do que pesava a versão antiga a 4. Passo
+# pequeno de propósito — 6 primeiro, 8 só depois de confirmar que não há
+# 500s/lentidão novos. Não subir sem medir outra vez.
+FETCH_CONCURRENCY = 6
 REQUEST_TIMEOUT = 15
 
 # camadas com geometria útil para classificação por concelho/distrito —
