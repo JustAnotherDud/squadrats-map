@@ -9,13 +9,17 @@ name: fetch-map-data
 # detectada — um atleta que sincroniza tarde ficava com o ganho atribuído ao
 # dia da corrida seguinte, não ao dia real (ver daily_gains.py). Não subir
 # mais sem recalcular o orçamento de pedidos/dia primeiro.
-# Horas escolhidas (13h/23h UTC, não 6h/18h) para a corrida tardia ficar o
-# mais perto possível da meia-noite local (Lisboa) — 23h UTC = ~00h em
-# Lisboa no verão, ~23h no inverno — e apanhar o dia quase inteiro antes de
-# qualquer detecção transitar para o dia seguinte. O "dia" do daily_gains.py
-# é sempre por data UTC no momento da corrida, não hora local — a corrida
-# das 23h UTC nunca é ambígua quanto a isso, vira sempre bem dentro do dia
-# UTC certo.
+# Horas escolhidas (13h/22h UTC, não 6h/18h) para a corrida tardia ficar
+# perto do fim do dia em Lisboa — apanha a maior parte do dia antes de
+# qualquer detecção transitar para o dia seguinte (o "dia" do
+# daily_gains.py é sempre por data UTC no INÍCIO da corrida, não hora
+# local, ver fetch_club_koms.py). 22h UTC e não 23h de propósito: dá 2h de
+# folga até à meia-noite UTC (a fronteira real que importa, não a meia-
+# -noite local) para absorver um eventual atraso do GitHub Actions a
+# disparar o cron agendado — sem SLA documentado sobre isso, e sem essa
+# folga um atraso conseguia empurrar o início da corrida para o dia UTC
+# seguinte, o que nenhum código nosso consegue proteger (a fronteira fica
+# ultrapassada antes de o script sequer arrancar).
 # Commit condicional (git diff --quiet) garante que corridas sem
 # sincronização nova não geram ruído nenhum, só custo de correr.
 # TODO: trigger por atividade real (Garmin/Strava/intervals.icu/calendário)
@@ -24,7 +28,7 @@ name: fetch-map-data
 # das regras de uso do endpoint antes de desenhar isso).
 on:
   schedule:
-    - cron: "0 13,23 * * *" # 2x/dia, 13:00 e 23:00 UTC
+    - cron: "0 13,22 * * *" # 2x/dia, 13:00 e 22:00 UTC
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
