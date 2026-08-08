@@ -14,11 +14,13 @@ import datetime
 import json
 import os
 
+import daily_gains
 from kml_parse import reconstruct_squares
 from tiles_fetch import GEOMETRY_LAYERS, scan_athlete
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
+REPO_DIR = os.path.dirname(HERE)
+DATA_DIR = os.path.join(REPO_DIR, "data")
 
 ATHLETES = {
     "Zé": "PjHY1RpxbmgMrQG3ITdTeDa7t6M2",
@@ -73,6 +75,14 @@ def main(out_dir):
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"escrito: {out_path}")
+
+    # baseline = último squadrats.json COMMITADO antes de hoje — por isso só
+    # reflecte ganhos reais na próxima corrida, depois deste run ser commitado
+    ganhos_hoje = daily_gains.actualizar(out_dir, REPO_DIR, result["atletas"])
+    if ganhos_hoje:
+        print(f"ganhos de hoje: {ganhos_hoje}")
+    else:
+        print("ganhos de hoje: nenhum (ou sem baseline de ontem)")
 
 
 if __name__ == "__main__":

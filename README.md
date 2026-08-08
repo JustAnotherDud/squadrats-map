@@ -40,7 +40,10 @@ clube, consumido pelo `club-koms` como o `prs.json`.
     aritmética sobre tamanhos.
   - `pipeline.py` — orquestrador do mapa detalhado. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
     ou `py pipeline.py --kml <caminho.kml> <out_dir>` (fallback, ver abaixo)
-  - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`
+  - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`.
+    Também actualiza `data/daily_gains.json` (ganhos por dia, ver `daily_gains.py` — baseline é o
+    último squadrats.json commitado ANTES de hoje, idempotente entre corridas no mesmo dia).
+    Histórico inicial (24 Jul em diante) reconstruído uma vez com `backfill_daily_gains.py`.
   - `fetch_club_squares.py` — squadratinhos dos mesmos três, com bitmask de quem tem cada square →
     `data/club.json` (o `fetch_club_koms.py` só traz totais; este traz as coordenadas).
     A ordem da lista `ATLETAS` fixa a atribuição dos bits: não reordenar
