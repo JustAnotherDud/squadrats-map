@@ -62,8 +62,14 @@ def fetch_totals(uid):
 
 
 def main(out_dir):
+    # capturado UMA vez, no início — nunca recalculado depois do varrimento
+    # dos 5 atletas, para o "dia" do daily_gains.py nunca poder virar a meio
+    # de uma corrida lenta (ver discussão: uma corrida que atravessasse a
+    # meia-noite UTC atribuiria TODOS os ganhos detectados, mesmo os de horas
+    # antes, ao dia seguinte).
+    inicio = datetime.datetime.now(datetime.timezone.utc)
     result = {
-        "atualizado": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "atualizado": inicio.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "atletas": {},
     }
     for name, uid in ATHLETES.items():
@@ -77,8 +83,9 @@ def main(out_dir):
     print(f"escrito: {out_path}")
 
     # baseline = ultimo_total guardado no próprio daily_gains.json (sem git,
-    # por causa do checkout shallow no CI — ver daily_gains.py)
-    delta = daily_gains.actualizar(out_dir, result["atletas"])
+    # por causa do checkout shallow no CI — ver daily_gains.py). hoje_iso vem
+    # do início da corrida (`inicio`), não de "agora" — ver comentário acima.
+    delta = daily_gains.actualizar(out_dir, result["atletas"], hoje_iso=inicio.date().isoformat())
     if delta:
         print(f"ganhos desde a última corrida: {delta}")
     else:
