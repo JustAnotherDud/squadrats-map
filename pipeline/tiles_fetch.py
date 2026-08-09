@@ -380,7 +380,7 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
 
     Com `with_trophy_geometry=True` devolve um 3º valor,
     trophies: {layer_name: shapely_geom} — só quando é preciso desenhar as
-    formas (mapa), não quando só interessam os totais (club-koms).
+    formas (mapa), não quando só interessam os totais (folha-do-clube).
 
     Caminho normal: cobertura z10 vem de data/scan_cache.json (corrida
     anterior), salta-se a cascata de descoberta e valida-se o resultado
