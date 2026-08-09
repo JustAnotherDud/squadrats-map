@@ -1,7 +1,7 @@
 """Totais simples (sem breakdown por concelho/distrito) para todos os atletas
-do clube — publica data/squadrats.json, consumido pelo club-koms da mesma
+do clube — publica data/squadrats.json, consumido pelo folha-do-clube da mesma
 forma que o prs.json. Repos não acoplados: aqui só se escreve o ficheiro,
-não se toca no club-koms.
+não se toca no folha-do-clube.
 
 Falha alto se algum UID devolver 500 ou se squadrats/squadratinhos não
 baterem com o `size` do servidor — nunca publica o último valor bom em

@@ -5,7 +5,7 @@ Mapa de squares (squadrats/squadratinhos) capturados, com % por concelho/distrit
 O ciclo é automático: `fetch-map-data.yml` corre diariamente, busca os dados **diretamente aos
 vector tiles da Squadrats** (sem export manual de KML) e comita se houver diferença real. Também
 publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os 3 atletas do
-clube, consumido pelo `club-koms` como o `prs.json`.
+clube, consumido pelo `folha-do-clube` como o `prs.json`.
 
 ## Estrutura
 
