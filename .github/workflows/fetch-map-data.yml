@@ -62,7 +62,11 @@ jobs:
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
 
-          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/daily_gains.json data/scan_cache.json"
+          # classification_fallbacks.json faltava aqui (2026-08-09): fica
+          # sem alteração na maioria das corridas, mas quando muda ficava por
+          # commitar e o `git pull --rebase` abaixo abortava com "unstaged
+          # changes" — falha silenciosa, sem push, sem rasto no repo.
+          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
 
           if git diff --quiet -- $FILES; then
             echo "sem alterações reais — nada a commitar."
