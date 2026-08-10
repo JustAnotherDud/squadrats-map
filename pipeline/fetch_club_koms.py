@@ -15,20 +15,13 @@ import json
 import os
 
 import daily_gains
+from athletes import ATHLETES
 from kml_parse import reconstruct_squares
 from tiles_fetch import GEOMETRY_LAYERS, scan_athlete
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(HERE)
 DATA_DIR = os.path.join(REPO_DIR, "data")
-
-ATHLETES = {
-    "Zé": "PjHY1RpxbmgMrQG3ITdTeDa7t6M2",
-    "Xeira": "yIVPnafX3WcNbDt5MKWqEZMqUD42",
-    "Carolina": "ZF81dc6PXFQm3iEfyNFMsUPlSHz2",
-    "Inês S.": "C4bIQgAqI7SlSo7SPsudWM4LSwq2",
-    "Pedro": "zrId7ywBfCQPt28q5VAzpva01ST2",
-}
 
 
 def fetch_totals(uid):
