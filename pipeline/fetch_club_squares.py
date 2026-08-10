@@ -18,6 +18,7 @@ import datetime
 import json
 import os
 
+from athletes import ATLETAS
 from kml_parse import reconstruct_squares
 from tiles_fetch import scan_athlete
 
@@ -26,15 +27,6 @@ DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 
 CAMADA = "squadratinhos"
 ZOOM = 17
-
-# a ordem fixa a atribuição dos bits — não reordenar sem regenerar o ficheiro
-ATLETAS = [
-    ("Zé", "PjHY1RpxbmgMrQG3ITdTeDa7t6M2"),
-    ("Xeira", "yIVPnafX3WcNbDt5MKWqEZMqUD42"),
-    ("Carolina", "ZF81dc6PXFQm3iEfyNFMsUPlSHz2"),
-    ("Inês S.", "C4bIQgAqI7SlSo7SPsudWM4LSwq2"),
-    ("Pedro", "zrId7ywBfCQPt28q5VAzpva01ST2"),
-]
 
 
 def squares_de(uid):

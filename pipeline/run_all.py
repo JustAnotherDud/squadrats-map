@@ -19,11 +19,10 @@ import time
 import fetch_club_koms
 import fetch_club_squares
 import pipeline
+from athletes import JOSE_UID
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
-
-JOSE_UID = "PjHY1RpxbmgMrQG3ITdTeDa7t6M2"
 
 
 def main(out_dir):
