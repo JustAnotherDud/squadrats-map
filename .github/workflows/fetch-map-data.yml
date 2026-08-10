@@ -26,9 +26,14 @@ name: fetch-map-data
 # em vez de tempo fixo, para não haver atraso entre sincronizar e o mapa
 # atualizar — precisa de webhook novo, não implementado ainda (ver README
 # das regras de uso do endpoint antes de desenhar isso).
+# Minuto 7, não 0 (2026-08-10): ao minuto 0 em ponto é o pico de carga
+# documentado do scheduler do GitHub Actions — a corrida das 13h chegou a
+# atrasar-se ~52min nesse dia. Não muda as horas (13h/22h) nem a folga de
+# 2h até à meia-noite UTC explicada acima, só desvia do minuto mais
+# concorrido.
 on:
   schedule:
-    - cron: "0 13,22 * * *" # 2x/dia, 13:00 e 22:00 UTC
+    - cron: "7 13,22 * * *" # 2x/dia, 13:07 e 22:07 UTC
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
