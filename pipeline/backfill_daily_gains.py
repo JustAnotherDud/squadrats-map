@@ -20,11 +20,10 @@ import os
 import subprocess
 from datetime import datetime, timezone
 
+from daily_gains import CAMPOS
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
-
-CAMPOS = ["squadrats", "squadratinhos", "yard", "yardinho",
-          "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos"]
 
 
 def git(*args):
