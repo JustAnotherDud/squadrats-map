@@ -5,7 +5,7 @@ Se não, qualquer sugestão que déssemos seria inventada.
 
 Gabarito: o servidor diz yard=90 / uber=6 (squadrats) e 480 / 13 (squadratinhos).
 """
-import json, os, sys
+import json, os
 from collections import deque
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
