@@ -28,9 +28,13 @@ name: fetch-map-data
 # das regras de uso do endpoint antes de desenhar isso).
 # Minuto 7, não 0 (2026-08-10): ao minuto 0 em ponto é o pico de carga
 # documentado do scheduler do GitHub Actions — a corrida das 13h chegou a
-# atrasar-se ~52min nesse dia. Não muda as horas (13h/22h) nem a folga de
-# 2h até à meia-noite UTC explicada acima, só desvia do minuto mais
-# concorrido.
+# atrasar-se ~52min nesse dia, e uma corrida nem chegou a disparar sozinha
+# (só correu porque foi accionada à mão). Não muda as horas (13h/22h) nem
+# a folga até à meia-noite UTC explicada acima (fica ~1h53 em vez de 2h,
+# perda insignificante), só desvia do minuto mais concorrido.
+# Nota (2026-08-12): não elimina o atraso, só afasta-o do pico — mesmo já
+# no minuto 7, dia 11 Ago houve corridas ~50min e ~1h16 depois da hora
+# marcada. Sem SLA do GitHub sobre isto, este desvio é mitigação, não cura.
 on:
   schedule:
     - cron: "7 13,22 * * *" # 2x/dia, 13:07 e 22:07 UTC
