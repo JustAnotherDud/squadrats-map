@@ -1,5 +1,5 @@
 {
-  "atualizado": "2026-08-13T14:26:23Z",
+  "atualizado": "2026-08-13T22:56:25Z",
   "atletas": {
     "Zé": {
       "yard": 90,
@@ -17,9 +17,9 @@
       "ubersquadrat": 9,
       "ubersquadratinho": 9,
       "backyards": 15,
-      "backyardinhos": 183,
-      "squadrats": 462,
-      "squadratinhos": 5943
+      "backyardinhos": 185,
+      "squadrats": 466,
+      "squadratinhos": 5975
     },
     "Carolina": {
       "yard": 2,
@@ -46,8 +46,8 @@
       "ubersquadratinho": 4,
       "backyards": 9,
       "backyardinhos": 55,
-      "squadrats": 200,
-      "squadratinhos": 1611
+      "squadrats": 202,
+      "squadratinhos": 1623
     }
   }
 }
