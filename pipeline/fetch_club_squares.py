@@ -18,7 +18,7 @@ import datetime
 import json
 import os
 
-from athletes import ATLETAS
+from athletes import ATLETAS, known_squadratinhos
 from kml_parse import reconstruct_squares
 from tiles_fetch import scan_athlete
 
@@ -29,9 +29,17 @@ CAMADA = "squadratinhos"
 ZOOM = 17
 
 
-def squares_de(uid):
-    """Conjunto de (x, y) do atleta, validado contra o `size` do servidor."""
-    geometries, _ = scan_athlete(uid)
+def squares_de(uid, known=None, anteriores_squares=None, bit=None):
+    """Conjunto de (x, y) do atleta, validado contra o `size` do servidor.
+
+    Se o probe de tiles_fetch.py confirmar "sem alterações", reaproveita o
+    conjunto anterior deste atleta a partir do bitmask já publicado em
+    club.json — filtrado pelo bit dele, `anteriores_squares` traz todos os
+    atletas juntos."""
+    resultado = scan_athlete(uid, known_squadratinhos=known)
+    if resultado is None:
+        return {(x, y) for x, y, m in (anteriores_squares or []) if m & bit}
+    geometries, _ = resultado
     if CAMADA not in geometries:
         # sem cobertura: o scan chegou aqui sem levantar erro, e uma falha real
         # (500, geometria inválida) já teria abortado antes disto. Mas isto
@@ -54,10 +62,18 @@ def squares_de(uid):
 
 
 def main(out_dir):
+    known = known_squadratinhos(out_dir)
+    anteriores_squares = []
+    try:
+        with open(os.path.join(out_dir, "club.json"), encoding="utf-8") as f:
+            anteriores_squares = json.load(f).get("squares", [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
     por_atleta = {}
-    for nome, uid in ATLETAS:
+    for i, (nome, uid) in enumerate(ATLETAS):
         print(f"a varrer {nome} ({uid})...")
-        por_atleta[nome] = squares_de(uid)
+        por_atleta[nome] = squares_de(uid, known.get(uid), anteriores_squares, 1 << i)
         print(f"{nome}: {len(por_atleta[nome])} squadratinhos")
 
     mascaras = {}

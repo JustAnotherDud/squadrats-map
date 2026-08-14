@@ -15,7 +15,7 @@ import json
 import os
 
 import daily_gains
-from athletes import ATHLETES
+from athletes import ATHLETES, known_squadratinhos
 from kml_parse import reconstruct_squares
 from tiles_fetch import GEOMETRY_LAYERS, scan_athlete
 
@@ -24,8 +24,13 @@ REPO_DIR = os.path.dirname(HERE)
 DATA_DIR = os.path.join(REPO_DIR, "data")
 
 
-def fetch_totals(uid):
-    geometries, counts = scan_athlete(uid)
+def fetch_totals(uid, known=None):
+    """Devolve None se o probe de tiles_fetch.py confirmar que este UID não
+    mudou — o chamador tem de reaproveitar a entrada anterior."""
+    resultado = scan_athlete(uid, known_squadratinhos=known)
+    if resultado is None:
+        return None
+    geometries, counts = resultado
 
     totals = dict(counts)
     for name in GEOMETRY_LAYERS:
@@ -65,9 +70,33 @@ def main(out_dir):
         "atualizado": inicio.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "atletas": {},
     }
+
+    # totais/probe-tile já publicados (branch 'data', carregados no out_dir
+    # antes desta corrida) — fonte do probe barato e do "reaproveitar" quando
+    # ele confirma que nada mudou (ver tiles_fetch.py, athletes.py).
+    known = known_squadratinhos(out_dir)
+    anteriores = {}
+    try:
+        with open(os.path.join(out_dir, "squadrats.json"), encoding="utf-8") as f:
+            anteriores = json.load(f).get("atletas", {})
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
     for name, uid in ATHLETES.items():
         print(f"a varrer {name} ({uid})...")
-        result["atletas"][name] = fetch_totals(uid)
+        totals = fetch_totals(uid, known.get(uid))
+        if totals is None:
+            totals = anteriores.get(name)
+            if totals is None:
+                # não devia acontecer: known só vem preenchido quando já há
+                # uma entrada anterior para este nome no mesmo squadrats.json
+                raise RuntimeError(
+                    f"'{name}': probe disse 'sem alterações' mas não há publicação "
+                    f"anterior para reaproveitar — inconsistência entre known_squadratinhos "
+                    f"e o squadrats.json carregado."
+                )
+            print(f"{name}: sem alterações — a reaproveitar a publicação anterior")
+        result["atletas"][name] = totals
         print(f"{name}: {result['atletas'][name]}")
 
     out_path = os.path.join(out_dir, "squadrats.json")
