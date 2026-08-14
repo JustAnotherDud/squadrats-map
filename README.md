@@ -2,7 +2,7 @@
 
 Mapa de squares (squadrats/squadratinhos) capturados, com % por concelho/distrito de Portugal, servido via GitHub Pages.
 
-O ciclo é automático: `fetch-map-data.yml` corre 2x/dia, busca os dados **diretamente aos
+O ciclo é automático: `fetch-map-data.yml` corre 6x/dia, busca os dados **diretamente aos
 vector tiles da Squadrats** (sem export manual de KML) e publica se houver diferença real. Também
 publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os atletas do
 clube, consumido pelo `folha-do-clube` como o `prs.json`.
@@ -77,9 +77,9 @@ mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteir
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
 - `supabase/functions/` — Edge Functions do caminho **fallback** por KML (ver arquitetura abaixo)
 - `.github/workflows/`
-  - `fetch-map-data.yml` — **principal**, cron 2x/dia (13:00 e 22:00 UTC — a segunda perto do fim
-    do dia em Lisboa, com 2h de folga até à meia-noite UTC para absorver atrasos do GitHub Actions
-    a disparar o cron), sem dependência do Drive
+  - `fetch-map-data.yml` — **principal**, cron 6x/dia (01/05/09/13/17/22h UTC — a última perto do
+    fim do dia em Lisboa, com ~2h de folga até à meia-noite UTC para absorver atrasos do GitHub
+    Actions a disparar o cron), sem dependência do Drive
   - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
 
 ## O que significa cada camada (`size`)
@@ -116,15 +116,16 @@ se taparem); o `size` continua a ser o do servidor, com o yard incluído.
 públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
 já expõe o UID). Para não abusar:
 
-- Correr no máximo 2x/dia (`fetch-map-data.yml`, cron `7 13,22 * * *`). Era semanal, depois diário,
-  subiu a 2x/dia em 2026-08-08 para encolher o atraso entre uma actividade acontecer e ser
-  detectada (ver `daily_gains.py`) — só ficou justificável depois da cache de cobertura
-  (`tiles_fetch.py`) cortar o custo por corrida em 68%. Pior caso (todos os 5 atletas mudaram
-  desde a última corrida): ~2032 pedidos com a cache de cobertura a acertar (~6274 sem ela). Caso
-  normal, com o probe de 1 pedido/atleta (2026-08-14, ver abaixo): quem não mudou custa só esse 1
-  pedido, não os ~400 do scan completo — na prática a maioria das corridas fica bem abaixo de
-  2032. Não subir a frequência sem recalcular este orçamento pelo PIOR caso, não pelo médio — o
-  probe reduz o custo típico, não o tecto.
+- Correr no máximo 6x/dia (`fetch-map-data.yml`, cron `7 1,5,9,13,17,22 * * *`). Era semanal,
+  depois diário, subiu a 2x/dia em 2026-08-08 (só ficou justificável depois da cache de cobertura
+  do `tiles_fetch.py` cortar o custo por corrida em 68%) e a 6x/dia em 2026-08-14, a seguir ao
+  probe de 1 pedido/atleta (ver abaixo) — passo intermédio de propósito, não foi logo para 1x/hora.
+  Pior caso (todos os 5 atletas mudaram desde a última corrida): ~2032 pedidos com a cache de
+  cobertura a acertar (~6274 sem ela) — a 6x/dia isso seria ~12.2k pedidos/dia se acontecesse
+  sempre, mas não acontece: com o probe, quem não mudou custa só 1 pedido, não os ~400 do scan
+  completo, e correr mais vezes não faz alguém mudar mais vezes. Na prática a maioria das corridas
+  fica bem abaixo do pior caso. Não subir a frequência sem recalcular este orçamento pelo PIOR
+  caso, não pelo médio — o probe reduz o custo típico, não o tecto.
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
 - Concorrência baixa (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` em `tiles_fetch.py` — subiu de
   4 em 2026-08-08, testado sem 500s/lentidão; não subir mais sem repetir essa verificação)
@@ -180,10 +181,10 @@ Fallback por KML (ver secção própria): `py pipeline/pipeline.py --kml data/sa
 
 ## Arquitetura
 
-### Caminho principal — vector tiles (`fetch-map-data.yml`, cron 2x/dia)
+### Caminho principal — vector tiles (`fetch-map-data.yml`, cron 6x/dia)
 
 ```
-[fetch-map-data.yml, cron 2x/dia ou workflow_dispatch]
+[fetch-map-data.yml, cron 6x/dia ou workflow_dispatch]
                     |
                     v
 [tiles_fetch.py] --fetch--> tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf

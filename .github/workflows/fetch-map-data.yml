@@ -48,9 +48,21 @@ name: fetch-map-data
 # Histórico git dos dados mantém-se (a branch `data` continua com commits
 # normais) — o backfill_daily_gains.py continua a poder reconstruir a partir
 # daí se for preciso.
+# 2x/dia -> 6x/dia (2026-08-14), a seguir ao probe de 1 pedido do
+# tiles_fetch.py (ver README): sem o probe, 6x/dia custaria ~6x mais no pior
+# caso (~12.2k pedidos/dia). Com ele, correr mais vezes não multiplica o
+# custo por correr mais vezes — só paga o scan completo de quem realmente
+# mudou, e isso não acontece mais vezes só porque se verifica mais vezes.
+# Corridas "paradas" custam ~5 pedidos (1 probe/atleta) cada.
+# Horas mantidas: 13h07 e 22h07 UTC continuam as âncoras originais (ver
+# comentário acima sobre a folga até à meia-noite UTC); as 4 novas (1h/5h/
+# 9h/17h) preenchem o resto do dia em intervalos de ~4h. Passo intermédio de
+# propósito, não 1x/hora logo — subir de 2 para 6 primeiro, confirmar uns
+# dias sem 500s/lentidão nova (mesmo critério já usado para a concorrência),
+# só depois considerar ir mais além.
 on:
   schedule:
-    - cron: "7 13,22 * * *" # 2x/dia, 13:07 e 22:07 UTC
+    - cron: "7 1,5,9,13,17,22 * * *" # 6x/dia, de 4 em 4h aprox., minuto 7 (ver nota acima)
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
