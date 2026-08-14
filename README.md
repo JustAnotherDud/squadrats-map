@@ -2,10 +2,19 @@
 
 Mapa de squares (squadrats/squadratinhos) capturados, com % por concelho/distrito de Portugal, servido via GitHub Pages.
 
-O ciclo é automático: `fetch-map-data.yml` corre diariamente, busca os dados **diretamente aos
-vector tiles da Squadrats** (sem export manual de KML) e comita se houver diferença real. Também
-publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os 3 atletas do
+O ciclo é automático: `fetch-map-data.yml` corre 2x/dia, busca os dados **diretamente aos
+vector tiles da Squadrats** (sem export manual de KML) e publica se houver diferença real. Também
+publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os atletas do
 clube, consumido pelo `folha-do-clube` como o `prs.json`.
+
+**Dados numa branch própria (2026-08-14):** os ficheiros que o cron regenera (a lista completa
+está no `env.FILES` do `fetch-map-data.yml`) vivem na branch `data`, não no `master` — comitar no
+master fazia o Pages (modo clássico) rebuildar a cada corrida, e um push nosso a código ao mesmo
+tempo que o cron corria colidia com o commit do bot. Os 3 consumidores
+(`index.html`, `club.html`, `folha-do-clube`) leem esses ficheiros de
+`raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/...`, não do URL do Pages —
+mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteiras e o
+`adjacency.json` são estáticos, continuam só no `master`, caminho relativo normal.
 
 ## Estrutura
 

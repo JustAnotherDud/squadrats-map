@@ -35,6 +35,19 @@ name: fetch-map-data
 # Nota (2026-08-12): não elimina o atraso, só afasta-o do pico — mesmo já
 # no minuto 7, dia 11 Ago houve corridas ~50min e ~1h16 depois da hora
 # marcada. Sem SLA do GitHub sobre isto, este desvio é mitigação, não cura.
+# Dados numa branch própria, não no master (2026-08-14): antes, cada corrida
+# comitava os JSONs directamente no master — cada commit disparava rebuild
+# completo do Pages (clássico, serve do master), e qualquer push nosso a
+# código ao mesmo tempo que o cron corria colidia com o commit do bot
+# (aconteceu de facto: `git pull --rebase` com conflito a meio de um fix).
+# Agora o bot só toca na branch `data`; código e docs continuam a viver só no
+# master. Os 3 consumidores (squadrats-map/index.html, club.html,
+# folha-do-clube) passam a ler de raw.githubusercontent.com/.../data/...
+# (branch `data`) em vez do URL do Pages — serve o JSON na hora, sem rebuild
+# nenhum, e sem risco de colidir com commits de código.
+# Histórico git dos dados mantém-se (a branch `data` continua com commits
+# normais) — o backfill_daily_gains.py continua a poder reconstruir a partir
+# daí se for preciso.
 on:
   schedule:
     - cron: "7 13,22 * * *" # 2x/dia, 13:07 e 22:07 UTC
@@ -43,6 +56,12 @@ on:
 concurrency:
   group: squadrats-data-push
   cancel-in-progress: false
+
+env:
+  # os únicos ficheiros que o cron regenera (ver pipeline/run_all.py) — o
+  # resto de data/ (geojsons de fronteiras, adjacency.json) é estático,
+  # fica só no master, nunca precisa de ir para a branch `data`.
+  FILES: "data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
 
 jobs:
   fetch:
@@ -60,29 +79,51 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
+      - name: Carregar o estado mais recente da branch 'data'
+        run: |
+          # sobrepõe os ficheiros dinâmicos com a última versão publicada —
+          # sem isto, cada corrida arrancava do snapshot congelado que ficou
+          # no master no dia da migração, perdendo o scan_cache.json (a
+          # cache de cobertura que faz a corrida custar ~2032 pedidos em vez
+          # de ~6274, ver comentário do tiles_fetch.py) e o baseline do
+          # daily_gains.json.
+          git fetch origin data
+          git checkout origin/data -- $FILES
+
       # Um passo só, de propósito: os três consumidores partilham o varrimento
       # (ver pipeline/run_all.py). Em passos separados, cada um varria os
       # mesmos UIDs outra vez.
       - name: Varrer e gerar tudo (mapa detalhado + totais do clube + club)
         run: python3 pipeline/run_all.py data
 
-      - name: Commitar só se houver diferença real
+      - name: Publicar na branch 'data' só se houver diferença real
         run: |
-          git config user.name "squadrats-bot"
-          git config user.email "actions@users.noreply.github.com"
-
-          # classification_fallbacks.json faltava aqui (2026-08-09): fica
-          # sem alteração na maioria das corridas, mas quando muda ficava por
-          # commitar e o `git pull --rebase` abaixo abortava com "unstaged
-          # changes" — falha silenciosa, sem push, sem rasto no repo.
-          FILES="data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
-
+          # diff contra o índice, não contra o HEAD do master: o passo
+          # anterior ("carregar o estado mais recente") já deixou o índice a
+          # apontar para o último estado publicado na branch `data` — isto
+          # detecta corretamente "o pipeline não mudou nada desde a última
+          # publicação", mesmo o master nunca mais sendo tocado depois disto.
           if git diff --quiet -- $FILES; then
-            echo "sem alterações reais — nada a commitar."
+            echo "sem alterações reais — nada a publicar."
             exit 0
           fi
 
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          # worktree à parte para a branch `data`, de propósito: NUNCA troca
+          # de branch no checkout principal (que continua em master até ao
+          # fim do job). Trocar de branch a meio, com estes ficheiros por
+          # comitar, arriscava "local changes would be overwritten".
+          git worktree add -B data /tmp/data-branch origin/data
+          for f in $FILES; do
+            mkdir -p "/tmp/data-branch/$(dirname "$f")"
+            cp "$f" "/tmp/data-branch/$f"
+          done
+
+          cd /tmp/data-branch
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
           git add $FILES
           git commit -m "chore(data): atualizar squares via vector tiles [skip ci]"
-          git pull --rebase origin master
-          git push
+          git push origin data
