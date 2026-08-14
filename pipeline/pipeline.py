@@ -38,10 +38,21 @@ def run(kml_path, out_dir):
 def run_from_tiles(uid, out_dir, bbox=None):
     """Fonte principal: fetch directo aos vector tiles da Squadrats (ver
     tiles_fetch.py). Substitui o export manual de KML."""
+    from athletes import known_squadratinhos
     from tiles_fetch import scan_athlete
 
     kwargs = {"bbox": bbox} if bbox else {}
-    geoms, counts, trophies = scan_athlete(uid, with_trophy_geometry=True, **kwargs)
+    known = known_squadratinhos(out_dir).get(uid)
+    resultado = scan_athlete(uid, with_trophy_geometry=True, known_squadratinhos=known, **kwargs)
+    if resultado is None:
+        # probe confirmou "sem alterações" (ver tiles_fetch.py) — os
+        # ficheiros que este UID publica (tile_info_*.json, stats.json,
+        # trophies.json, suggestions.json, classification_fallbacks.json) já
+        # estão no out_dir, carregados da branch 'data' antes de correr — não
+        # tocar neles é o comportamento certo, não é um "esquecimento".
+        print(f"UID '{uid}': sem alterações desde a última publicação — a manter ficheiros existentes")
+        return {}
+    geoms, counts, trophies = resultado
 
     if "squadrats" not in geoms:
         raise RuntimeError(

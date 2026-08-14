@@ -64,13 +64,20 @@ DISCOVERY_LEVELS = (4, 7, 10)  # zooms intermédios da cascata
 # Guardamos essa lista por UID e saltamos a cascata na corrida seguinte.
 #
 # Porque é que isto é seguro:
-# - cobertura nunca encolhe (squares são cumulativos), por isso a cache
-#   nunca fica com tiles a mais que deixem de ser válidos;
+# - cobertura normalmente só cresce (squares são cumulativos), por isso a
+#   cache normalmente não fica com tiles a mais que deixem de ser válidos;
 # - se ficar com tiles a MENOS (atleta capturou numa zona nova), a
 #   reconstrução não bate com o `size` que o próprio servidor reporta nos
 #   tiles — detecta-se, faz-se a descoberta completa e refaz-se a cache,
 #   reaproveitando os tiles z12 já buscados. A auto-validação que já era a
 #   rede de segurança do pipeline passa a ser também o invalidador da cache.
+# - excepção rara: uma actividade apagada ou cortada DEPOIS de já ter sido
+#   publicada pode fazer a contagem BAIXAR (não é "cumulativo" no sentido
+#   estrito quando isso acontece). Não invalida a lista de tiles z10 em si
+#   (é grosseira; é raríssimo um atleta perder TODA a cobertura de uma célula
+#   inteira), mas é a razão de `_probe_sem_alteracoes` comparar por
+#   IGUALDADE estrita, nunca "maior ou igual" — qualquer desvio, para cima
+#   ou para baixo, dispara sempre o scan completo.
 #
 # O ficheiro guarda coordenadas z10 derivadas (nunca tiles em bruto — ver
 # regras no README) e é mais grosseiro do que o que o club.json já publica
@@ -88,15 +95,20 @@ def _read_coverage_cache():
         return {}
 
 
-def _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, tiles):
+def _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, tiles, probe_tile=None):
     cache = _read_coverage_cache()
-    cache[uid] = {
+    entry = {
         "bbox": list(bbox),
         "discovery_levels": list(discovery_levels),
         "fetch_zoom": fetch_zoom,
         "coarse_zoom": discovery_levels[-1],
         "tiles": sorted(list(t) for t in tiles),
     }
+    if probe_tile is not None:
+        entry["probe_tile"] = list(probe_tile)
+    elif uid in cache and "probe_tile" in cache[uid]:
+        entry["probe_tile"] = cache[uid]["probe_tile"]  # preserva o que já lá estava
+    cache[uid] = entry
     os.makedirs(os.path.dirname(COVERAGE_CACHE_PATH), exist_ok=True)
     with open(COVERAGE_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(cache, f, ensure_ascii=False, separators=(",", ":"))
@@ -268,7 +280,7 @@ _CACHE = {}
 
 
 def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
-                 with_trophy_geometry=False):
+                 with_trophy_geometry=False, known_squadratinhos=None):
     """Varre o atleta uma vez por processo e guarda o resultado.
 
     Há três consumidores dos mesmos UIDs (`pipeline.py`, `fetch_club_koms.py`,
@@ -278,15 +290,25 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
 
     Varre-se sempre com a geometria de troféus (é um superconjunto e não custa
     pedidos nenhuns a mais), e devolve-se conforme o que o chamador pediu.
+
+    `known_squadratinhos` (opcional, ver `athletes.known_squadratinhos`):
+    último total publicado. Se um probe de 1 pedido confirmar que continua
+    igual, devolve-se `None` em vez do tuplo — o chamador tem de reaproveitar
+    a publicação anterior (nenhuma geometria nova foi buscada). Sem isto,
+    comportamento igual ao de sempre.
     """
     chave = (uid, bbox, discovery_levels, fetch_zoom)
     if chave not in _CACHE:
         _CACHE[chave] = _scan_athlete(uid, bbox, discovery_levels, fetch_zoom,
-                                      with_trophy_geometry=True)
+                                      with_trophy_geometry=True,
+                                      known_squadratinhos=known_squadratinhos)
     else:
         print(f"{uid}: já varrido neste processo, a reutilizar")
 
-    geometries, counts, trophies = _CACHE[chave]
+    resultado = _CACHE[chave]
+    if resultado is None:
+        return None
+    geometries, counts, trophies = resultado
     if with_trophy_geometry:
         return geometries, counts, trophies
     return geometries, counts
@@ -370,8 +392,38 @@ def _coverage_complete(geometries):
     return True
 
 
+def _probe_sem_alteracoes(uid, probe_tile, fetch_zoom, known_squadratinhos):
+    """1 pedido a um tile já confirmado com conteúdo (guardado no scan
+    anterior) — lê o total GLOBAL de squadratinhos embutido em qualquer
+    feature dessa camada (é assim que a auto-validação já confia neste
+    campo, ver `_assemble_layers`) e compara com `known_squadratinhos`.
+
+    Comparação por igualdade estrita, não "maior ou igual": uma actividade
+    apagada ou cortada DEPOIS de publicada pode fazer o total BAIXAR (a
+    'cobertura nunca encolhe' deixa de ser garantida quando isso acontece) —
+    qualquer desvio, para cima ou para baixo, tem de disparar o scan
+    completo. Só um "igual" com toda a confiança salta o resto.
+
+    Devolve False (nunca assume "sem alterações" às cegas) se o tile deixou
+    de responder, se a camada não aparece nesta amostra, ou se o campo size
+    vier vazio — cai-se sempre no caminho seguro (scan completo) em caso de
+    dúvida."""
+    x, y = probe_tile
+    try:
+        decoded = fetch_tile(uid, fetch_zoom, x, y)
+    except SquadratsHttpError:
+        return False
+    if decoded is None or "squadratinhos" not in decoded:
+        return False
+    for feat in decoded["squadratinhos"]["features"]:
+        size = feat["properties"].get("size")
+        if size is not None:
+            return size == known_squadratinhos
+    return False
+
+
 def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
-                  with_trophy_geometry=False):
+                  with_trophy_geometry=False, known_squadratinhos=None):
     """Varre a cobertura do atleta e devolve:
     - geometries: {layer_name: (size, shapely_geom)} para squadrats/squadratinhos
       (mesmo formato do kml_parse.parse_kml_geometries, para reutilizar
@@ -381,6 +433,11 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     Com `with_trophy_geometry=True` devolve um 3º valor,
     trophies: {layer_name: shapely_geom} — só quando é preciso desenhar as
     formas (mapa), não quando só interessam os totais (folha-do-clube).
+
+    Devolve `None` (em vez do tuplo) quando `known_squadratinhos` é dado e o
+    probe de 1 pedido confirma que continua igual — nada foi buscado, o
+    chamador tem de reaproveitar a publicação anterior (ver
+    `athletes.known_squadratinhos`).
 
     Caminho normal: cobertura z10 vem de data/scan_cache.json (corrida
     anterior), salta-se a cascata de descoberta e valida-se o resultado
@@ -398,6 +455,14 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
         and entry.get("discovery_levels") == list(discovery_levels)
         and entry.get("fetch_zoom") == fetch_zoom
     )
+    if cache_applicable and known_squadratinhos is not None and entry.get("probe_tile"):
+        probe_tile = tuple(entry["probe_tile"])
+        if _probe_sem_alteracoes(uid, probe_tile, fetch_zoom, known_squadratinhos):
+            print(f"{uid}: probe confirma squadratinhos={known_squadratinhos} sem alteração — "
+                  f"a saltar scan completo (1 pedido em vez de dezenas/centenas)")
+            return None
+        print(f"{uid}: probe indica alteração (ou inconclusivo) — a continuar com o scan normal")
+
     if cache_applicable:
         cached_coarse = [tuple(t) for t in entry["tiles"]]
         candidates = _children(cached_coarse, factor)
@@ -406,6 +471,11 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
         _fetch_missing(uid, fetch_zoom, candidates, results)
         geometries, counts, trophies = _assemble_layers(results, fetch_zoom, with_trophy_geometry)
         if _coverage_complete(geometries):
+            # refresca o probe_tile de propósito, mesmo sem mudar a lista de
+            # tiles z10 — é o que a próxima corrida vai usar para o atalho
+            # acima, e nunca custa pedidos extra (os tiles já foram buscados).
+            probe_tile = next((xy for xy, d in results.items() if d is not None), None)
+            _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, cached_coarse, probe_tile)
             if with_trophy_geometry:
                 return geometries, counts, trophies
             return geometries, counts
@@ -421,7 +491,8 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     # cobertura real = pais z10 dos tiles z12 que devolveram conteúdo (inclui
     # também o que veio de uma cache parcial no caminho de fallback)
     with_data = {(x // factor, y // factor) for (x, y), d in results.items() if d is not None}
-    _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, with_data)
+    probe_tile = next((xy for xy, d in results.items() if d is not None), None)
+    _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, with_data, probe_tile)
 
     if with_trophy_geometry:
         return geometries, counts, trophies

@@ -116,21 +116,35 @@ se taparem); o `size` continua a ser o do servidor, com o yard incluído.
 públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
 já expõe o UID). Para não abusar:
 
-- Correr no máximo 2x/dia (`fetch-map-data.yml`, cron `0 13,22 * * *`). Era semanal, depois diário,
+- Correr no máximo 2x/dia (`fetch-map-data.yml`, cron `7 13,22 * * *`). Era semanal, depois diário,
   subiu a 2x/dia em 2026-08-08 para encolher o atraso entre uma actividade acontecer e ser
   detectada (ver `daily_gains.py`) — só ficou justificável depois da cache de cobertura
-  (`tiles_fetch.py`) cortar o custo por corrida em 68%. Um varrimento completo pelos 5 atletas
-  (ver `ATHLETES` em `fetch_club_koms.py`) são ~2032 pedidos com a cache a acertar (~6274 sem
-  ela — descoberta completa, só acontece quando um atleta captura nalgum sítio novo). A 2x/dia
-  isso fica em ~4064 pedidos/dia, ainda abaixo do regime antigo de 1x/dia sem cache. Não subir a
-  frequência sem recalcular este orçamento primeiro.
+  (`tiles_fetch.py`) cortar o custo por corrida em 68%. Pior caso (todos os 5 atletas mudaram
+  desde a última corrida): ~2032 pedidos com a cache de cobertura a acertar (~6274 sem ela). Caso
+  normal, com o probe de 1 pedido/atleta (2026-08-14, ver abaixo): quem não mudou custa só esse 1
+  pedido, não os ~400 do scan completo — na prática a maioria das corridas fica bem abaixo de
+  2032. Não subir a frequência sem recalcular este orçamento pelo PIOR caso, não pelo médio — o
+  probe reduz o custo típico, não o tecto.
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
 - Concorrência baixa (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` em `tiles_fetch.py` — subiu de
   4 em 2026-08-08, testado sem 500s/lentidão; não subir mais sem repetir essa verificação)
 - Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)
 - O `{TS}` no URL tem de ser fresco (`int(time.time()*1000)`) a cada pedido — o servidor ignora o
-  valor mas a resposta vem com `cache-control: max-age=31536000` e o URL é a chave de cache; um
-  timestamp fixo devolve dados congelados sem erro nenhum (falha silenciosa)
+  valor mas o URL é a chave de cache; um timestamp fixo pode devolver dados congelados sem erro
+  nenhum (falha silenciosa). **Actualizado 2026-08-14**: testado ao vivo (com `ts` fixo e com `ts`
+  real) e a resposta vem sempre com `Cache-Control: no-store`, não `max-age=31536000` como esta
+  nota dizia antes — não há CDN nem cache de resposta para explorar (não vale a pena tentar poupar
+  pedidos por aí). Mantém-se o `ts` fresco na mesma: o aviso de "dados congelados" pode não ser só
+  sobre cache HTTP, e não há necessidade de mexer nisso — o ganho real de pedidos está no probe de
+  `tiles_fetch.py` (ver abaixo).
+- Probe de 1 pedido antes de varrer a sério (2026-08-14, `tiles_fetch._probe_sem_alteracoes`): lê o
+  total global de squadratinhos embutido em qualquer tile já conhecido e compara com o último
+  publicado (`data/squadrats.json`). Squadratinhos é a grelha mais fina — qualquer ganho nas outras
+  7 camadas implica sempre um squadratinho novo, nunca ao contrário — por isso esta única contagem
+  chega para confirmar "nada mudou" e saltar o resto do varrimento desse atleta. Corta uma corrida
+  parada de ~2032 pedidos para ~5 (1 por atleta); só paga o custo cheio de quem realmente captou
+  algo. Comparação por igualdade estrita (não "≥"): uma actividade apagada/cortada depois de
+  publicada pode fazer o total BAIXAR, e isso também tem de disparar o scan completo.
 
 ### Nota sobre nomes de concelho duplicados
 
