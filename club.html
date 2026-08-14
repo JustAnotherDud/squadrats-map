@@ -386,7 +386,9 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
   // no-cache = revalidar sempre com o servidor (304 quando não mudou, por isso
   // não custa tráfego). Sem isto o browser servia o JSON de ontem depois de um
   // run do pipeline e a página parecia parada.
-  const r = await fetch('data/club.json', { cache: 'no-cache' });
+  // club.json vive na branch `data`, não no master (2026-08-14) — ver
+  // fetch-map-data.yml.
+  const r = await fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/club.json', { cache: 'no-cache' });
   if (!r.ok) {
     document.getElementById('painel-resumo').textContent = 'club.json não encontrado';
     return;

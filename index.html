@@ -111,18 +111,23 @@
 </div>
 
 <script>
+// Prefixo dos ficheiros DINÂMICOS (o cron regenera 2x/dia): vivem na branch
+// `data`, não no master (2026-08-14) — servidos via raw.githubusercontent,
+// sem passar pelo rebuild do Pages. Os geojsons de fronteiras e o
+// adjacency.json são estáticos, ficam no master, caminho relativo normal.
+const DADOS_BRANCH = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/';
 const DATA_URLS = {
-  squadrats: 'data/tile_info_squadrats.json',
-  squadratinhos: 'data/tile_info_squadratinhos.json',
-  stats: 'data/stats.json',
+  squadrats: DADOS_BRANCH + 'tile_info_squadrats.json',
+  squadratinhos: DADOS_BRANCH + 'tile_info_squadratinhos.json',
+  stats: DADOS_BRANCH + 'stats.json',
   concelhos: 'data/concelhos_pt.geojson',
   distritos: 'data/distritos_pt.geojson',
   portugal: 'data/portugal_outline.geojson',
   provinciasEs: 'data/provincias_es.geojson',
   spain: 'data/spain_outline.geojson',
   adjacency: 'data/adjacency.json',
-  trophies: 'data/trophies.json',
-  suggestions: 'data/suggestions.json',
+  trophies: DADOS_BRANCH + 'trophies.json',
+  suggestions: DADOS_BRANCH + 'suggestions.json',
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
