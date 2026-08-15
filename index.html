@@ -134,6 +134,7 @@ const DATA_URLS = {
   spain: 'data/spain_outline.geojson',
   paroquiasAd: 'data/paroquias_ad.geojson',
   andorra: 'data/andorra_outline.geojson',
+  municipiosEs: 'data/municipios_es.geojson',
   adjacency: 'data/adjacency.json',
   trophies: DADOS_BRANCH + 'trophies.json',
   suggestions: DADOS_BRANCH + 'suggestions.json',
@@ -187,6 +188,7 @@ const NIVEL_INFO = {
   },
   concelhos: {
     PT: { geo: () => cache.concelhos, nameProp: 'NAME_2', bucket: 'by_concelho' },
+    ES: { geo: () => cache.municipiosEs, nameProp: 'region', bucket: 'by_municipio_es' },
   },
 };
 
