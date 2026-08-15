@@ -712,12 +712,14 @@ function renderStats() {
         }
         const parentsOrdenados = [...porParent.keys()].sort((a, b) => a.localeCompare(b, 'pt'));
         const escolhido = state.zeroParentByCountry[country] || '';
-        if (escolhido && porParent.has(escolhido)) visibleRows = visibleRows.concat(porParent.get(escolhido));
+        if (escolhido === '__TODOS__') visibleRows = visibleRows.concat(rows);
+        else if (escolhido && porParent.has(escolhido)) visibleRows = visibleRows.concat(porParent.get(escolhido));
 
         gruposHtml += `<div class="zero-group">
           <span>${BANDEIRA[country]} ${rows.length.toLocaleString('pt-PT')} sem captura, por Nível 2:</span>
           <select data-zero-parent="${country}">
             <option value="">escolher para mostrar…</option>
+            <option value="__TODOS__" ${escolhido === '__TODOS__' ? 'selected' : ''}>— mostrar tudo (${rows.length.toLocaleString('pt-PT')}) —</option>
             ${parentsOrdenados.map(p => `<option value="${escapeHtml(p)}" ${p === escolhido ? 'selected' : ''}>${escapeHtml(p)} (${porParent.get(p).length})</option>`).join('')}
           </select>
         </div>`;
