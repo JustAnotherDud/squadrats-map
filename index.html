@@ -56,6 +56,16 @@
   .zero-toggle:active { opacity:.7; }
   .zero-group { display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:11px; color:#8b93a6; padding:5px 4px; }
   .zero-group select { background:#1b1f2a; color:#e7e9ee; border:1px solid #2c3242; border-radius:6px; font-size:11px; padding:3px 5px; }
+  /* número do ganho ("+N") sempre visível dentro do square de "Crescer
+     yard", não só no hover (2026-08-15). leaflet-div-icon por defeito tem
+     fundo/borda brancos (anulados aqui) E o Leaflet usa `transform` inline
+     no próprio div para o posicionar — não dá para também usar `transform`
+     nesse div para centrar o texto (o inline ganha sempre à CSS externa).
+     Por isso a centragem (-50%,-50%) vai num <span> interno, não afectado
+     pelo posicionamento do Leaflet. */
+  .ganho-label-wrap { background:none; border:none; pointer-events:none; }
+  .ganho-label { display:inline-block; transform:translate(-50%, -50%); color:#fff;
+    font-size:11px; font-weight:700; text-shadow:0 0 3px #000, 0 0 3px #000; white-space:nowrap; }
   .pais-pills { display:flex; gap:6px; margin:0 0 10px; }
   .pais-pills button {
     display:inline-flex; align-items:center; gap:5px;
@@ -64,6 +74,7 @@
   }
   .pais-pills button.active { background:#3d7bf5; border-color:#3d7bf5; color:#fff; }
   #btn-color-mode, #btn-grelha-linhas { align-self:flex-start; margin-top:2px; pointer-events:auto; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
+  #btn-color-mode { display:block; margin:0 0 10px; }
   #btn-color-mode.active, #btn-grelha-linhas.active { background:#3d7bf5; border-color:#3d7bf5; }
 
   #trofeus { display:flex; gap:4px; flex-wrap:wrap; pointer-events:auto; }
@@ -105,17 +116,15 @@
     <button data-val="distritos">Região</button>
     <button data-val="concelhos">Zona</button>
   </div>
+  <div id="trofeus"></div>
+  <button id="btn-grelha-linhas">Grelha</button>
 </div>
 
 <div id="sheet" class="collapsed">
   <div id="sheet-handle"><div class="bar"></div></div>
   <div id="sheet-summary"><span id="summary-text"></span><span style="color:#7d8598">▲</span></div>
   <div id="sheet-body">
-    <div id="trofeus"></div>
-    <div class="seg" id="seg-mapa-extra">
-      <button id="btn-grelha-linhas">Grelha</button>
-      <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
-    </div>
+    <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
     <div id="sheet-list"></div>
     <div id="sheet-detail"></div>
   </div>
@@ -292,6 +301,10 @@ function tileBounds(x, y, z) {
   const nw = tileNW(x, y, z);
   const se = tileNW(x + 1, y + 1, z);
   return [[nw[0], nw[1]], [se[0], se[1]]];
+}
+function tileCenter(x, y, z) {
+  const [nw, se] = tileBounds(x, y, z);
+  return [(nw[0] + se[0]) / 2, (nw[1] + se[1]) / 2];
 }
 
 // --- grelha de squares (linhas), para ver onde caem as fronteiras ---
@@ -948,6 +961,17 @@ function drawSugestao() {
         `<b>+${m.ganho} ao yard</b><br>${yard_atual} → ${m.novo_yard} squares`,
         { sticky: true },
       ).addTo(trophyLayer);
+      // número do ganho sempre visível dentro do square, não só no hover —
+      // pedido directo (2026-08-15): a um square de distância não dá para
+      // ver qual vale mais sem tocar em cada um.
+      L.marker(tileCenter(m.x, m.y, s.zoom), {
+        icon: L.divIcon({
+          className: 'ganho-label-wrap',
+          html: `<span class="ganho-label">+${m.ganho}</span>`,
+          iconSize: null,
+        }),
+        interactive: false,
+      }).addTo(trophyLayer);
     });
   }
 }
