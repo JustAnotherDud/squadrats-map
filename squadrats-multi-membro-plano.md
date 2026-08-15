@@ -1,6 +1,13 @@
 # Squadrats — análise detalhada (concelho/município) para todo o clube
 
-**Estado:** brainstorm inicial, nada implementado. Escrito a pedido explícito do José em 15 Ago 2026, depois de fechar o suporte a Espanha+Andorra+Alemanha para a análise pessoal dele. **Não construir sem revisão** — há decisões de arquitectura e de UI por confirmar antes de gastar tempo de computação nisto (o cálculo geográfico de hoje já levou ~35 min só para 1 pessoa + 4 países).
+**Estado (actualizado 15 Ago 2026, mesmo dia): implementado e publicado.** O brainstorm original (secções abaixo) ficou como registo de como se chegou à Opção A — o que segue é o que ficou construído de facto:
+
+- **Backend**: `pipeline/classify_club.py` (novo) — reaproveita `club.json` (já produzido por `fetch_club_squares.py` na mesma corrida de `run_all.py`, zero pedidos de rede extra) e classifica os squares de cada um dos 5 atletas por concelho/distrito/região/país, via o mesmo `Classifier` do mapa pessoal. Escreve `data/club_regioes.json` (só `captured`; os totais continuam a vir de `stats.json`, partilhados por todos — sem duplicar dados). Ligado ao `run_all.py` e ao `fetch-map-data.yml`.
+- **Frontend**: Opção A implementada em `club.html` — secção "Nível 2/3 (por atleta)" no painel, selector de atleta (mesmas cores do mapa de sobreposição), duas tabelas (nível 2 e nível 3) combinando `club_regioes.json` (captured) com `stats.json` (total/%). Testado com dados reais (Pedro: Cercle de Zagora/MA, Hamburg/DE correctos).
+- **Rótulos**: "Países/Distritos/Concelhos" → "Nível 1/2/3" em `index.html` e `club.html`, porque já não descreviam bem 5 vocabulários administrativos diferentes.
+- **Marrocos**: nível 2 = 12 regiões (ISO 3166-2), nível 3 = 426 "cercles" (Overpass admin_level=6, filtrados por intersecção >50% com o contorno do país — préfectures reais colidiam com as regiões já usadas, comunas dão timeout consistente no Overpass). Geometria simplificada (média 456→133 vértices) depois de a primeira tentativa do `compute_grid_totals.py` ter ficado ~10x mais lenta que o esperado por causa da complexidade bruta do OSM.
+
+O que ficou por fazer (não bloqueante, ver secções 4-6 abaixo para contexto): tamanho do `club_regioes.json` a longo prazo se a malta acumular muitos squares fora de PT/ES, e Opção B (leaderboard por região) continua por explorar se um dia fizer sentido.
 
 ---
 
