@@ -15,7 +15,6 @@
   .seg { display:flex; gap:4px; pointer-events:auto; }
   .seg button { flex:1; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 8px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
   .seg button.active { background:#3d7bf5; border-color:#3d7bf5; }
-  #nivel-legenda { font-size:9.5px; color:#8b93a6; text-shadow:0 1px 3px rgba(0,0,0,.8); pointer-events:none; margin-top:-2px; }
 
   #sheet { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:#151821; border-top:1px solid #262b38; border-radius:14px 14px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.4); transition: height .25s ease; }
   #sheet.collapsed { height:54px; }
@@ -102,20 +101,21 @@
     <button data-val="squadratinhos" class="active">Squadratinhos (201 m)</button>
   </div>
   <div class="seg" id="seg-visao">
-    <button data-val="paises" class="active">Nível 1</button>
-    <button data-val="distritos">Nível 2</button>
-    <button data-val="concelhos">Nível 3</button>
+    <button data-val="paises" class="active">País</button>
+    <button data-val="distritos">Região</button>
+    <button data-val="concelhos">Zona</button>
   </div>
-  <div id="nivel-legenda">Nível 1 país · Nível 2 distrito/província/Land/região · Nível 3 concelho/município/cercle</div>
-  <div id="trofeus"></div>
-  <button id="btn-grelha-linhas">Grelha</button>
-  <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
 </div>
 
 <div id="sheet" class="collapsed">
   <div id="sheet-handle"><div class="bar"></div></div>
   <div id="sheet-summary"><span id="summary-text"></span><span style="color:#7d8598">▲</span></div>
   <div id="sheet-body">
+    <div id="trofeus"></div>
+    <div class="seg" id="seg-mapa-extra">
+      <button id="btn-grelha-linhas">Grelha</button>
+      <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
+    </div>
     <div id="sheet-list"></div>
     <div id="sheet-detail"></div>
   </div>
@@ -161,10 +161,13 @@ let state = {
   // do distrito/Land escolhido (2026-08-15).
   zeroParentByCountry: {},
   colorMode: 'region', // 'uniform' | 'region' — cor dos squares capturados
-  // países activos na tabela de Distritos/Concelhos (2026-08-15) — PT
-  // sempre ligado por defeito, Espanha opcional. Uma tabela só, ordenada
-  // em conjunto, não duas tabelas separadas como era antes.
-  paises: new Set(['PT']),
+  // países activos na tabela de Região/Zona — populado a seguir a BANDEIRA
+  // (declarada depois de state, não dá para referenciar aqui). Por defeito
+  // TODOS os países conhecidos (2026-08-15): já mostra logo o que houver
+  // fora de PT sem precisar de tocar no toggle "Todos" primeiro — "mostrar
+  // zero" continua a esconder as regiões sem captura, por isso ligar todos
+  // não enche a tabela de ruído.
+  paises: new Set(),
 };
 
 // SVG em vez de emoji de bandeira (🇵🇹/🇪🇸): o emoji depende da fonte do
@@ -179,6 +182,7 @@ const BANDEIRA = {
   DE: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
   MA: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#c1272d"/><polygon points="7.5,2.5 8.2,4.53 10.35,4.57 8.64,5.87 9.26,7.93 7.5,6.7 5.74,7.93 6.36,5.87 4.65,4.57 6.8,4.53" fill="#006233"/></svg>',
 };
+state.paises = new Set(Object.keys(BANDEIRA));
 
 // nível país (vista "Países") — um país novo no futuro é só uma entrada
 // aqui + bandeira em BANDEIRA + a fonte de contorno/stats no backend
@@ -561,7 +565,7 @@ function renderDetailCard(name) {
   }
   grid += `<div class="detail-item"><div class="label">Posição no ranking</div><div class="value">${rank.rank}/${rank.outOf}</div></div>`;
 
-  // Nível 2 que contém este Nível 3 (distrito/província/Land/região) —
+  // Região que contém esta zona (distrito/província/Land/região) —
   // reaproveita regionParent() (já existia para o "mostrar zero" e para as
   // cores por região). Clicável: muda de vista e selecciona o pai
   // directamente, em vez de obrigar a voltar à lista e procurar (2026-08-15).
@@ -570,7 +574,7 @@ function renderDetailCard(name) {
     const parent = regionParent(info.country, info.name);
     if (parent) {
       const parentKey = chaveRegiao(info.country, parent);
-      parentHtml = `<div class="detail-item"><div class="label">Nível 2</div><div class="value"><a href="#" data-goto-parent="${escapeHtml(parentKey)}">${escapeHtml(parent)} →</a></div></div>`;
+      parentHtml = `<div class="detail-item"><div class="label">Região</div><div class="value"><a href="#" data-goto-parent="${escapeHtml(parentKey)}">${escapeHtml(parent)} →</a></div></div>`;
     }
   }
 
@@ -673,20 +677,39 @@ function buildTable(tableId, columns, rows, sortKey, sortDir, interactive = true
 function renderStats() {
   const zkey = ZKEY[state.grelha];
   const stats = cache.stats;
-  const pt = stats.country_pt[zkey];
 
-  document.getElementById('summary-text').innerHTML =
-    `<b>${pt.captured}</b> sq · ${fmtPct(pt.pct)} PT`;
+  // total capturado em todos os países com dados, não só PT — fazia sentido
+  // quando só havia um país, agora com 5 na lista "País" ficava a destacar
+  // só um deles sem motivo (2026-08-15).
+  let totalCaptured = 0;
+  for (const cc of Object.keys(PAIS_INFO)) {
+    const s = (stats[PAIS_INFO[cc].statsKey] || {})[zkey];
+    if (s) totalCaptured += s.captured;
+  }
+  document.getElementById('summary-text').innerHTML = `<b>${totalCaptured}</b> sq capturados`;
 
   let html = '';
   if (state.visao === 'paises') {
-    html += '<div class="section-title">Nível 1</div>';
+    html += '<div class="section-title">País</div>';
+    const paisRows = [];
     for (const cc of Object.keys(PAIS_INFO)) {
       const info = PAIS_INFO[cc];
       const s = (stats[info.statsKey] || {})[zkey];
       if (!s) continue;
+      paisRows.push({ cc, info, s });
+    }
+    // mesmo padrão de "mostrar zero" da Região/Zona — sem isto, países sem
+    // nenhuma captura (ex: Andorra) apareciam sempre, mesmo por defeito.
+    const zeroCount = paisRows.filter(r => r.s.captured === 0).length;
+    const visibleRows = state.showZero ? paisRows : paisRows.filter(r => r.s.captured > 0);
+    visibleRows.forEach(({ cc, info, s }) => {
       const label = s.total ? `${s.captured}/${s.total} · ${fmtPct(s.pct)}` : `${s.captured} sq`;
       html += `<div class="stat-row"><span class="stat-name">${BANDEIRA[cc]} ${info.label}</span><b>${label}</b></div>`;
+    });
+    if (zeroCount) {
+      html += state.showZero
+        ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar os ${zeroCount} países sem capturas</div>`
+        : `<div class="zero-toggle" data-zero-toggle="1">+ mostrar os ${zeroCount} países sem capturas</div>`;
     }
   } else {
     const nivel = NIVEL_INFO[state.visao];
@@ -707,8 +730,8 @@ function renderStats() {
       </button>`).join('') + '</div>';
 
     const nomesPaises = paisesNesteNivel.map(p => `${BANDEIRA[p]} ${PAIS_INFO[p].label}`).join(' + ') || '—';
-    const title = state.visao === 'distritos' ? 'Nível 2' : 'Nível 3';
-    html += `<div class="section-title">${title} — ${nomesPaises}${state.showZero ? '' : ' (com capturas)'}</div>`;
+    const title = state.visao === 'distritos' ? 'Região' : 'Zona';
+    html += `<div class="section-title">${title} — ${nomesPaises}</div>`;
 
     // uma tabela só, países activos misturados e ordenados em conjunto —
     // antes eram duas tabelas separadas (PT sempre visível, ES à parte,
@@ -763,7 +786,7 @@ function renderStats() {
         else if (escolhido && porParent.has(escolhido)) visibleRows = visibleRows.concat(porParent.get(escolhido));
 
         gruposHtml += `<div class="zero-group">
-          <span>${BANDEIRA[country]} ${rows.length.toLocaleString('pt-PT')} sem captura, por Nível 2:</span>
+          <span>${BANDEIRA[country]} ${rows.length.toLocaleString('pt-PT')} sem captura, por região:</span>
           <select data-zero-parent="${country}">
             <option value="">escolher para mostrar…</option>
             <option value="__TODOS__" ${escolhido === '__TODOS__' ? 'selected' : ''}>— mostrar tudo (${rows.length.toLocaleString('pt-PT')}) —</option>
