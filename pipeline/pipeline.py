@@ -178,7 +178,17 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
 
     summary = {}
     visitados_por_grelha = {}
-    stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "country_es": {}, "foreign": {}}
+    # países estrangeiros com total conhecido (grid_totals já tem country_XX/
+    # by_region_XX — ver compute_grid_totals.py) — descoberto a partir das
+    # chaves do próprio grid_totals, não de uma lista fixa: um país novo lá
+    # aparece aqui sozinho, sem tocar neste ficheiro.
+    paises_com_total = sorted({
+        k[len("country_"):].upper() for k in grid_totals if k.startswith("country_") and k != "country_pt"
+    })
+    stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "foreign": {}}
+    for cc in paises_com_total:
+        stats[f"country_{cc.lower()}"] = {}
+        stats[f"by_region_{cc.lower()}"] = {}
     total_squares = 0
     not_on_land = 0
     fallback_events = []  # squares resolvidos por proximidade (país e/ou concelho), não por área
@@ -207,7 +217,7 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
         by_concelho_captured, by_distrito_captured = {}, {}
         by_foreign_captured = {}  # {country: {region: count}}
         unclassified_foreign = 0
-        pt_captured = es_captured = 0
+        pt_captured = foreign_captured = 0
         for x, y, lon, lat in squares:
             info = classifier.classify(tile_bounds(x, y, zoom))
             out.append({
@@ -243,7 +253,7 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
                 by_concelho_captured[info["concelho"]] = by_concelho_captured.get(info["concelho"], 0) + 1
                 by_distrito_captured[info["district"]] = by_distrito_captured.get(info["district"], 0) + 1
             else:
-                es_captured += 1
+                foreign_captured += 1
                 if info["country"] and info["region"]:
                     by_foreign_captured.setdefault(info["country"], {})
                     by_foreign_captured[info["country"]][info["region"]] = (
@@ -293,7 +303,21 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
         stats["country_pt"][zkey] = {
             "captured": pt_captured, "total": pt_total, "pct": pct(pt_captured, pt_total),
         }
-        stats["country_es"][zkey] = {"captured": es_captured, "total": None, "pct": None}
+
+        for cc in paises_com_total:
+            captured_by_region = by_foreign_captured.get(cc, {})
+            for name, total_info in grid_totals.get(f"by_region_{cc.lower()}", {}).items():
+                total = total_info.get(zkey, 0)
+                captured = captured_by_region.get(name, 0)
+                stats[f"by_region_{cc.lower()}"].setdefault(name, {})[zkey] = {
+                    "captured": captured, "total": total, "pct": pct(captured, total),
+                }
+            total_pais = grid_totals.get(f"country_{cc.lower()}", {}).get(zkey, 0)
+            captured_pais = sum(captured_by_region.values())
+            stats[f"country_{cc.lower()}"][zkey] = {
+                "captured": captured_pais, "total": total_pais or None,
+                "pct": pct(captured_pais, total_pais) if total_pais else None,
+            }
         stats["foreign"][zkey] = {**by_foreign_captured, "unclassified": unclassified_foreign}
 
     if counts:
