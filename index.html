@@ -185,7 +185,7 @@ let state = {
 // SVG inline desenha sempre a mesma coisa, sem depender de fonte nenhuma.
 // Simplificadas (sem brasão/escudo), só para identificar o país num relance.
 const BANDEIRA = {
-  PT: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/></svg>',
+  PT: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/><circle cx="6" cy="5.5" r="2" fill="#ffd400"/></svg>',
   ES: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
   AD: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
   DE: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
@@ -742,9 +742,8 @@ function renderStats() {
         ${BANDEIRA[p]} ${PAIS_INFO[p].label}
       </button>`).join('') + '</div>';
 
-    const nomesPaises = paisesNesteNivel.map(p => `${BANDEIRA[p]} ${PAIS_INFO[p].label}`).join(' + ') || '—';
     const title = state.visao === 'distritos' ? 'Região' : 'Zona';
-    html += `<div class="section-title">${title} — ${nomesPaises}</div>`;
+    html += `<div class="section-title">${title}</div>`;
 
     // uma tabela só, países activos misturados e ordenados em conjunto —
     // antes eram duas tabelas separadas (PT sempre visível, ES à parte,
@@ -1090,7 +1089,7 @@ function updateColorToggleVisibility() {
   const applicable = state.visao === 'distritos' || state.visao === 'concelhos';
   btn.style.display = applicable ? 'inline-block' : 'none';
   btn.classList.toggle('active', state.colorMode === 'region');
-  const byLabel = state.visao === 'concelhos' ? 'concelho' : 'distrito/província';
+  const byLabel = state.visao === 'concelhos' ? 'zona' : 'região';
   btn.textContent = state.colorMode === 'region' ? `Cores: ${byLabel}` : 'Cores: uniforme';
 }
 
