@@ -167,6 +167,8 @@ let camadaSquares = null;
 let detalheAberto = false;
 let geoAberto = false;         // secção "Por concelho/distrito" (detalhe geográfico)
 let geoAtletaSel = 0;          // índice do atleta seleccionado nessa secção
+let leaderboardAberto = false;       // secção "Leaderboard por região" (2026-08-15)
+let leaderboardSoDisputadas = true;  // só regiões com 2+ pessoas, por defeito
 let modo = 'quantos';   // 'quantos' (legível de longe) | 'quem' (riscas)
 
 // zoom em baixo à direita: no canto superior esquerdo ficava por baixo do
@@ -375,6 +377,7 @@ function renderPainel() {
     Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
 
   linhas.push(renderDetalheGeo());
+  linhas.push(renderLeaderboard());
 
   const corpo = document.getElementById('painel-corpo');
   corpo.innerHTML = linhas.join('');
@@ -387,6 +390,10 @@ function renderPainel() {
   corpo.querySelectorAll('[data-geo-atleta]').forEach(b => {
     b.onclick = () => { geoAtletaSel = Number(b.dataset.geoAtleta); renderPainel(); };
   });
+  const lbToggle = document.getElementById('leaderboard-toggle');
+  if (lbToggle) lbToggle.onclick = () => { leaderboardAberto = !leaderboardAberto; renderPainel(); };
+  const lbFiltro = document.getElementById('leaderboard-filtro');
+  if (lbFiltro) lbFiltro.onclick = () => { leaderboardSoDisputadas = !leaderboardSoDisputadas; renderPainel(); };
 }
 
 // --- detalhe geográfico por atleta (2026-08-15) ---
@@ -471,6 +478,79 @@ function renderDetalheGeo() {
   linhas.push(`<div class="nota">Squadratinhos (zoom 17). Totais partilhados com o mapa pessoal
     (mesma grelha para toda a gente) — só a contagem capturada muda por atleta.
     ${dadosGeo.atualizado ? `Actualizado: ${dadosGeo.atualizado.replace('T', ' ').replace('Z', ' UTC')}` : ''}</div>`);
+
+  return linhas.join('');
+}
+
+// --- leaderboard por região (2026-08-15) — "quem manda em X" ---
+// Não precisa de dados novos: club_regioes.json já tem tudo, isto é só o
+// mesmo club_regioes.json pivotado (por atleta -> por região) em vez de
+// (por região -> por atleta), inteiramente no browser.
+function pivotRegioes() {
+  const porRegiao = new Map();
+  if (!dadosGeo) return porRegiao;
+  dados.atletas.forEach((a, i) => {
+    const geo = dadosGeo.atletas[a.nome];
+    if (!geo) return;
+    const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
+    for (const [cc, porNome] of Object.entries(porConcelho)) {
+      for (const [nome, captured] of Object.entries(porNome)) {
+        const chave = `${cc}|${nome}`;
+        if (!porRegiao.has(chave)) porRegiao.set(chave, { cc: cc.toUpperCase(), nome, entradas: [] });
+        porRegiao.get(chave).entradas.push({ i, atleta: a.nome, captured });
+      }
+    }
+  });
+  return porRegiao;
+}
+
+function renderLeaderboard() {
+  const linhas = [];
+  linhas.push(`<div class="titulo-seccao detalhe-toggle" id="leaderboard-toggle">Leaderboard por concelho/município
+    <span class="seta">${leaderboardAberto ? 'esconder' : 'mostrar'}</span></div>`);
+  if (!leaderboardAberto) return linhas.join('');
+
+  if (!dadosGeo) {
+    linhas.push('<div class="nota">club_regioes.json ainda não disponível.</div>');
+    return linhas.join('');
+  }
+
+  linhas.push(`<div class="seg" style="margin:4px 0 8px">
+    <button id="leaderboard-filtro" class="${leaderboardSoDisputadas ? 'on' : ''}">Só disputadas (2+ pessoas)</button>
+  </div>`);
+
+  let entradas = [...pivotRegioes().values()];
+  if (leaderboardSoDisputadas) entradas = entradas.filter(r => r.entradas.length >= 2);
+  entradas.forEach(r => {
+    r.entradas.sort((a, b) => b.captured - a.captured);
+    r.melhor = r.entradas[0].captured;
+  });
+  // mais disputada primeiro (mais pessoas), empate desempata pelo líder com
+  // mais squares — as duas coisas que tornam uma região "interessante" aqui
+  entradas.sort((a, b) => b.entradas.length - a.entradas.length || b.melhor - a.melhor);
+
+  if (!entradas.length) {
+    linhas.push('<div class="nota">Nenhuma região disputada por 2+ pessoas ainda.</div>');
+  }
+
+  entradas.forEach(r => {
+    const bucket = r.cc === 'PT' ? 'by_concelho' : `by_municipio_${r.cc.toLowerCase()}`;
+    const total = totalDe(bucket, r.nome);
+    const linhasAtletas = r.entradas.map((e, pos) => {
+      const pct = total ? ` <span class="fraco">${(100 * e.captured / total).toFixed(1)}%</span>` : '';
+      return `<div class="linha-stat" style="padding-left:16px">
+        <span class="esq"><span class="txt">${pos + 1}º</span>
+        <span class="dot" style="background:${COR_ATLETA[e.i]}"></span>
+        <span class="txt">${e.atleta}</span></span>
+        <b>${e.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
+    }).join('');
+    linhas.push(`<div class="linha-stat" style="font-weight:600">
+      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${r.nome}</span></span>
+      <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}`);
+  });
+
+  linhas.push(`<div class="nota">Ranking por squares capturados (não por %) dentro de cada concelho/município.
+    "Disputada" = 2 ou mais pessoas com pelo menos 1 square lá.</div>`);
 
   return linhas.join('');
 }
