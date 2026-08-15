@@ -16,6 +16,7 @@ import os
 import sys
 import time
 
+import classify_club
 import fetch_club_koms
 import fetch_club_squares
 import pipeline
@@ -31,6 +32,9 @@ def main(out_dir):
         ("mapa detalhado (José)", lambda: pipeline.run_from_tiles(JOSE_UID, out_dir)),
         ("totais do clube", lambda: fetch_club_koms.main(out_dir)),
         ("squares do club", lambda: fetch_club_squares.main(out_dir)),
+        # depende do club.json escrito no passo anterior (mesma corrida) —
+        # não volta a varrer o Squadrats, só classifica os squares já ali
+        ("regiões do club", lambda: classify_club.main(out_dir)),
     ]
     for nome, fn in passos:
         t = time.time()
