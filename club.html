@@ -399,6 +399,18 @@ function totalDe(bucket, nome) {
   return s && s.z17 ? s.z17.total : null;
 }
 
+const NOME_PAIS = { PT: 'Portugal', ES: 'Espanha', AD: 'Andorra', DE: 'Alemanha', MA: 'Marrocos' };
+
+// Nível 1 (país) — geo.country já vem pronto do classify_club.py, só falta
+// juntar o total partilhado (stats.json) para a percentagem (2026-08-15).
+function linhasPais(country) {
+  return Object.entries(country || {}).map(([cc, captured]) => {
+    const s = dadosStats && dadosStats[`country_${cc.toLowerCase()}`];
+    const total = s && s.z17 ? s.z17.total : null;
+    return { cc, nome: NOME_PAIS[cc] || cc, captured, total };
+  }).sort((a, b) => b.captured - a.captured);
+}
+
 // PT e estrangeiro usam palavras diferentes em stats.json, não só um sufixo
 // de país (by_distrito vs by_region_es, by_concelho vs by_municipio_es) —
 // por isso dois nomes de bucket em vez de um prefixo só.
@@ -450,6 +462,7 @@ function renderDetalheGeo() {
     return linhas.join('');
   }
 
+  linhas.push(tabelaGeo('Nível 1', linhasPais(geo.country)));
   const porDistrito = { pt: geo.by_distrito, ...geo.by_region };
   const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
   linhas.push(tabelaGeo('Nível 2', linhasGeo(porDistrito, 'by_distrito', 'by_region')));
