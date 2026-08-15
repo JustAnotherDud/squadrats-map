@@ -362,7 +362,7 @@ function totalDe(bucket, nome) {
 
 const NOME_PAIS = { PT: 'Portugal', ES: 'Espanha', AD: 'Andorra', DE: 'Alemanha', MA: 'Marrocos' };
 
-// Nível 1 (país) — geo.country já vem pronto do classify_club.py, só falta
+// País — geo.country já vem pronto do classify_club.py, só falta
 // juntar o total partilhado (stats.json) para a percentagem (2026-08-15).
 function linhasPais(country) {
   return Object.entries(country || {}).map(([cc, captured]) => {
@@ -419,11 +419,11 @@ function renderDetalheGeo() {
     return linhas.join('');
   }
 
-  linhas.push(tabelaGeo('Nível 1', linhasPais(geo.country)));
+  linhas.push(tabelaGeo('País', linhasPais(geo.country)));
   const porDistrito = { pt: geo.by_distrito, ...geo.by_region };
   const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
-  linhas.push(tabelaGeo('Nível 2', linhasGeo(porDistrito, 'by_distrito', 'by_region')));
-  linhas.push(tabelaGeo('Nível 3', linhasGeo(porConcelho, 'by_concelho', 'by_municipio')));
+  linhas.push(tabelaGeo('Região', linhasGeo(porDistrito, 'by_distrito', 'by_region')));
+  linhas.push(tabelaGeo('Zona', linhasGeo(porConcelho, 'by_concelho', 'by_municipio')));
 
   linhas.push(`<div class="nota">Squadratinhos (zoom 17). Totais partilhados com o mapa pessoal
     (mesma grelha para toda a gente) — só a contagem capturada muda por atleta.
@@ -472,7 +472,7 @@ function bucketDe(nivel, cc) {
   return cc === 'PT' ? 'by_concelho' : `by_municipio_${cc.toLowerCase()}`;
 }
 
-const LEADERBOARD_NIVEIS = { pais: 'Nível 1', distrito: 'Nível 2', concelho: 'Nível 3' };
+const LEADERBOARD_NIVEIS = { pais: 'País', distrito: 'Região', concelho: 'Zona' };
 
 function renderLeaderboard() {
   const linhas = [];
