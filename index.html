@@ -54,6 +54,8 @@
   .note { font-size:10px; color:#6b7285; padding:8px 0 0; }
   .zero-toggle { font-size:11.5px; color:#7ab8ff; padding:7px 4px; cursor:pointer; user-select:none; }
   .zero-toggle:active { opacity:.7; }
+  .zero-group { display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:11px; color:#8b93a6; padding:5px 4px; }
+  .zero-group select { background:#1b1f2a; color:#e7e9ee; border:1px solid #2c3242; border-radius:6px; font-size:11px; padding:3px 5px; }
   .pais-pills { display:flex; gap:6px; margin:0 0 10px; }
   .pais-pills button {
     display:inline-flex; align-items:center; gap:5px;
@@ -138,6 +140,8 @@ const DATA_URLS = {
   laenderDe: 'data/laender_de.geojson',
   germany: 'data/germany_outline.geojson',
   municipiosDe: 'data/municipios_de.geojson',
+  regioesMa: 'data/regioes_ma.geojson',
+  morocco: 'data/morocco_outline.geojson',
   adjacency: 'data/adjacency.json',
   trophies: DADOS_BRANCH + 'trophies.json',
   suggestions: DADOS_BRANCH + 'suggestions.json',
@@ -148,6 +152,11 @@ let state = {
   grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, selected: null,
   sortKey: 'captured', sortDir: 'desc',           // tabela principal (distritos/concelhos)
   showZero: false,     // regiões sem capturas juntam-se à tabela principal?
+  // países "grandes" (ES/DE, milhares de concelhos) não despejam as regiões
+  // sem captura de repente — mostra-se antes um resumo por distrito/Land, e
+  // só se expande esse distrito/Land específico a pedido. chave: país -> nome
+  // do distrito/Land escolhido (2026-08-15).
+  zeroParentByCountry: {},
   colorMode: 'region', // 'uniform' | 'region' — cor dos squares capturados
   // países activos na tabela de Distritos/Concelhos (2026-08-15) — PT
   // sempre ligado por defeito, Espanha opcional. Uma tabela só, ordenada
@@ -165,6 +174,7 @@ const BANDEIRA = {
   ES: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
   AD: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
   DE: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
+  MA: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#c1272d"/><polygon points="7.5,2.5 8.2,4.53 10.35,4.57 8.64,5.87 9.26,7.93 7.5,6.7 5.74,7.93 6.36,5.87 4.65,4.57 6.8,4.53" fill="#006233"/></svg>',
 };
 
 // nível país (vista "Países") — um país novo no futuro é só uma entrada
@@ -176,6 +186,7 @@ const PAIS_INFO = {
   ES: { label: 'Espanha', cor: '#c9743d', geo: () => cache.spain, statsKey: 'country_es' },
   AD: { label: 'Andorra', cor: '#0018a8', geo: () => cache.andorra, statsKey: 'country_ad' },
   DE: { label: 'Alemanha', cor: '#dd0000', geo: () => cache.germany, statsKey: 'country_de' },
+  MA: { label: 'Marrocos', cor: '#c1272d', geo: () => cache.morocco, statsKey: 'country_ma' },
 };
 
 // por nível (distritos/concelhos) e país: onde está a geometria da fronteira
@@ -191,6 +202,10 @@ const NIVEL_INFO = {
     ES: { geo: () => cache.provinciasEs, nameProp: 'region', bucket: 'by_region_es' },
     AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
     DE: { geo: () => cache.laenderDe, nameProp: 'region', bucket: 'by_region_de' },
+    // Marrocos só tem nível região (12) — sem fonte limpa de comuna (~1500,
+    // sem GISCO por não ser UE), fica de fora do nível "concelhos" abaixo
+    // de propósito, mesmo padrão da Andorra antes de aliasar (2026-08-15).
+    MA: { geo: () => cache.regioesMa, nameProp: 'region', bucket: 'by_region_ma' },
   },
   concelhos: {
     PT: { geo: () => cache.concelhos, nameProp: 'NAME_2', bucket: 'by_concelho' },
@@ -200,6 +215,9 @@ const NIVEL_INFO = {
     // (2026-08-15), em vez de duplicar o cálculo para o mesmo resultado.
     AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
     DE: { geo: () => cache.municipiosDe, nameProp: 'region', bucket: 'by_municipio_de' },
+    // mesmo alias da Andorra: sem comuna, nível "concelhos" reaproveita as
+    // 12 regiões em vez de ficar ausente desta vista.
+    MA: { geo: () => cache.regioesMa, nameProp: 'region', bucket: 'by_region_ma' },
   },
 };
 
@@ -213,6 +231,34 @@ function partirChave(key) {
   const i = key.indexOf(':');
   return i === -1 ? { country: 'PT', name: key } : { country: key.slice(0, i), name: key.slice(i + 1) };
 }
+
+// países "grandes" a este nível (concelhos): acima disto, "mostrar zero" não
+// despeja tudo, agrupa por distrito/Land primeiro (ver renderStats). PT/AD/MA
+// nunca passam disto (max 308), por isso nem entram nesta lógica.
+const ZERO_GROUP_THRESHOLD = 500;
+
+// nome do concelho/município -> nome do distrito/província/Land que o
+// contém — vem de properties.parent, já calculado do lado do Python
+// (containment geométrico contra o nível região, ver refdata/foreign_muni/
+// ES.geojson e DE.geojson, 2026-08-15). Cache por país, construído só
+// quando pedido pela primeira vez (municipiosDe/municipiosEs têm milhares
+// de features, não vale a pena percorrer isto em cada render).
+let parentIndexCache = {};
+function regionParent(country, name) {
+  if (!parentIndexCache[country]) {
+    const nivel = NIVEL_INFO.concelhos[country];
+    const geo = nivel && nivel.geo();
+    const idx = new Map();
+    if (geo) {
+      for (const feat of geo.features) {
+        idx.set(feat.properties[nivel.nameProp], feat.properties.parent || null);
+      }
+    }
+    parentIndexCache[country] = idx;
+  }
+  return parentIndexCache[country].get(name) || null;
+}
+
 let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
@@ -639,13 +685,52 @@ function renderStats() {
       { key: 'remaining', label: 'Por capturar', className: 'col-remaining' },
       { key: 'pct', label: '%', render: r => fmtPct(r.pct) },
     ];
-    const zeroCount = allRows.filter(r => r.captured === 0).length;
-    const visibleRows = state.showZero ? allRows : allRows.filter(r => r.captured > 0);
+    const capturedRows = allRows.filter(r => r.captured > 0);
+    const zeroRows = allRows.filter(r => r.captured === 0);
+    const zeroCount = zeroRows.length;
+
+    // países "grandes" a este nível (ES/DE, milhares de concelhos): "mostrar
+    // zero" não despeja tudo de repente — agrupa por distrito/província/Land
+    // e só junta à tabela o grupo escolhido no dropdown. Países pequenos
+    // (PT/AD/MA, nunca passam de ~308) continuam a aparecer soltos, como
+    // sempre (2026-08-15).
+    let visibleRows = capturedRows.slice();
+    let gruposHtml = '';
+    if (state.showZero) {
+      const zeroPorPais = {};
+      for (const r of zeroRows) (zeroPorPais[r.country] ??= []).push(r);
+
+      for (const [country, rows] of Object.entries(zeroPorPais)) {
+        if (!(state.visao === 'concelhos' && rows.length > ZERO_GROUP_THRESHOLD)) {
+          visibleRows = visibleRows.concat(rows);
+          continue;
+        }
+        const porParent = new Map();
+        for (const r of rows) {
+          const p = regionParent(country, r.name) || '(sem distrito conhecido)';
+          if (!porParent.has(p)) porParent.set(p, []);
+          porParent.get(p).push(r);
+        }
+        const parentsOrdenados = [...porParent.keys()].sort((a, b) => a.localeCompare(b, 'pt'));
+        const escolhido = state.zeroParentByCountry[country] || '';
+        if (escolhido && porParent.has(escolhido)) visibleRows = visibleRows.concat(porParent.get(escolhido));
+
+        gruposHtml += `<div class="zero-group">
+          <span>${BANDEIRA[country]} ${rows.length.toLocaleString('pt-PT')} sem captura, por distrito/província/Land:</span>
+          <select data-zero-parent="${country}">
+            <option value="">escolher para mostrar…</option>
+            ${parentsOrdenados.map(p => `<option value="${escapeHtml(p)}" ${p === escolhido ? 'selected' : ''}>${escapeHtml(p)} (${porParent.get(p).length})</option>`).join('')}
+          </select>
+        </div>`;
+      }
+    }
+
     html += buildTable('main', columns, visibleRows, state.sortKey, state.sortDir);
+    html += gruposHtml;
 
     if (zeroCount) {
       html += state.showZero
-        ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar as ${zeroCount} regiões sem capturas</div>`
+        ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar as regiões sem capturas</div>`
         : `<div class="zero-toggle" data-zero-toggle="1">+ mostrar as ${zeroCount} regiões sem capturas (entram no sort)</div>`;
     }
 
@@ -666,6 +751,14 @@ function renderStats() {
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+document.getElementById('sheet-list').addEventListener('change', e => {
+  const sel = e.target.closest('[data-zero-parent]');
+  if (sel) {
+    state.zeroParentByCountry[sel.dataset.zeroParent] = sel.value;
+    renderStats();
+  }
+});
 
 document.getElementById('sheet-list').addEventListener('click', e => {
   const paisTodosBtn = e.target.closest('[data-pais-todos]');
