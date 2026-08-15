@@ -411,6 +411,22 @@ def _coverage_complete(geometries):
     return True
 
 
+def _serve_para_probe(decoded):
+    """True se este tile decodificado dá para usar como probe_tile no futuro
+    — precisa de ter a camada squadratinhos COM `size`, não só conteúdo
+    qualquer. Descoberto em produção (2026-08-15): um tile pode ter a
+    camada `squadrats` (1609m) sem ter `squadratinhos` (201m) — a
+    granularidade fina não aparece em todos os tiles onde a grosseira
+    aparece. Escolher um tile assim como probe_tile deixava o probe sempre
+    inconclusivo para essa pessoa, para sempre (`_probe_sem_alteracoes`
+    devolve False sem "squadratinhos" no tile) — o fallback caro disparava
+    em TODAS as corridas seguintes, não só quando havia mudança real."""
+    if decoded is None or "squadratinhos" not in decoded:
+        return False
+    return any(f["properties"].get("size") is not None
+               for f in decoded["squadratinhos"]["features"])
+
+
 def _probe_sem_alteracoes(uid, probe_tile, fetch_zoom, known_squadratinhos):
     """1 pedido a um tile já confirmado com conteúdo (guardado no scan
     anterior) — lê o total GLOBAL de squadratinhos embutido em qualquer
@@ -493,7 +509,7 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
             # refresca o probe_tile de propósito, mesmo sem mudar a lista de
             # tiles z10 — é o que a próxima corrida vai usar para o atalho
             # acima, e nunca custa pedidos extra (os tiles já foram buscados).
-            probe_tile = next((xy for xy, d in results.items() if d is not None), None)
+            probe_tile = next((xy for xy, d in results.items() if _serve_para_probe(d)), None)
             _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, cached_coarse, probe_tile)
             if with_trophy_geometry:
                 return geometries, counts, trophies
