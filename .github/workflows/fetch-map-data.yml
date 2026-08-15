@@ -73,7 +73,7 @@ env:
   # os únicos ficheiros que o cron regenera (ver pipeline/run_all.py) — o
   # resto de data/ (geojsons de fronteiras, adjacency.json) é estático,
   # fica só no master, nunca precisa de ir para a branch `data`.
-  FILES: "data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
+  FILES: "data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/club_regioes.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
 
 jobs:
   fetch:

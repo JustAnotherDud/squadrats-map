@@ -93,6 +93,16 @@ const COR_ATLETA = [
   '#38bdf8', // Pedro — azul
 ];
 
+// Mesmas bandeiras SVG do mapa pessoal (index.html) — copiadas aqui de
+// propósito: são páginas independentes, sem módulo partilhado (2026-08-15).
+const BANDEIRA = {
+  PT: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/></svg>',
+  ES: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
+  AD: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
+  DE: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
+  MA: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#c1272d"/><polygon points="7.5,2.5 8.2,4.53 10.35,4.57 8.64,5.87 9.26,7.93 7.5,6.7 5.74,7.93 6.36,5.87 4.65,4.57 6.8,4.53" fill="#006233"/></svg>',
+};
+
 function coresDe(mask) {
   const out = [];
   for (let i = 0; i < COR_ATLETA.length; i++) if (mask & (1 << i)) out.push(COR_ATLETA[i]);
@@ -149,10 +159,14 @@ function fundoDe(mask) {
 }
 
 let dados = null;
+let dadosGeo = null;           // club_regioes.json — captured por atleta/região (2026-08-15)
+let dadosStats = null;         // stats.json — totais partilhados (denominador), o mesmo p/ toda a gente
 let porCoord = new Map();     // "x,y" -> mask
 let activos = 0;              // bitmask dos atletas ligados
 let camadaSquares = null;
 let detalheAberto = false;
+let geoAberto = false;         // secção "Por concelho/distrito" (detalhe geográfico)
+let geoAtletaSel = 0;          // índice do atleta seleccionado nessa secção
 let modo = 'quantos';   // 'quantos' (legível de longe) | 'quem' (riscas)
 
 // zoom em baixo à direita: no canto superior esquerdo ficava por baixo do
@@ -360,12 +374,92 @@ function renderPainel() {
     está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
     Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
 
+  linhas.push(renderDetalheGeo());
+
   const corpo = document.getElementById('painel-corpo');
   corpo.innerHTML = linhas.join('');
   corpo.querySelector('.detalhe-toggle').onclick = () => {
     detalheAberto = !detalheAberto;
     renderPainel();
   };
+  const geoToggle = document.getElementById('geo-toggle');
+  if (geoToggle) geoToggle.onclick = () => { geoAberto = !geoAberto; renderPainel(); };
+  corpo.querySelectorAll('[data-geo-atleta]').forEach(b => {
+    b.onclick = () => { geoAtletaSel = Number(b.dataset.geoAtleta); renderPainel(); };
+  });
+}
+
+// --- detalhe geográfico por atleta (2026-08-15) ---
+// club_regioes.json só tem "captured" por região (ver classify_club.py); o
+// total/denominador é sempre o mesmo para toda a gente, já publicado em
+// stats.json (by_distrito/by_concelho/by_region_XX/by_municipio_XX) — aqui
+// só se combinam os dois, sem duplicar a lógica de classificação.
+function totalDe(bucket, nome) {
+  const s = dadosStats && dadosStats[bucket] && dadosStats[bucket][nome];
+  return s && s.z17 ? s.z17.total : null;
+}
+
+// PT e estrangeiro usam palavras diferentes em stats.json, não só um sufixo
+// de país (by_distrito vs by_region_es, by_concelho vs by_municipio_es) —
+// por isso dois nomes de bucket em vez de um prefixo só.
+function linhasGeo(porPaisCaptured, ptBucket, foreignBucketBase) {
+  // porPaisCaptured: { 'pt': {nome: n}, 'es': {...}, ... } — 'pt' é especial
+  // (sem prefixo de bandeira nas chaves de stats.json, ver pipeline.py)
+  const linhas = [];
+  for (const [cc, porNome] of Object.entries(porPaisCaptured)) {
+    const bucket = cc === 'pt' ? ptBucket : `${foreignBucketBase}_${cc}`;
+    for (const [nome, captured] of Object.entries(porNome)) {
+      const total = totalDe(bucket, nome);
+      linhas.push({ cc: cc.toUpperCase(), nome, captured, total });
+    }
+  }
+  return linhas.sort((a, b) => b.captured - a.captured);
+}
+
+function tabelaGeo(titulo, linhas) {
+  if (!linhas.length) return '';
+  const corpo = linhas.map(r => {
+    const pct = r.total ? ` <span class="fraco">${(100 * r.captured / r.total).toFixed(1)}%</span>` : '';
+    return `<div class="linha-stat">
+      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${r.nome}</span></span>
+      <b>${r.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
+  }).join('');
+  return `<div class="titulo-seccao">${titulo}</div>${corpo}`;
+}
+
+function renderDetalheGeo() {
+  const linhas = [];
+  linhas.push(`<div class="titulo-seccao detalhe-toggle" id="geo-toggle">Nível 2/3 (por atleta)
+    <span class="seta">${geoAberto ? 'esconder' : 'mostrar'}</span></div>`);
+  if (!geoAberto) return linhas.join('');
+
+  if (!dadosGeo) {
+    linhas.push('<div class="nota">club_regioes.json ainda não disponível.</div>');
+    return linhas.join('');
+  }
+
+  linhas.push('<div class="seg" style="margin:4px 0 8px">' + dados.atletas.map((a, i) => `
+    <button data-geo-atleta="${i}" class="${i === geoAtletaSel ? 'on' : ''}" style="${i === geoAtletaSel ? `border-color:${COR_ATLETA[i]};background:${COR_ATLETA[i]}22` : ''}">
+      <span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}
+    </button>`).join('') + '</div>');
+
+  const nomeSel = dados.atletas[geoAtletaSel].nome;
+  const geo = dadosGeo.atletas[nomeSel];
+  if (!geo) {
+    linhas.push(`<div class="nota">Sem dados geográficos para ${nomeSel}.</div>`);
+    return linhas.join('');
+  }
+
+  const porDistrito = { pt: geo.by_distrito, ...geo.by_region };
+  const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
+  linhas.push(tabelaGeo('Nível 2', linhasGeo(porDistrito, 'by_distrito', 'by_region')));
+  linhas.push(tabelaGeo('Nível 3', linhasGeo(porConcelho, 'by_concelho', 'by_municipio')));
+
+  linhas.push(`<div class="nota">Squadratinhos (zoom 17). Totais partilhados com o mapa pessoal
+    (mesma grelha para toda a gente) — só a contagem capturada muda por atleta.
+    ${dadosGeo.atualizado ? `Actualizado: ${dadosGeo.atualizado.replace('T', ' ').replace('Z', ' UTC')}` : ''}</div>`);
+
+  return linhas.join('');
 }
 
 document.querySelectorAll('#seg-modo button').forEach(b => {
@@ -399,6 +493,22 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
 
   camadaSquares = new CamadaSquares().addTo(map);
   renderAtletas();
+  renderPainel();
+
+  // detalhe geográfico: opcional, carregado à parte e sem bloquear o resto —
+  // club_regioes.json é mais recente que club.json (2026-08-15) e pode ainda
+  // não existir num deploy fresco antes do primeiro run do cron
+  const BRANCH = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/';
+  try {
+    const [rg, rs] = await Promise.all([
+      fetch(BRANCH + 'club_regioes.json', { cache: 'no-cache' }),
+      fetch(BRANCH + 'stats.json', { cache: 'no-cache' }),
+    ]);
+    if (rg.ok) dadosGeo = await rg.json();
+    if (rs.ok) dadosStats = await rs.json();
+  } catch (e) {
+    console.warn('detalhe geográfico indisponível:', e);
+  }
   renderPainel();
 })();
 </script>

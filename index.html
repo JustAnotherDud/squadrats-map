@@ -101,9 +101,9 @@
     <button data-val="squadratinhos" class="active">Squadratinhos (201 m)</button>
   </div>
   <div class="seg" id="seg-visao">
-    <button data-val="paises" class="active">Países</button>
-    <button data-val="distritos">Distritos</button>
-    <button data-val="concelhos">Concelhos</button>
+    <button data-val="paises" class="active">Nível 1</button>
+    <button data-val="distritos">Nível 2</button>
+    <button data-val="concelhos">Nível 3</button>
   </div>
   <div id="trofeus"></div>
   <button id="btn-grelha-linhas">Grelha</button>
@@ -634,7 +634,7 @@ function renderStats() {
 
   let html = '';
   if (state.visao === 'paises') {
-    html += '<div class="section-title">Por país</div>';
+    html += '<div class="section-title">Nível 1</div>';
     for (const cc of Object.keys(PAIS_INFO)) {
       const info = PAIS_INFO[cc];
       const s = (stats[info.statsKey] || {})[zkey];
@@ -661,7 +661,7 @@ function renderStats() {
       </button>`).join('') + '</div>';
 
     const nomesPaises = paisesNesteNivel.map(p => `${BANDEIRA[p]} ${PAIS_INFO[p].label}`).join(' + ') || '—';
-    const title = state.visao === 'distritos' ? 'Por distrito/província' : 'Por concelho';
+    const title = state.visao === 'distritos' ? 'Nível 2' : 'Nível 3';
     html += `<div class="section-title">${title} — ${nomesPaises}${state.showZero ? '' : ' (com capturas)'}</div>`;
 
     // uma tabela só, países activos misturados e ordenados em conjunto —
@@ -716,7 +716,7 @@ function renderStats() {
         if (escolhido && porParent.has(escolhido)) visibleRows = visibleRows.concat(porParent.get(escolhido));
 
         gruposHtml += `<div class="zero-group">
-          <span>${BANDEIRA[country]} ${rows.length.toLocaleString('pt-PT')} sem captura, por distrito/província/Land:</span>
+          <span>${BANDEIRA[country]} ${rows.length.toLocaleString('pt-PT')} sem captura, por Nível 2:</span>
           <select data-zero-parent="${country}">
             <option value="">escolher para mostrar…</option>
             ${parentsOrdenados.map(p => `<option value="${escapeHtml(p)}" ${p === escolhido ? 'selected' : ''}>${escapeHtml(p)} (${porParent.get(p).length})</option>`).join('')}
