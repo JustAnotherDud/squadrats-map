@@ -49,11 +49,18 @@
   .stat-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; gap:8px; }
   .stat-row b { color:#fff; white-space:nowrap; }
   .stat-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .legend-dot { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:middle; flex-shrink:0; }
+  .bandeira { vertical-align:-1px; margin-right:3px; border-radius:1px; flex-shrink:0; }
   .section-title { margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
   .note { font-size:10px; color:#6b7285; padding:8px 0 0; }
   .zero-toggle { font-size:11.5px; color:#7ab8ff; padding:7px 4px; cursor:pointer; user-select:none; }
   .zero-toggle:active { opacity:.7; }
+  .pais-pills { display:flex; gap:6px; margin:0 0 10px; }
+  .pais-pills button {
+    display:inline-flex; align-items:center; gap:5px;
+    background:#1c2130; color:#9aa2b1; border:1px solid #2c3242; border-radius:999px;
+    padding:5px 11px; font-size:11.5px; cursor:pointer;
+  }
+  .pais-pills button.active { background:#3d7bf5; border-color:#3d7bf5; color:#fff; }
   #btn-color-mode, #btn-grelha-linhas { align-self:flex-start; margin-top:2px; pointer-events:auto; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 10px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
   #btn-color-mode.active, #btn-grelha-linhas.active { background:#3d7bf5; border-color:#3d7bf5; }
 
@@ -125,6 +132,8 @@ const DATA_URLS = {
   portugal: 'data/portugal_outline.geojson',
   provinciasEs: 'data/provincias_es.geojson',
   spain: 'data/spain_outline.geojson',
+  paroquiasAd: 'data/paroquias_ad.geojson',
+  andorra: 'data/andorra_outline.geojson',
   adjacency: 'data/adjacency.json',
   trophies: DADOS_BRANCH + 'trophies.json',
   suggestions: DADOS_BRANCH + 'suggestions.json',
@@ -134,10 +143,63 @@ const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 let state = {
   grelha: 'squadratinhos', visao: 'paises', sheetExpanded: false, selected: null,
   sortKey: 'captured', sortDir: 'desc',           // tabela principal (distritos/concelhos)
-  sortForeignKey: 'captured', sortForeignDir: 'desc', // tabela de províncias ES
   showZero: false,     // regiões sem capturas juntam-se à tabela principal?
   colorMode: 'region', // 'uniform' | 'region' — cor dos squares capturados
+  // países activos na tabela de Distritos/Concelhos (2026-08-15) — PT
+  // sempre ligado por defeito, Espanha opcional. Uma tabela só, ordenada
+  // em conjunto, não duas tabelas separadas como era antes.
+  paises: new Set(['PT']),
 };
+
+// SVG em vez de emoji de bandeira (🇵🇹/🇪🇸): o emoji depende da fonte do
+// sistema — em vários ambientes (Linux/Chrome headless, algumas versões
+// mobile) cai para as letras "PT"/"ES" em vez de desenhar a bandeira. Um
+// SVG inline desenha sempre a mesma coisa, sem depender de fonte nenhuma.
+// Simplificadas (sem brasão/escudo), só para identificar o país num relance.
+const BANDEIRA = {
+  PT: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/></svg>',
+  ES: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
+  AD: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
+};
+
+// nível país (vista "Países") — um país novo no futuro é só uma entrada
+// aqui + bandeira em BANDEIRA + a fonte de contorno/stats no backend
+// (compute_grid_totals.py). O resto (drawBoundaries, renderStats) já lê
+// esta tabela em vez de ter PT/ES escritos à mão.
+const PAIS_INFO = {
+  PT: { label: 'Portugal', cor: '#39d97a', geo: () => cache.portugal, statsKey: 'country_pt' },
+  ES: { label: 'Espanha', cor: '#c9743d', geo: () => cache.spain, statsKey: 'country_es' },
+  AD: { label: 'Andorra', cor: '#0018a8', geo: () => cache.andorra, statsKey: 'country_ad' },
+};
+
+// por nível (distritos/concelhos) e país: onde está a geometria da fronteira
+// (para desenhar no mapa), o nome da propriedade que identifica cada região,
+// e o bucket de stats.json com os totais/capturados/% dessa região. Um país
+// sem entrada num nível (ex: ES em concelhos — falta a fonte de município,
+// ~8000 unidades) fica de fora dessa vista, sem rebentar nada. Andorra só
+// tem paróquias (7, sem subdivisão mais fina) — entram em "distritos", que
+// é o nível equivalente em escala/papel, não "concelhos".
+const NIVEL_INFO = {
+  distritos: {
+    PT: { geo: () => cache.distritos, nameProp: 'district', bucket: 'by_distrito' },
+    ES: { geo: () => cache.provinciasEs, nameProp: 'region', bucket: 'by_region_es' },
+    AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
+  },
+  concelhos: {
+    PT: { geo: () => cache.concelhos, nameProp: 'NAME_2', bucket: 'by_concelho' },
+  },
+};
+
+// chave única por região quando há mais que um país na mesma tabela — PT
+// fica sem prefixo (compatibilidade com o estado anterior, só um país),
+// os outros levam "PAIS:nome" para nunca colidir com um nome PT igual.
+function chaveRegiao(country, name) {
+  return country === 'PT' ? name : `${country}:${name}`;
+}
+function partirChave(key) {
+  const i = key.indexOf(':');
+  return i === -1 ? { country: 'PT', name: key } : { country: key.slice(0, i), name: key.slice(i + 1) };
+}
 let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
@@ -243,11 +305,14 @@ async function loadAll() {
   entries.forEach(([key], i) => { cache[key] = results[i]; });
 }
 
-function pctColor(pct) {
-  // 0% -> cinza-azulado escuro, 100% -> verde vivo
+// 0% -> cinza-azulado escuro, 100% -> cor cheia do país (verde PT / laranja
+// ES — a mesma distinção já usada nos contornos da vista "Países", para dar
+// para saber de que país é uma região só pela cor, sem ler o nome)
+const PCT_COR_PAIS = { PT: [57, 217, 122], ES: [201, 116, 61] };
+function pctColor(pct, country) {
   if (pct === null || pct === undefined) return '#3a4256';
   const t = Math.max(0, Math.min(1, pct / 100));
-  const from = [58, 66, 86], to = [57, 217, 122];
+  const from = [58, 66, 86], to = PCT_COR_PAIS[country] || PCT_COR_PAIS.PT;
   const c = from.map((v, i) => Math.round(v + (to[i] - v) * t));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
@@ -263,9 +328,17 @@ function regionColor(kind, name) {
 }
 
 function squareColor(sq) {
-  if (state.colorMode === 'region' && sq.in_portugal && (state.visao === 'distritos' || state.visao === 'concelhos')) {
-    if (state.visao === 'concelhos' && sq.concelho) return regionColor('concelhos', sq.concelho);
-    if (state.visao === 'distritos' && sq.district) return regionColor('distritos', sq.district);
+  if (state.colorMode === 'region') {
+    if (state.visao === 'concelhos' && sq.in_portugal && sq.concelho) {
+      return regionColor('concelhos', sq.concelho);
+    }
+    if (state.visao === 'distritos') {
+      if (sq.in_portugal && sq.district) return regionColor('distritos', sq.district);
+      // Espanha por província — adjacency.json já tem 'provincias_es'
+      // calculado (coloração de grafo, vizinhos nunca partilham cor), só
+      // não estava ligado aqui (2026-08-15)
+      if (!sq.in_portugal && sq.country === 'ES' && sq.region) return regionColor('provincias_es', sq.region);
+    }
   }
   return sq.in_portugal ? '#3d7bf5' : '#888';
 }
@@ -294,27 +367,17 @@ function drawSquares() {
 // destaque ser sempre inequívoco independentemente da % da região
 const SELECTED_STYLE = { color: '#39d97a', weight: 3, opacity: 1, fillColor: '#39d97a', fillOpacity: 0.22 };
 
-function baseStyleFor(name, statsBucket, zkey) {
+function baseStyleFor(name, statsBucket, zkey, country) {
   const s = (statsBucket[name] || {})[zkey];
   const pct = s ? s.pct : null;
   return {
     color: '#5a6478', weight: 0.7,
-    fillColor: pctColor(pct), fillOpacity: pct ? 0.35 : 0.08, opacity: 0.6,
+    fillColor: pctColor(pct, country), fillOpacity: pct ? 0.35 : 0.08, opacity: 0.6,
   };
 }
 
-function styleFor(name, statsBucket, zkey) {
-  const base = baseStyleFor(name, statsBucket, zkey);
-  const isSelected = state.selected && state.selected.name === name;
-  return isSelected ? { ...base, ...SELECTED_STYLE } : base;
-}
-
-function styleForForeign(name, zkey) {
-  const captured = ((cache.stats.foreign[zkey] || {}).ES || {})[name] || 0;
-  const base = {
-    color: '#5a6478', weight: 0.6,
-    fillColor: '#c9743d', fillOpacity: captured > 0 ? 0.3 : 0.05, opacity: 0.5,
-  };
+function styleFor(name, statsBucket, zkey, country) {
+  const base = baseStyleFor(name, statsBucket, zkey, country);
   const isSelected = state.selected && state.selected.name === name;
   return isSelected ? { ...base, ...SELECTED_STYLE } : base;
 }
@@ -337,45 +400,37 @@ function drawBoundaries() {
   const stats = cache.stats;
 
   if (state.visao === 'paises') {
-    const pt = stats.country_pt[zkey];
-    const es = stats.country_es[zkey];
-    L.geoJSON(cache.portugal, {
-      style: { color: '#39d97a', weight: 2, fill: false },
-      onEachFeature: (feat, layer) => {
-        layer.bindTooltip(`<b>Portugal</b><br>${pt.captured}/${pt.total} · ${fmtPct(pt.pct)}`, { sticky: true });
-      },
-    }).addTo(boundaryLayer);
-    L.geoJSON(cache.spain, {
-      style: { color: '#c9743d', weight: 2, fill: false },
-      onEachFeature: (feat, layer) => {
-        layer.bindTooltip(`<b>Espanha</b><br>${es.captured} sq`, { sticky: true });
-      },
-    }).addTo(boundaryLayer);
+    for (const cc of Object.keys(PAIS_INFO)) {
+      const info = PAIS_INFO[cc];
+      // país sem stats.country_XX ainda (ex: acabado de adicionar ao
+      // PAIS_INFO, mas o backend ainda não recalculou stats.json) — salta
+      // em vez de rebentar, mesmo espírito do NIVEL_INFO nas outras vistas
+      const s = (stats[info.statsKey] || {})[zkey];
+      if (!s) continue;
+      const label = s.total ? `${s.captured}/${s.total} · ${fmtPct(s.pct)}` : `${s.captured} sq`;
+      L.geoJSON(info.geo(), {
+        style: { color: info.cor, weight: 2, fill: false },
+        onEachFeature: (feat, layer) => {
+          layer.bindTooltip(`<b>${BANDEIRA[cc]} ${info.label}</b><br>${label}`, { sticky: true });
+        },
+      }).addTo(boundaryLayer);
+    }
     return;
   }
 
-  const geo = state.visao === 'distritos' ? cache.distritos : cache.concelhos;
-  const statsBucket = state.visao === 'distritos' ? stats.by_distrito : stats.by_concelho;
-  const nameProp = state.visao === 'distritos' ? 'district' : 'NAME_2';
-
-  L.geoJSON(geo, {
-    style: feat => styleFor(feat.properties[nameProp], statsBucket, zkey),
-    onEachFeature: (feat, layer) => {
-      const name = feat.properties[nameProp];
-      const s = (statsBucket[name] || {})[zkey] || { captured: 0, total: 0, pct: 0 };
-      layer.bindTooltip(`<b>${name}</b><br>${s.captured}/${s.total} · ${s.pct}%`, { sticky: true });
-      addBoundaryFeature(name, layer, () => styleFor(name, statsBucket, zkey));
-    },
-  }).addTo(boundaryLayer);
-
-  if (state.visao === 'distritos') {
-    L.geoJSON(cache.provinciasEs, {
-      style: feat => styleForForeign(feat.properties.region, zkey),
+  const nivel = NIVEL_INFO[state.visao];
+  for (const country of state.paises) {
+    const info = nivel[country];
+    if (!info) continue; // este país não tem fronteiras processadas para este nível ainda
+    const statsBucket = stats[info.bucket] || {};
+    L.geoJSON(info.geo(), {
+      style: feat => styleFor(feat.properties[info.nameProp], statsBucket, zkey, country),
       onEachFeature: (feat, layer) => {
-        const name = feat.properties.region;
-        const captured = ((stats.foreign[zkey] || {}).ES || {})[name] || 0;
-        layer.bindTooltip(`<b>${name} (ES)</b><br>${captured} sq`, { sticky: true });
-        addBoundaryFeature(name, layer, () => styleForForeign(name, zkey));
+        const name = feat.properties[info.nameProp];
+        const key = chaveRegiao(country, name);
+        const s = (statsBucket[name] || {})[zkey] || { captured: 0, total: 0, pct: 0 };
+        layer.bindTooltip(`<b>${BANDEIRA[country]} ${name}</b><br>${s.captured}/${s.total} · ${fmtPct(s.pct)}`, { sticky: true });
+        addBoundaryFeature(key, layer, () => styleFor(name, statsBucket, zkey, country));
       },
     }).addTo(boundaryLayer);
   }
@@ -389,36 +444,23 @@ function refreshBoundaryStyles() {
 
 const DETAIL_HEIGHT_PX = 250;
 
-function getEntryInfo(name) {
+function getEntryInfo(key) {
+  const { country, name } = partirChave(key);
   const zkey = ZKEY[state.grelha];
-  const stats = cache.stats;
-  if (state.visao === 'distritos') {
-    if (stats.by_distrito[name]) {
-      return { kind: 'distrito', name, ...stats.by_distrito[name][zkey] };
-    }
-    const foreignBucket = ((stats.foreign[zkey] || {}).ES) || {};
-    if (name in foreignBucket) {
-      return { kind: 'foreign', name, captured: foreignBucket[name], total: null, pct: null };
-    }
-  } else if (state.visao === 'concelhos') {
-    if (stats.by_concelho[name]) {
-      return { kind: 'concelho', name, ...stats.by_concelho[name][zkey] };
-    }
-  }
-  return null;
+  const nivel = NIVEL_INFO[state.visao];
+  const info = nivel && nivel[country];
+  if (!info) return null;
+  const bucket = cache.stats[info.bucket] || {};
+  if (!bucket[name]) return null;
+  return { kind: state.visao, key, name, country, ...bucket[name][zkey] };
 }
 
 function rankingFor(info) {
   const zkey = ZKEY[state.grelha];
-  const stats = cache.stats;
-  if (info.kind === 'foreign') {
-    const bucket = ((stats.foreign[zkey] || {}).ES) || {};
-    const sorted = Object.keys(bucket).sort((a, b) => bucket[b] - bucket[a]);
-    return { rank: sorted.indexOf(info.name) + 1, outOf: sorted.length };
-  }
-  // ranking sobre TODAS as regiões do país (308 concelhos / 18 distritos),
-  // não só as que têm capturas — as de 0% empatam no fim
-  const bucket = info.kind === 'distrito' ? stats.by_distrito : stats.by_concelho;
+  const nivel = NIVEL_INFO[state.visao][info.country];
+  const bucket = cache.stats[nivel.bucket] || {};
+  // ranking sobre TODAS as regiões do país+nível (308 concelhos PT / 52
+  // províncias ES...), não só as que têm capturas — as de 0% empatam no fim
   const entries = Object.entries(bucket)
     .map(([n, byZoom]) => [n, byZoom[zkey]])
     .filter(([, s]) => s)
@@ -442,7 +484,7 @@ function renderDetailCard(name) {
 
   container.innerHTML = `
     <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
-    <h2>${escapeHtml(name)}</h2>
+    <h2>${BANDEIRA[info.country] || ''} ${escapeHtml(info.name)}</h2>
     <div class="detail-grid">${grid}</div>
   `;
   document.getElementById('detail-back-btn').onclick = clearSelection;
@@ -483,7 +525,10 @@ function clearSelection() {
   renderStats();
 }
 
-function fmtPct(pct) { return pct === null || pct === undefined ? '—' : `${pct}%`; }
+// sempre 2 casas decimais, mesmo quando são .00 — antes cortava os zeros à
+// direita (10.6% em vez de 10.60%, 5% em vez de 5.00%), inconsistente com
+// as linhas ao lado que calham ter 2 casas "a sério"
+function fmtPct(pct) { return pct === null || pct === undefined ? '—' : `${pct.toFixed(2)}%`; }
 
 function sortRows(rows, key, dir) {
   return [...rows].sort((a, b) => {
@@ -508,8 +553,8 @@ function buildTable(tableId, columns, rows, sortKey, sortDir, interactive = true
 
   let tbody = '';
   sorted.forEach(row => {
-    const selected = state.selected && state.selected.name === row.name;
-    tbody += `<tr class="selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(row.name)}">`;
+    const selected = state.selected && state.selected.name === row.key;
+    tbody += `<tr class="selectable${selected ? ' selected' : ''}" data-name="${escapeHtml(row.key)}">`;
     columns.forEach(col => {
       tbody += `<td class="${col.className || ''}">${col.render ? col.render(row) : row[col.key]}</td>`;
     });
@@ -523,7 +568,6 @@ function renderStats() {
   const zkey = ZKEY[state.grelha];
   const stats = cache.stats;
   const pt = stats.country_pt[zkey];
-  const es = stats.country_es[zkey];
 
   document.getElementById('summary-text').innerHTML =
     `<b>${pt.captured}</b> sq · ${fmtPct(pt.pct)} PT`;
@@ -531,18 +575,51 @@ function renderStats() {
   let html = '';
   if (state.visao === 'paises') {
     html += '<div class="section-title">Por país</div>';
-    html += `<div class="stat-row"><span class="stat-name"><span class="legend-dot" style="background:#39d97a"></span>Portugal</span><b>${pt.captured}/${pt.total} · ${fmtPct(pt.pct)}</b></div>`;
-    html += `<div class="stat-row"><span class="stat-name"><span class="legend-dot" style="background:#888"></span>Espanha</span><b>${es.captured} sq</b></div>`;
+    for (const cc of Object.keys(PAIS_INFO)) {
+      const info = PAIS_INFO[cc];
+      const s = (stats[info.statsKey] || {})[zkey];
+      if (!s) continue;
+      const label = s.total ? `${s.captured}/${s.total} · ${fmtPct(s.pct)}` : `${s.captured} sq`;
+      html += `<div class="stat-row"><span class="stat-name">${BANDEIRA[cc]} ${info.label}</span><b>${label}</b></div>`;
+    }
   } else {
-    const bucket = state.visao === 'distritos' ? stats.by_distrito : stats.by_concelho;
-    const title = state.visao === 'distritos' ? 'Por distrito' : 'Por concelho';
-    html += `<div class="section-title">${title}${state.showZero ? '' : ' (com capturas)'}</div>`;
-    const allRows = Object.entries(bucket)
-      .map(([name, byZoom]) => ({ name, ...byZoom[zkey] }))
-      .filter(r => r)
-      .map(r => ({ ...r, remaining: r.total - r.captured }));
+    const nivel = NIVEL_INFO[state.visao];
+    const paisesNesteNivel = [...state.paises].filter(p => nivel[p]);
+
+    // toggle de países dentro da folha (não no topo — é aqui que se está a
+    // olhar para a tabela que ele controla, faz mais sentido junto dela).
+    // "Todos" activa qualquer país que exista em BANDEIRA — hoje são só
+    // PT+ES, mas não fica hardcoded a esses dois, cresce sozinho se um dia
+    // houver mais (2026-08-15).
+    const todosPaises = Object.keys(BANDEIRA);
+    const todosActivos = todosPaises.every(p => state.paises.has(p));
+    html += '<div class="pais-pills">'
+      + `<button data-pais-todos="1" class="${todosActivos ? 'active' : ''}">Todos</button>`
+      + todosPaises.map(p => `
+      <button data-pais="${p}" class="${state.paises.has(p) ? 'active' : ''}">
+        ${BANDEIRA[p]} ${PAIS_INFO[p].label}
+      </button>`).join('') + '</div>';
+
+    const nomesPaises = paisesNesteNivel.map(p => `${BANDEIRA[p]} ${PAIS_INFO[p].label}`).join(' + ') || '—';
+    const title = state.visao === 'distritos' ? 'Por distrito/província' : 'Por concelho';
+    html += `<div class="section-title">${title} — ${nomesPaises}${state.showZero ? '' : ' (com capturas)'}</div>`;
+
+    // uma tabela só, países activos misturados e ordenados em conjunto —
+    // antes eram duas tabelas separadas (PT sempre visível, ES à parte,
+    // sem entrar na mesma ordenação)
+    let allRows = [];
+    for (const country of paisesNesteNivel) {
+      const bucket = stats[nivel[country].bucket] || {};
+      const rows = Object.entries(bucket)
+        .map(([name, byZoom]) => ({ key: chaveRegiao(country, name), name, country, ...byZoom[zkey] }))
+        .filter(r => r.captured !== undefined)
+        .map(r => ({ ...r, remaining: (r.total ?? 0) - (r.captured ?? 0) }));
+      allRows = allRows.concat(rows);
+    }
+
     const columns = [
-      { key: 'name', label: 'Nome', className: 'col-name' },
+      { key: 'name', label: 'Nome', className: 'col-name',
+        render: r => `${BANDEIRA[r.country] || ''} ${escapeHtml(r.name)}` },
       { key: 'captured', label: 'Capturados' },
       { key: 'total', label: 'Total', className: 'col-total' },
       { key: 'remaining', label: 'Por capturar', className: 'col-remaining' },
@@ -553,22 +630,17 @@ function renderStats() {
     html += buildTable('main', columns, visibleRows, state.sortKey, state.sortDir);
 
     if (zeroCount) {
-      const label = state.visao === 'distritos' ? 'distritos' : 'concelhos';
       html += state.showZero
-        ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar os ${zeroCount} ${label} sem capturas</div>`
-        : `<div class="zero-toggle" data-zero-toggle="1">+ mostrar ${zeroCount} ${label} sem capturas (entram no sort)</div>`;
+        ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar as ${zeroCount} regiões sem capturas</div>`
+        : `<div class="zero-toggle" data-zero-toggle="1">+ mostrar as ${zeroCount} regiões sem capturas (entram no sort)</div>`;
     }
 
-    if (state.visao === 'distritos') {
-      const foreign = ((stats.foreign[zkey] || {}).ES) || {};
-      const foreignRows = Object.entries(foreign).filter(([, c]) => c > 0).map(([name, captured]) => ({ name, captured }));
-      if (foreignRows.length) {
-        html += '<div class="section-title">Espanha (províncias)</div>';
-        html += buildTable('foreign', [
-          { key: 'name', label: 'Nome', className: 'col-name' },
-          { key: 'captured', label: 'Capturados' },
-        ], foreignRows, state.sortForeignKey, state.sortForeignDir);
-      }
+    // países sem fonte de fronteiras processada para este nível ainda
+    // (ex: concelho/município de Espanha) — dito explicitamente, em vez de
+    // o toggle simplesmente não fazer nada e parecer avariado
+    const semDados = [...state.paises].filter(p => !nivel[p]);
+    if (semDados.length) {
+      html += `<div class="note">${semDados.map(p => BANDEIRA[p]).join(' ')} sem dados a este nível ainda.</div>`;
     }
   }
 
@@ -582,6 +654,27 @@ function escapeHtml(s) {
 }
 
 document.getElementById('sheet-list').addEventListener('click', e => {
+  const paisTodosBtn = e.target.closest('[data-pais-todos]');
+  if (paisTodosBtn) {
+    const todosPaises = Object.keys(BANDEIRA);
+    const todosActivos = todosPaises.every(p => state.paises.has(p));
+    // já estavam todos activos -> volta ao default (só PT); senão activa
+    // todos os que existirem em BANDEIRA nesse momento, sem lista fixa
+    state.paises = new Set(todosActivos ? ['PT'] : todosPaises);
+    state.selected = null;
+    resetSelectionUI();
+    render();
+    return;
+  }
+  const paisBtn = e.target.closest('[data-pais]');
+  if (paisBtn) {
+    const pais = paisBtn.dataset.pais;
+    if (state.paises.has(pais)) state.paises.delete(pais); else state.paises.add(pais);
+    state.selected = null;
+    resetSelectionUI();
+    render(); // não só renderStats — o mapa (drawBoundaries) também depende de state.paises
+    return;
+  }
   const zeroToggle = e.target.closest('[data-zero-toggle]');
   if (zeroToggle) {
     state.showZero = !state.showZero;
@@ -590,13 +683,10 @@ document.getElementById('sheet-list').addEventListener('click', e => {
   }
   const th = e.target.closest('th[data-key]');
   if (th) {
-    const isMain = th.dataset.table === 'main';
-    const curKey = isMain ? state.sortKey : state.sortForeignKey;
-    const curDir = isMain ? state.sortDir : state.sortForeignDir;
     const key = th.dataset.key;
-    const newDir = curKey === key ? (curDir === 'asc' ? 'desc' : 'asc') : (key === 'name' ? 'asc' : 'desc');
-    if (isMain) { state.sortKey = key; state.sortDir = newDir; }
-    else { state.sortForeignKey = key; state.sortForeignDir = newDir; }
+    const newDir = state.sortKey === key ? (state.sortDir === 'asc' ? 'desc' : 'asc') : (key === 'name' ? 'asc' : 'desc');
+    state.sortKey = key;
+    state.sortDir = newDir;
     renderStats();
     return;
   }
@@ -798,7 +888,7 @@ function updateColorToggleVisibility() {
   const applicable = state.visao === 'distritos' || state.visao === 'concelhos';
   btn.style.display = applicable ? 'inline-block' : 'none';
   btn.classList.toggle('active', state.colorMode === 'region');
-  const byLabel = state.visao === 'concelhos' ? 'concelho' : 'distrito';
+  const byLabel = state.visao === 'concelhos' ? 'concelho' : 'distrito/província';
   btn.textContent = state.colorMode === 'region' ? `Cores: ${byLabel}` : 'Cores: uniforme';
 }
 
