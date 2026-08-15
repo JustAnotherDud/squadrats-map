@@ -7,7 +7,9 @@
 - **Rótulos**: "Países/Distritos/Concelhos" → "Nível 1/2/3" em `index.html` e `club.html`, porque já não descreviam bem 5 vocabulários administrativos diferentes.
 - **Marrocos**: nível 2 = 12 regiões (ISO 3166-2), nível 3 = 426 "cercles" (Overpass admin_level=6, filtrados por intersecção >50% com o contorno do país — préfectures reais colidiam com as regiões já usadas, comunas dão timeout consistente no Overpass). Geometria simplificada (média 456→133 vértices) depois de a primeira tentativa do `compute_grid_totals.py` ter ficado ~10x mais lenta que o esperado por causa da complexidade bruta do OSM.
 
-O que ficou por fazer (não bloqueante, ver secções 4-6 abaixo para contexto): tamanho do `club_regioes.json` a longo prazo se a malta acumular muitos squares fora de PT/ES, e Opção B (leaderboard por região) continua por explorar se um dia fizer sentido.
+- **Opção B (leaderboard)**: também implementada, mesmo dia — secção "Leaderboard por concelho/município" no `club.html`, pivota `club_regioes.json` inteiramente no browser (zero dados novos), filtro "só disputadas (2+ pessoas)" por defeito. Testado com dados reais (Rio Maior: Zé lidera 5 pessoas; Santarém: Xeira lidera).
+
+O que ficou por fazer (não bloqueante): tamanho do `club_regioes.json` a longo prazo se a malta acumular muitos squares fora de PT/ES.
 
 ---
 
