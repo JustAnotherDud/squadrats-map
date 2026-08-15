@@ -169,6 +169,14 @@ let geoAberto = false;         // secção "Por concelho/distrito" (detalhe geog
 let geoAtletaSel = 0;          // índice do atleta seleccionado nessa secção
 let leaderboardAberto = false;       // secção "Leaderboard por região" (2026-08-15)
 let leaderboardSoDisputadas = true;  // só regiões com 2+ pessoas, por defeito
+
+// duas abas dentro do painel, em vez de tudo empilhado (2026-08-15): o
+// painel tinha crescido para 6 secções seguidas (Por atleta/No mapa/
+// Detalhe/Nível 2-3/Leaderboard) — "sobreposição" (quem tem o quê no mapa,
+// o assunto original desta página) e "geografia" (onde é que cada um anda,
+// acrescentado hoje) são perguntas diferentes, não precisam de estar as
+// duas sempre à vista.
+let painelTab = 'sobreposicao';
 let modo = 'quantos';   // 'quantos' (legível de longe) | 'quem' (riscas)
 
 // zoom em baixo à direita: no canto superior esquerdo ficava por baixo do
@@ -318,70 +326,81 @@ function renderPainel() {
   }
 
   const linhas = [];
-  linhas.push('<div class="titulo-seccao">Por atleta</div>');
-  dados.atletas.forEach((a, i) => {
-    const ligado = activos & (1 << i);
-    linhas.push(`<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
-      <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-      <span class="txt">${a.nome}</span></span>
-      <b>${a.total.toLocaleString('pt-PT')}</b></div>`);
-  });
+  linhas.push(`<div class="seg" style="margin-bottom:10px">
+    <button data-painel-tab="sobreposicao" class="${painelTab === 'sobreposicao' ? 'on' : ''}">Sobreposição</button>
+    <button data-painel-tab="geografia" class="${painelTab === 'geografia' ? 'on' : ''}">Geografia</button>
+  </div>`);
 
-  linhas.push('<div class="titulo-seccao">No mapa</div>');
-  dados.atletas.forEach((a, i) => {
-    if (!soDe.has(i)) return;
-    linhas.push(`<div class="linha-stat">
-      <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-      <span class="txt">Só ${a.nome}</span></span>
-      <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`);
-  });
-  [...partilhados.keys()].sort((a, b) => a - b).forEach(c => {
-    linhas.push(`<div class="linha-stat">
-      <span class="esq"><span class="dot" style="background:${modo === 'quem' ? riscasNeutras(c) : corPartilha(c)}"></span>
-      <span class="txt">${c} pessoas</span></span>
-      <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`);
-  });
-
-  // Quem partilha com quem vive aqui, com as riscas certas de cada combinação —
-  // escondido por defeito para o painel não ficar uma parede de números.
-  linhas.push(`<div class="titulo-seccao detalhe-toggle">Detalhe
-    <span class="seta">${detalheAberto ? 'esconder' : 'mostrar'}</span></div>`);
-  if (detalheAberto) {
+  if (painelTab === 'sobreposicao') {
+    linhas.push('<div class="titulo-seccao">Por atleta</div>');
     dados.atletas.forEach((a, i) => {
-      if (!(activos & (1 << i))) return;
-      const so = soDe.get(i) || 0;
-      const pct = a.total ? Math.round(100 * so / a.total) : 0;
+      const ligado = activos & (1 << i);
+      linhas.push(`<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
+        <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+        <span class="txt">${a.nome}</span></span>
+        <b>${a.total.toLocaleString('pt-PT')}</b></div>`);
+    });
+
+    linhas.push('<div class="titulo-seccao">No mapa</div>');
+    dados.atletas.forEach((a, i) => {
+      if (!soDe.has(i)) return;
       linhas.push(`<div class="linha-stat">
         <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-        <span class="txt">${a.nome} — único</span></span>
-        <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
+        <span class="txt">Só ${a.nome}</span></span>
+        <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`);
     });
-
-    const pares = [...efectivas.keys()].filter(m => contaBits(m) > 1)
-      .sort((a, b) => contaBits(a) - contaBits(b) || efectivas.get(b) - efectivas.get(a));
-    pares.forEach(m => {
+    [...partilhados.keys()].sort((a, b) => a - b).forEach(c => {
       linhas.push(`<div class="linha-stat">
-        <span class="esq"><span class="dot" style="background:${modo === 'quem' ? fundoDe(m) : corPartilha(contaBits(m))}"></span>
-        <span class="txt">${rotulo(m)}</span></span>
-        <b>${efectivas.get(m).toLocaleString('pt-PT')}</b></div>`);
+        <span class="esq"><span class="dot" style="background:${modo === 'quem' ? riscasNeutras(c) : corPartilha(c)}"></span>
+        <span class="txt">${c} pessoas</span></span>
+        <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`);
     });
+
+    // Quem partilha com quem vive aqui, com as riscas certas de cada combinação —
+    // escondido por defeito para o painel não ficar uma parede de números.
+    linhas.push(`<div class="titulo-seccao detalhe-toggle" id="sobreposicao-detalhe-toggle">Detalhe
+      <span class="seta">${detalheAberto ? 'esconder' : 'mostrar'}</span></div>`);
+    if (detalheAberto) {
+      dados.atletas.forEach((a, i) => {
+        if (!(activos & (1 << i))) return;
+        const so = soDe.get(i) || 0;
+        const pct = a.total ? Math.round(100 * so / a.total) : 0;
+        linhas.push(`<div class="linha-stat">
+          <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+          <span class="txt">${a.nome} — único</span></span>
+          <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
+      });
+
+      const pares = [...efectivas.keys()].filter(m => contaBits(m) > 1)
+        .sort((a, b) => contaBits(a) - contaBits(b) || efectivas.get(b) - efectivas.get(a));
+      pares.forEach(m => {
+        linhas.push(`<div class="linha-stat">
+          <span class="esq"><span class="dot" style="background:${modo === 'quem' ? fundoDe(m) : corPartilha(contaBits(m))}"></span>
+          <span class="txt">${rotulo(m)}</span></span>
+          <b>${efectivas.get(m).toLocaleString('pt-PT')}</b></div>`);
+      });
+    }
+
+    linhas.push(`<div class="nota">Squadratinhos (zoom 17, ~201 m de lado).
+      Cada pessoa tem a sua cor. Em <b>Quantos</b>, os partilhados seguem uma escala
+      cinzenta que clareia com o número de donos. Em <b>Quem</b>, levam riscas com as
+      cores de quem os tem — mas só a partir de certo zoom, senão as riscas ficam
+      mais finas que o legível.
+      Os totais por atleta são sempre os reais; as linhas de baixo contam o que
+      está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
+      Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
+  } else {
+    linhas.push(renderDetalheGeo());
+    linhas.push(renderLeaderboard());
   }
-
-  linhas.push(`<div class="nota">Squadratinhos (zoom 17, ~201 m de lado).
-    Cada pessoa tem a sua cor. Em <b>Quantos</b>, os partilhados seguem uma escala
-    cinzenta que clareia com o número de donos. Em <b>Quem</b>, levam riscas com as
-    cores de quem os tem — mas só a partir de certo zoom, senão as riscas ficam
-    mais finas que o legível.
-    Os totais por atleta são sempre os reais; as linhas de baixo contam o que
-    está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
-    Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
-
-  linhas.push(renderDetalheGeo());
-  linhas.push(renderLeaderboard());
 
   const corpo = document.getElementById('painel-corpo');
   corpo.innerHTML = linhas.join('');
-  corpo.querySelector('.detalhe-toggle').onclick = () => {
+  corpo.querySelectorAll('[data-painel-tab]').forEach(b => {
+    b.onclick = () => { painelTab = b.dataset.painelTab; renderPainel(); };
+  });
+  const detalheToggle = document.getElementById('sobreposicao-detalhe-toggle');
+  if (detalheToggle) detalheToggle.onclick = () => {
     detalheAberto = !detalheAberto;
     renderPainel();
   };
