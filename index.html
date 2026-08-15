@@ -384,19 +384,37 @@ function regionColor(kind, name) {
   return cache.adjacency.palette[entry.colorIndex];
 }
 
+// bucket de adjacency.json com a coloração de grafo do nível 2 de cada país
+// estrangeiro — usado directamente na vista "distritos", e reaproveitado na
+// vista "concelhos" (ver squareColor) para não ter de recalcular adjacência
+// de grafo para as 8000+/11000+ unidades de nível 3 de ES/DE.
+const NIVEL2_ADJACENCY_BUCKET = { ES: 'provincias_es', DE: 'laender_de', MA: 'regioes_ma', AD: 'paroquias_ad' };
+
 function squareColor(sq) {
   if (state.colorMode === 'region') {
-    if (state.visao === 'concelhos' && sq.in_portugal && sq.concelho) {
-      return regionColor('concelhos', sq.concelho);
+    if (state.visao === 'concelhos') {
+      if (sq.in_portugal && sq.concelho) return regionColor('concelhos', sq.concelho);
+      if (!sq.in_portugal && sq.country) {
+        const bucket = NIVEL2_ADJACENCY_BUCKET[sq.country];
+        // Andorra: nível 3 é o mesmo que o nível 2 (só há paróquias, ver
+        // NIVEL_INFO) — colore direto pela paróquia.
+        if (sq.country === 'AD' && sq.region && bucket) return regionColor(bucket, sq.region);
+        // ES/DE/MA: cor da província/Land/região que contém o município —
+        // reaproveita regionParent() (já existia para o agrupamento do
+        // "mostrar zero"), em vez de recalcular adjacência de grafo ao
+        // nível do concelho/município (2026-08-15).
+        if (sq.municipio && bucket) {
+          const parent = regionParent(sq.country, sq.municipio);
+          if (parent) return regionColor(bucket, parent);
+        }
+      }
     }
     if (state.visao === 'distritos') {
       if (sq.in_portugal && sq.district) return regionColor('distritos', sq.district);
-      // Espanha por província — adjacency.json já tem 'provincias_es'
-      // calculado (coloração de grafo, vizinhos nunca partilham cor), só
-      // não estava ligado aqui (2026-08-15)
-      if (!sq.in_portugal && sq.country === 'ES' && sq.region) return regionColor('provincias_es', sq.region);
-      if (!sq.in_portugal && sq.country === 'DE' && sq.region) return regionColor('laender_de', sq.region);
-      if (!sq.in_portugal && sq.country === 'MA' && sq.region) return regionColor('regioes_ma', sq.region);
+      if (!sq.in_portugal && sq.region) {
+        const bucket = NIVEL2_ADJACENCY_BUCKET[sq.country];
+        if (bucket) return regionColor(bucket, sq.region);
+      }
     }
   }
   return sq.in_portugal ? '#3d7bf5' : '#888';
@@ -541,12 +559,39 @@ function renderDetailCard(name) {
   }
   grid += `<div class="detail-item"><div class="label">Posição no ranking</div><div class="value">${rank.rank}/${rank.outOf}</div></div>`;
 
+  // Nível 2 que contém este Nível 3 (distrito/província/Land/região) —
+  // reaproveita regionParent() (já existia para o "mostrar zero" e para as
+  // cores por região). Clicável: muda de vista e selecciona o pai
+  // directamente, em vez de obrigar a voltar à lista e procurar (2026-08-15).
+  let parentHtml = '';
+  if (state.visao === 'concelhos') {
+    const parent = regionParent(info.country, info.name);
+    if (parent) {
+      const parentKey = chaveRegiao(info.country, parent);
+      parentHtml = `<div class="detail-item"><div class="label">Nível 2</div><div class="value"><a href="#" data-goto-parent="${escapeHtml(parentKey)}">${escapeHtml(parent)} →</a></div></div>`;
+    }
+  }
+
   container.innerHTML = `
     <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
     <h2>${BANDEIRA[info.country] || ''} ${escapeHtml(info.name)}</h2>
-    <div class="detail-grid">${grid}</div>
+    <div class="detail-grid">${grid}${parentHtml}</div>
   `;
   document.getElementById('detail-back-btn').onclick = clearSelection;
+  const gotoBtn = container.querySelector('[data-goto-parent]');
+  if (gotoBtn) {
+    gotoBtn.onclick = (e) => {
+      e.preventDefault();
+      const key = gotoBtn.dataset.gotoParent;
+      document.querySelectorAll('#seg-visao button').forEach(b => b.classList.toggle('active', b.dataset.val === 'distritos'));
+      state.visao = 'distritos';
+      state.selected = null;
+      state.showZero = false;
+      updateColorToggleVisibility();
+      render();
+      selectItem(key, {});
+    };
+  }
 }
 
 function selectItem(name, opts) {
