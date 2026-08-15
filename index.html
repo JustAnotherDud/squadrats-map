@@ -141,6 +141,7 @@ const DATA_URLS = {
   germany: 'data/germany_outline.geojson',
   municipiosDe: 'data/municipios_de.geojson',
   regioesMa: 'data/regioes_ma.geojson',
+  cerclesMa: 'data/cercles_ma.geojson',
   morocco: 'data/morocco_outline.geojson',
   adjacency: 'data/adjacency.json',
   trophies: DADOS_BRANCH + 'trophies.json',
@@ -202,9 +203,6 @@ const NIVEL_INFO = {
     ES: { geo: () => cache.provinciasEs, nameProp: 'region', bucket: 'by_region_es' },
     AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
     DE: { geo: () => cache.laenderDe, nameProp: 'region', bucket: 'by_region_de' },
-    // Marrocos só tem nível região (12) — sem fonte limpa de comuna (~1500,
-    // sem GISCO por não ser UE), fica de fora do nível "concelhos" abaixo
-    // de propósito, mesmo padrão da Andorra antes de aliasar (2026-08-15).
     MA: { geo: () => cache.regioesMa, nameProp: 'region', bucket: 'by_region_ma' },
   },
   concelhos: {
@@ -215,9 +213,9 @@ const NIVEL_INFO = {
     // (2026-08-15), em vez de duplicar o cálculo para o mesmo resultado.
     AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
     DE: { geo: () => cache.municipiosDe, nameProp: 'region', bucket: 'by_municipio_de' },
-    // mesmo alias da Andorra: sem comuna, nível "concelhos" reaproveita as
-    // 12 regiões em vez de ficar ausente desta vista.
-    MA: { geo: () => cache.regioesMa, nameProp: 'region', bucket: 'by_region_ma' },
+    // "cercle" (426, ver refdata/foreign_muni/MA.geojson) — nível real,
+    // já não é alias das regiões (2026-08-15).
+    MA: { geo: () => cache.cerclesMa, nameProp: 'region', bucket: 'by_municipio_ma' },
   },
 };
 
@@ -398,6 +396,7 @@ function squareColor(sq) {
       // não estava ligado aqui (2026-08-15)
       if (!sq.in_portugal && sq.country === 'ES' && sq.region) return regionColor('provincias_es', sq.region);
       if (!sq.in_portugal && sq.country === 'DE' && sq.region) return regionColor('laender_de', sq.region);
+      if (!sq.in_portugal && sq.country === 'MA' && sq.region) return regionColor('regioes_ma', sq.region);
     }
   }
   return sq.in_portugal ? '#3d7bf5' : '#888';
