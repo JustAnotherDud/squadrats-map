@@ -4,6 +4,15 @@ por concelho/distrito.
 Uso:
   py pipeline.py --kml <caminho.kml> [pasta_saida]      (fallback, ver tiles_fetch.py)
   py pipeline.py --uid <firebase_uid> [pasta_saida]      (fonte principal)
+
+ATENÇÃO (2026-08-15): correr este ficheiro directamente só actualiza o mapa
+pessoal do José (tile_info_*.json, stats.json, trophies.json). Não toca em
+squadrats.json/club.json/daily_gains.json — os ficheiros que o folha-do-clube
+e o club.html lêem. Para actualizar tudo de uma vez (o que se quer quase
+sempre), usar `run_all.py`, não este ficheiro directamente. Fora de emergência
+local, preferir mesmo `gh workflow run fetch-map-data.yml` — corre run_all.py
+já dentro do fluxo normal de publicação na branch `data`, sem montagem manual
+de git worktree.
 """
 import argparse
 import json
@@ -379,6 +388,14 @@ if __name__ == "__main__":
     source.add_argument("--uid", dest="uid", help="fonte principal: Firebase UID do atleta")
     parser.add_argument("out_dir", nargs="?", default=DATA_DIR)
     args = parser.parse_args()
+
+    print(
+        "AVISO: a correr pipeline.py directamente — só actualiza o mapa pessoal "
+        "(tile_info_*.json/stats.json/trophies.json). squadrats.json/club.json/"
+        "daily_gains.json (folha-do-clube, club.html) ficam por actualizar. "
+        "Para tudo: `py run_all.py` ou `gh workflow run fetch-map-data.yml`.",
+        file=sys.stderr,
+    )
 
     os.makedirs(args.out_dir, exist_ok=True)
     if args.uid:
