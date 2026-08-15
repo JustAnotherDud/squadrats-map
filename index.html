@@ -15,6 +15,7 @@
   .seg { display:flex; gap:4px; pointer-events:auto; }
   .seg button { flex:1; background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 8px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); }
   .seg button.active { background:#3d7bf5; border-color:#3d7bf5; }
+  #nivel-legenda { font-size:9.5px; color:#8b93a6; text-shadow:0 1px 3px rgba(0,0,0,.8); pointer-events:none; margin-top:-2px; }
 
   #sheet { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:#151821; border-top:1px solid #262b38; border-radius:14px 14px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.4); transition: height .25s ease; }
   #sheet.collapsed { height:54px; }
@@ -105,6 +106,7 @@
     <button data-val="distritos">Nível 2</button>
     <button data-val="concelhos">Nível 3</button>
   </div>
+  <div id="nivel-legenda">Nível 1 país · Nível 2 distrito/província/Land/região · Nível 3 concelho/município/cercle</div>
   <div id="trofeus"></div>
   <button id="btn-grelha-linhas">Grelha</button>
   <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
