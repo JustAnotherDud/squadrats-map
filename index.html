@@ -135,6 +135,9 @@ const DATA_URLS = {
   paroquiasAd: 'data/paroquias_ad.geojson',
   andorra: 'data/andorra_outline.geojson',
   municipiosEs: 'data/municipios_es.geojson',
+  laenderDe: 'data/laender_de.geojson',
+  germany: 'data/germany_outline.geojson',
+  municipiosDe: 'data/municipios_de.geojson',
   adjacency: 'data/adjacency.json',
   trophies: DADOS_BRANCH + 'trophies.json',
   suggestions: DADOS_BRANCH + 'suggestions.json',
@@ -161,6 +164,7 @@ const BANDEIRA = {
   PT: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/></svg>',
   ES: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
   AD: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
+  DE: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
 };
 
 // nível país (vista "Países") — um país novo no futuro é só uma entrada
@@ -171,6 +175,7 @@ const PAIS_INFO = {
   PT: { label: 'Portugal', cor: '#39d97a', geo: () => cache.portugal, statsKey: 'country_pt' },
   ES: { label: 'Espanha', cor: '#c9743d', geo: () => cache.spain, statsKey: 'country_es' },
   AD: { label: 'Andorra', cor: '#0018a8', geo: () => cache.andorra, statsKey: 'country_ad' },
+  DE: { label: 'Alemanha', cor: '#dd0000', geo: () => cache.germany, statsKey: 'country_de' },
 };
 
 // por nível (distritos/concelhos) e país: onde está a geometria da fronteira
@@ -185,10 +190,16 @@ const NIVEL_INFO = {
     PT: { geo: () => cache.distritos, nameProp: 'district', bucket: 'by_distrito' },
     ES: { geo: () => cache.provinciasEs, nameProp: 'region', bucket: 'by_region_es' },
     AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
+    DE: { geo: () => cache.laenderDe, nameProp: 'region', bucket: 'by_region_de' },
   },
   concelhos: {
     PT: { geo: () => cache.concelhos, nameProp: 'NAME_2', bucket: 'by_concelho' },
     ES: { geo: () => cache.municipiosEs, nameProp: 'region', bucket: 'by_municipio_es' },
+    // Andorra não tem subdivisão mais fina que as 7 paróquias — nível
+    // "concelhos" reaproveita a mesma geometria/bucket do nível "distritos"
+    // (2026-08-15), em vez de duplicar o cálculo para o mesmo resultado.
+    AD: { geo: () => cache.paroquiasAd, nameProp: 'region', bucket: 'by_region_ad' },
+    DE: { geo: () => cache.municipiosDe, nameProp: 'region', bucket: 'by_municipio_de' },
   },
 };
 
@@ -340,6 +351,7 @@ function squareColor(sq) {
       // calculado (coloração de grafo, vizinhos nunca partilham cor), só
       // não estava ligado aqui (2026-08-15)
       if (!sq.in_portugal && sq.country === 'ES' && sq.region) return regionColor('provincias_es', sq.region);
+      if (!sq.in_portugal && sq.country === 'DE' && sq.region) return regionColor('laender_de', sq.region);
     }
   }
   return sq.in_portugal ? '#3d7bf5' : '#888';
