@@ -23,7 +23,8 @@ from shapely.validation import make_valid
 USER_AGENT = "squadrats-map-sync/1.0 (+github.com/JustAnotherDud/squadrats-map)"
 # dois limites separados: a descoberta (z4/z7/z10) é a cascata barata — só
 # desce de zoom dentro dos tiles que já mostraram cobertura, por isso varre
-# poucos candidatos por natureza. O fetch fino (z12) é sempre o batch grande.
+# poucos candidatos por natureza. O fetch fino (FETCH_ZOOM, ver scan_athlete)
+# é sempre o batch grande, mesmo sendo hoje o mesmo zoom da descoberta (z10).
 # Separados para poder ajustar um sem arrastar o outro.
 DISCOVERY_CONCURRENCY = 4
 # 4 -> 6 em 2026-08-08: a cache de cobertura já cortou 68% do volume total de
@@ -58,6 +59,23 @@ TROPHY_LAYERS = [
 WORLD_BBOX = (-180.0, -60.0, 180.0, 75.0)
 DISCOVERY_LEVELS = (4, 7, 10)  # zooms intermédios da cascata
 
+# FETCH_ZOOM = 10, não 12 (2026-08-15). O servidor NÃO simplifica geometria
+# a zooms mais grosseiros — devolve o desenho exacto dos squares na mesma,
+# só recortado a uma bbox maior. Testado ao vivo, com reconstrução completa
+# comparada ao total declarado pelo próprio servidor: z10, z9, z8 e até z7
+# reproduzem o total exacto (5 atletas do clube, todos batem certo; também
+# testado numa conta com 3984 células z10, ~100x maior que qualquer atleta
+# nosso). Só a partir de z4 é que começa a perder squares (confirmado:
+# perdeu 232 de 5565 numa conta), e a z2/z0 o pedido falha por completo —
+# nunca chegar perto disso. z10 (o mesmo zoom já usado na descoberta acima)
+# é a escolha conservadora: 4 zooms de margem até z4, 16x menos pedidos que
+# z12 quando alguém tem de facto squares novos (era o único custo que
+# sobrava depois do probe — ver README, secção "Regras de uso"). Ainda
+# haveria margem para z9/z8/z7, não usada de propósito: o ganho marginal é
+# pequeno, e não vale arriscar mais perto do limite desconhecido sem
+# necessidade real.
+FETCH_ZOOM = 10
+
 # Cache de cobertura entre corridas: a descoberta em cascata era ~2/3 dos
 # pedidos de cada corrida (medido: 4242 de 6274) e re-derivava do zero algo
 # que quase nunca muda — em que tiles z10 do mundo cada atleta tem squares.
@@ -69,8 +87,9 @@ DISCOVERY_LEVELS = (4, 7, 10)  # zooms intermédios da cascata
 # - se ficar com tiles a MENOS (atleta capturou numa zona nova), a
 #   reconstrução não bate com o `size` que o próprio servidor reporta nos
 #   tiles — detecta-se, faz-se a descoberta completa e refaz-se a cache,
-#   reaproveitando os tiles z12 já buscados. A auto-validação que já era a
-#   rede de segurança do pipeline passa a ser também o invalidador da cache.
+#   reaproveitando os tiles já buscados no fetch fino. A auto-validação que já
+#   era a rede de segurança do pipeline passa a ser também o invalidador da
+#   cache.
 # - excepção rara: uma actividade apagada ou cortada DEPOIS de já ter sido
 #   publicada pode fazer a contagem BAIXAR (não é "cumulativo" no sentido
 #   estrito quando isso acontece). Não invalida a lista de tiles z10 em si
@@ -279,7 +298,7 @@ def discover_coverage(uid, bbox=WORLD_BBOX, levels=DISCOVERY_LEVELS):
 _CACHE = {}
 
 
-def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
+def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=FETCH_ZOOM,
                  with_trophy_geometry=False, known_squadratinhos=None):
     """Varre o atleta uma vez por processo e guarda o resultado.
 
@@ -422,7 +441,7 @@ def _probe_sem_alteracoes(uid, probe_tile, fetch_zoom, known_squadratinhos):
     return False
 
 
-def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=12,
+def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_zoom=FETCH_ZOOM,
                   with_trophy_geometry=False, known_squadratinhos=None):
     """Varre a cobertura do atleta e devolve:
     - geometries: {layer_name: (size, shapely_geom)} para squadrats/squadratinhos
@@ -442,7 +461,7 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     Caminho normal: cobertura z10 vem de data/scan_cache.json (corrida
     anterior), salta-se a cascata de descoberta e valida-se o resultado
     contra o `size` do servidor. Se não bater (zona nova), cai-se na
-    descoberta completa — os tiles z12 já buscados não se repetem.
+    descoberta completa — os tiles do fetch fino já buscados não se repetem.
     """
     coarse_zoom = discovery_levels[-1]
     factor = 2 ** (fetch_zoom - coarse_zoom)
