@@ -169,6 +169,7 @@ let geoAberto = false;         // secção "Por concelho/distrito" (detalhe geog
 let geoAtletaSel = 0;          // índice do atleta seleccionado nessa secção
 let leaderboardAberto = false;       // secção "Leaderboard por região" (2026-08-15)
 let leaderboardSoDisputadas = true;  // só regiões com 2+ pessoas, por defeito
+let leaderboardNivel = 'concelho';   // 'pais' | 'distrito' | 'concelho'
 
 // duas abas dentro do painel, em vez de tudo empilhado (2026-08-15): o
 // painel tinha crescido para 6 secções seguidas (Por atleta/No mapa/
@@ -413,6 +414,9 @@ function renderPainel() {
   if (lbToggle) lbToggle.onclick = () => { leaderboardAberto = !leaderboardAberto; renderPainel(); };
   const lbFiltro = document.getElementById('leaderboard-filtro');
   if (lbFiltro) lbFiltro.onclick = () => { leaderboardSoDisputadas = !leaderboardSoDisputadas; renderPainel(); };
+  corpo.querySelectorAll('[data-leaderboard-nivel]').forEach(b => {
+    b.onclick = () => { leaderboardNivel = b.dataset.leaderboardNivel; renderPainel(); };
+  });
 }
 
 // --- detalhe geográfico por atleta (2026-08-15) ---
@@ -505,14 +509,26 @@ function renderDetalheGeo() {
 // Não precisa de dados novos: club_regioes.json já tem tudo, isto é só o
 // mesmo club_regioes.json pivotado (por atleta -> por região) em vez de
 // (por região -> por atleta), inteiramente no browser.
-function pivotRegioes() {
+// nivel: 'pais' | 'distrito' | 'concelho'. Cada um usa um par de buckets
+// diferente (país é um caso à parte — geo.country já vem plano, sem nome
+// separado do código do país).
+function pivotRegioes(nivel) {
   const porRegiao = new Map();
   if (!dadosGeo) return porRegiao;
   dados.atletas.forEach((a, i) => {
     const geo = dadosGeo.atletas[a.nome];
     if (!geo) return;
-    const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
-    for (const [cc, porNome] of Object.entries(porConcelho)) {
+    if (nivel === 'pais') {
+      for (const [cc, captured] of Object.entries(geo.country || {})) {
+        if (!porRegiao.has(cc)) porRegiao.set(cc, { cc, nome: NOME_PAIS[cc] || cc, entradas: [] });
+        porRegiao.get(cc).entradas.push({ i, atleta: a.nome, captured });
+      }
+      return;
+    }
+    const porPais = nivel === 'distrito'
+      ? { pt: geo.by_distrito, ...geo.by_region }
+      : { pt: geo.by_concelho, ...geo.by_municipio };
+    for (const [cc, porNome] of Object.entries(porPais)) {
       for (const [nome, captured] of Object.entries(porNome)) {
         const chave = `${cc}|${nome}`;
         if (!porRegiao.has(chave)) porRegiao.set(chave, { cc: cc.toUpperCase(), nome, entradas: [] });
@@ -523,9 +539,17 @@ function pivotRegioes() {
   return porRegiao;
 }
 
+function bucketDe(nivel, cc) {
+  if (nivel === 'pais') return `country_${cc.toLowerCase()}`;
+  if (nivel === 'distrito') return cc === 'PT' ? 'by_distrito' : `by_region_${cc.toLowerCase()}`;
+  return cc === 'PT' ? 'by_concelho' : `by_municipio_${cc.toLowerCase()}`;
+}
+
+const LEADERBOARD_NIVEIS = { pais: 'Nível 1', distrito: 'Nível 2', concelho: 'Nível 3' };
+
 function renderLeaderboard() {
   const linhas = [];
-  linhas.push(`<div class="titulo-seccao detalhe-toggle" id="leaderboard-toggle">Leaderboard por concelho/município
+  linhas.push(`<div class="titulo-seccao detalhe-toggle" id="leaderboard-toggle">Leaderboard por região
     <span class="seta">${leaderboardAberto ? 'esconder' : 'mostrar'}</span></div>`);
   if (!leaderboardAberto) return linhas.join('');
 
@@ -534,11 +558,13 @@ function renderLeaderboard() {
     return linhas.join('');
   }
 
-  linhas.push(`<div class="seg" style="margin:4px 0 8px">
+  linhas.push('<div class="seg" style="margin:4px 0 8px">' + Object.entries(LEADERBOARD_NIVEIS).map(([k, label]) => `
+    <button data-leaderboard-nivel="${k}" class="${leaderboardNivel === k ? 'on' : ''}">${label}</button>`).join('') + '</div>');
+  linhas.push(`<div class="seg" style="margin:0 0 8px">
     <button id="leaderboard-filtro" class="${leaderboardSoDisputadas ? 'on' : ''}">Só disputadas (2+ pessoas)</button>
   </div>`);
 
-  let entradas = [...pivotRegioes().values()];
+  let entradas = [...pivotRegioes(leaderboardNivel).values()];
   if (leaderboardSoDisputadas) entradas = entradas.filter(r => r.entradas.length >= 2);
   entradas.forEach(r => {
     r.entradas.sort((a, b) => b.captured - a.captured);
@@ -553,8 +579,13 @@ function renderLeaderboard() {
   }
 
   entradas.forEach(r => {
-    const bucket = r.cc === 'PT' ? 'by_concelho' : `by_municipio_${r.cc.toLowerCase()}`;
-    const total = totalDe(bucket, r.nome);
+    // país é plano em stats.json (country_pt.z17.total, sem nome dentro),
+    // ao contrário dos outros buckets (nome -> zoom -> total) — totalDe()
+    // não serve aqui, ver linhasPais() que tem o mesmo caso.
+    const total = leaderboardNivel === 'pais'
+      ? (dadosStats && dadosStats[bucketDe('pais', r.cc)] && dadosStats[bucketDe('pais', r.cc)].z17
+          ? dadosStats[bucketDe('pais', r.cc)].z17.total : null)
+      : totalDe(bucketDe(leaderboardNivel, r.cc), r.nome);
     const linhasAtletas = r.entradas.map((e, pos) => {
       const pct = total ? ` <span class="fraco">${(100 * e.captured / total).toFixed(1)}%</span>` : '';
       return `<div class="linha-stat" style="padding-left:16px">
@@ -568,7 +599,7 @@ function renderLeaderboard() {
       <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}`);
   });
 
-  linhas.push(`<div class="nota">Ranking por squares capturados (não por %) dentro de cada concelho/município.
+  linhas.push(`<div class="nota">Ranking por squares capturados (não por %) dentro de cada região.
     "Disputada" = 2 ou mais pessoas com pelo menos 1 square lá.</div>`);
 
   return linhas.join('');
