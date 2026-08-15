@@ -91,7 +91,7 @@ class _Layer:
 
 
 class Classifier:
-    def __init__(self, distritos_path, concelhos_path, foreign_dir=None):
+    def __init__(self, distritos_path, concelhos_path, foreign_dir=None, foreign_muni_dir=None):
         with open(distritos_path, encoding="utf-8") as f:
             distritos = json.load(f)
         with open(concelhos_path, encoding="utf-8") as f:
@@ -109,17 +109,29 @@ class Classifier:
         # cada feature com properties.country (ex: "ES") + properties.region
         # (ex: "Asturias"). Adicionar um país novo = só adicionar um ficheiro,
         # zero alterações de código.
-        self.foreign = None
-        if foreign_dir and os.path.isdir(foreign_dir):
-            labels, geoms = [], []
-            for path in sorted(glob.glob(os.path.join(foreign_dir, "*.geojson"))):
-                with open(path, encoding="utf-8") as f:
-                    fc = json.load(f)
-                for feat in fc["features"]:
-                    labels.append((feat["properties"]["country"], feat["properties"]["region"]))
-                    geoms.append(_clean(shape(feat["geometry"])))
-            if geoms:
-                self.foreign = _Layer(labels, geoms)
+        self.foreign = self._load_foreign(foreign_dir)
+
+        # município/concelho equivalente estrangeiro (2026-08-15) — mesmo
+        # princípio do foreign acima, mas nível mais fino (ex: refdata/
+        # foreign_muni/ES.geojson, 8132 municípios). Só ES tem isto por
+        # agora; um país sem ficheiro aqui simplesmente não aparece na vista
+        # "Concelhos" (ver NIVEL_INFO no index.html). Nomes duplicados
+        # dentro do mesmo país já vêm desambiguados no próprio ficheiro
+        # (ex: "Sada (Province)") — mesmo padrão do Calheta Açores/Madeira.
+        self.foreign_muni = self._load_foreign(foreign_muni_dir)
+
+    @staticmethod
+    def _load_foreign(dir_path):
+        if not dir_path or not os.path.isdir(dir_path):
+            return None
+        labels, geoms = [], []
+        for path in sorted(glob.glob(os.path.join(dir_path, "*.geojson"))):
+            with open(path, encoding="utf-8") as f:
+                fc = json.load(f)
+            for feat in fc["features"]:
+                labels.append((feat["properties"]["country"], feat["properties"]["region"]))
+                geoms.append(_clean(shape(feat["geometry"])))
+        return _Layer(labels, geoms) if geoms else None
 
     def _concelho(self, tile_poly):
         """Concelho por área; se nada intersecta, fallback de proximidade
@@ -134,6 +146,20 @@ class Classifier:
         if dist <= COASTAL_BUFFER_DEG:
             return name, dist
         return None, None
+
+    def _foreign_municipio(self, country, tile_poly):
+        """Município/concelho equivalente estrangeiro — só quando há fonte
+        para esse país (refdata/foreign_muni/*.geojson; hoje só ES). Sem
+        fallback de proximidade ao contrário do concelho PT: prefere-se
+        None a arriscar atribuir a um município de outro país por estar
+        perto a mais na fronteira."""
+        if self.foreign_muni is None:
+            return None
+        label, area = self.foreign_muni.best_match(tile_poly)
+        if area <= 0.0 or label is None:
+            return None
+        muni_country, muni_name = label
+        return muni_name if muni_country == country else None
 
     def classify(self, tile_poly):
         """`tile_poly`: polígono shapely do square (ver kml_parse.tile_bounds).
@@ -172,7 +198,7 @@ class Classifier:
                 # (ex: square em pleno oceano)
                 return {
                     "in_portugal": False, "district": None, "concelho": None,
-                    "country": None, "region": None,
+                    "country": None, "region": None, "municipio": None,
                     "on_land": False, "country_fallback_deg": None, "concelho_fallback_deg": None,
                 }
 
@@ -180,7 +206,7 @@ class Classifier:
                 concelho, concelho_fallback_deg = self._concelho(tile_poly)
                 return {
                     "in_portugal": True, "district": d_name, "concelho": concelho,
-                    "country": "PT", "region": None,
+                    "country": "PT", "region": None, "municipio": None,
                     "on_land": False, "country_fallback_deg": d_dist,
                     "concelho_fallback_deg": concelho_fallback_deg,
                 }
@@ -189,6 +215,7 @@ class Classifier:
             return {
                 "in_portugal": False, "district": None, "concelho": None,
                 "country": country, "region": region,
+                "municipio": self._foreign_municipio(country, tile_poly),
                 "on_land": False, "country_fallback_deg": f_dist, "concelho_fallback_deg": None,
             }
 
@@ -196,7 +223,7 @@ class Classifier:
             concelho, concelho_fallback_deg = self._concelho(tile_poly)
             return {
                 "in_portugal": True, "district": district, "concelho": concelho,
-                "country": "PT", "region": None,
+                "country": "PT", "region": None, "municipio": None,
                 "on_land": True, "country_fallback_deg": None,
                 "concelho_fallback_deg": concelho_fallback_deg,
             }
@@ -204,6 +231,7 @@ class Classifier:
         country, region = foreign_label
         return {
             "in_portugal": False, "district": None, "concelho": None,
+            "municipio": self._foreign_municipio(country, tile_poly),
             "country": country, "region": region,
             "on_land": True, "country_fallback_deg": None, "concelho_fallback_deg": None,
         }

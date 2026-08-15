@@ -61,6 +61,7 @@ def _build_classifier():
         # sem isto self.foreign fica None e o fallback de proximidade
         # (classify.py) deixa de competir com o estrangeiro — PT ganha todos
         # os empates da fronteira/costa por omissão (bug encontrado 2026-08-06).
+        foreign_muni_dir=os.path.join(REFDATA_DIR, "foreign_muni"),
     )
 
 
@@ -85,6 +86,7 @@ def _classify_chunk(args):
     total_pt = 0
     by_country_region = {}  # {country: {region: count}}
     total_by_country = {}   # {country: count}
+    by_country_municipio = {}  # {country: {municipio: count}} -- só países com foreign_muni
     for x, y in cells:
         info = _classifier_worker.classify(tile_bounds(x, y, zoom))
         if info["in_portugal"]:
@@ -96,11 +98,14 @@ def _classify_chunk(args):
             total_by_country[cc] = total_by_country.get(cc, 0) + 1
             by_country_region.setdefault(cc, {})
             by_country_region[cc][info["region"]] = by_country_region[cc].get(info["region"], 0) + 1
-    return by_concelho, by_distrito, total_pt, by_country_region, total_by_country
+            if info["municipio"]:
+                by_country_municipio.setdefault(cc, {})
+                by_country_municipio[cc][info["municipio"]] = by_country_municipio[cc].get(info["municipio"], 0) + 1
+    return by_concelho, by_distrito, total_pt, by_country_region, total_by_country, by_country_municipio
 
 
 def _merge(acc, part):
-    by_concelho, by_distrito, total_pt, by_country_region, total_by_country = part
+    by_concelho, by_distrito, total_pt, by_country_region, total_by_country, by_country_municipio = part
     for k, v in by_concelho.items():
         acc["by_concelho"][k] = acc["by_concelho"].get(k, 0) + v
     for k, v in by_distrito.items():
@@ -112,13 +117,34 @@ def _merge(acc, part):
             acc["by_country_region"][cc][r] = acc["by_country_region"][cc].get(r, 0) + v
     for cc, v in total_by_country.items():
         acc["total_by_country"][cc] = acc["total_by_country"].get(cc, 0) + v
+    for cc, munis in by_country_municipio.items():
+        acc["by_country_municipio"].setdefault(cc, {})
+        for m, v in munis.items():
+            acc["by_country_municipio"][cc][m] = acc["by_country_municipio"][cc].get(m, 0) + v
 
 
 def main():
     classifier = _build_classifier()  # só para montar os candidatos e para a validação no fim
 
     paises_estrangeiros = sorted({country for country, _region in classifier.foreign.names})
+    # países com fonte de município (refdata/foreign_muni/*.geojson) — hoje
+    # só ES. SEMPRE um subconjunto de paises_estrangeiros: sem entrada ao
+    # nível região (refdata/foreign/), classify.py nunca atribui esse país
+    # a square nenhum, e o município nunca seria usado por muito que exista
+    # o ficheiro (ex: refdata/foreign_muni/DE.geojson está lá, arrumado
+    # para o futuro, mas a Alemanha não tem refdata/foreign/DE.geojson
+    # ainda — filtrado aqui de propósito, para não varrer os municípios
+    # dela à toa).
+    paises_com_municipio = sorted({
+        country for country, _region in classifier.foreign_muni.names
+        if country in paises_estrangeiros
+    }) if classifier.foreign_muni is not None else []
+    ignorados = sorted({country for country, _region in classifier.foreign_muni.names} - set(paises_com_municipio)) \
+        if classifier.foreign_muni is not None else []
+    if ignorados:
+        print(f"município ignorado (sem nível região ainda): {ignorados}", file=sys.stderr)
     print(f"países estrangeiros com fronteiras: {paises_estrangeiros}", file=sys.stderr)
+    print(f"países com município: {paises_com_municipio}", file=sys.stderr)
     print(f"a usar {N_WORKERS} processos (de {os.cpu_count()} núcleos)", file=sys.stderr)
 
     result = {
@@ -131,19 +157,25 @@ def main():
     for cc in paises_estrangeiros:
         result[f"country_{cc.lower()}"] = {}
         result[f"by_region_{cc.lower()}"] = {}
+    for cc in paises_com_municipio:
+        result[f"by_municipio_{cc.lower()}"] = {}
 
     for zoom in ZOOMS:
         print(f"--- zoom {zoom} ---", file=sys.stderr)
 
         # candidatos UNIFICADOS: concelhos de PT + todas as regiões
-        # estrangeiras, num só varrimento — uma célula é classificada no
-        # máximo 1 vez, mesmo perto de fronteiras onde os candidate-sets
-        # de países vizinhos se sobrepõem.
+        # estrangeiras + todos os municípios estrangeiros, num só
+        # varrimento — uma célula é classificada no máximo 1 vez, mesmo
+        # perto de fronteiras onde os candidate-sets se sobrepõem.
         candidates = set()
         for geom in classifier.concelhos.geoms:
             candidates.update(candidate_cells_for_geom(geom, zoom))
         for geom in classifier.foreign.geoms:
             candidates.update(candidate_cells_for_geom(geom, zoom))
+        if classifier.foreign_muni is not None:
+            for (country, _region), geom in zip(classifier.foreign_muni.names, classifier.foreign_muni.geoms):
+                if country in paises_com_municipio:
+                    candidates.update(candidate_cells_for_geom(geom, zoom))
         candidates = list(candidates)
         print(f"células candidatas (unificado): {len(candidates)}", file=sys.stderr)
 
@@ -157,7 +189,7 @@ def main():
 
         acc = {
             "by_concelho": {}, "by_distrito": {}, "total_pt": 0,
-            "by_country_region": {}, "total_by_country": {},
+            "by_country_region": {}, "total_by_country": {}, "by_country_municipio": {},
         }
         t_inicio = time.time()
         with mp.Pool(N_WORKERS, initializer=_init_worker) as pool:
@@ -184,6 +216,12 @@ def main():
             for name, count in acc["by_country_region"].get(cc, {}).items():
                 result[f"by_region_{cc.lower()}"].setdefault(name, {})[f"z{zoom}"] = count
             print(f"zoom {zoom}: total {cc} = {total_pais}", file=sys.stderr)
+
+        for cc in paises_com_municipio:
+            munis = acc["by_country_municipio"].get(cc, {})
+            for name, count in munis.items():
+                result[f"by_municipio_{cc.lower()}"].setdefault(name, {})[f"z{zoom}"] = count
+            print(f"zoom {zoom}: {len(munis)} municípios {cc} com total", file=sys.stderr)
 
     out_path = os.path.join(REFDATA_DIR, "grid_totals.json")
     with open(out_path, "w", encoding="utf-8") as f:
@@ -233,6 +271,22 @@ def main():
             f"esperadas {len(nomes_regiao)} regiões {cc}, há {len(result[chave])}"
         )
         print(f"validação {len(nomes_regiao)} regiões {cc}: OK")
+
+    for cc in paises_com_municipio:
+        nomes_municipio = {m for (country, m) in classifier.foreign_muni.names if country == cc}
+        chave = f"by_municipio_{cc.lower()}"
+        faltam = nomes_municipio - set(result[chave].keys())
+        # aviso, não assert: municípios minúsculos podem legitimamente perder
+        # TODAS as células z14 (1609m) para um vizinho maior que partilha a
+        # mesma célula — a regra é "maior área de intersecção", sem limiar.
+        # Não acontece com as 52 províncias (grandes de mais para isto), mas
+        # com 8132 municípios é esperado haver alguns. z17 (201m) não devia
+        # ter este problema, é fino a mais para isso ser comum.
+        if faltam:
+            print(f"aviso: {len(faltam)}/{len(nomes_municipio)} municípios {cc} sem total nenhum "
+                  f"em nenhum zoom (provavelmente minúsculos, perderam sempre para um vizinho maior): "
+                  f"{sorted(faltam)[:10]}{'...' if len(faltam) > 10 else ''}")
+        print(f"município {cc}: {len(result[chave])}/{len(nomes_municipio)} com total em pelo menos 1 zoom")
 
 
 if __name__ == "__main__":

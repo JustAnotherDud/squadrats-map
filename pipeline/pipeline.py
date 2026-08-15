@@ -169,6 +169,7 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
         os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
         foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
+        foreign_muni_dir=os.path.join(REFDATA_DIR, "foreign_muni"),
     )
 
     with open(os.path.join(REFDATA_DIR, "grid_totals.json"), encoding="utf-8") as f:
@@ -185,10 +186,18 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
     paises_com_total = sorted({
         k[len("country_"):].upper() for k in grid_totals if k.startswith("country_") and k != "country_pt"
     })
+    # mesmo princípio, para o nível concelho/município equivalente — hoje só
+    # ES (grid_totals["by_municipio_es"]), descoberto pelas chaves, não por
+    # uma lista fixa.
+    paises_com_municipio = sorted({
+        k[len("by_municipio_"):].upper() for k in grid_totals if k.startswith("by_municipio_")
+    })
     stats = {"by_concelho": {}, "by_distrito": {}, "country_pt": {}, "foreign": {}}
     for cc in paises_com_total:
         stats[f"country_{cc.lower()}"] = {}
         stats[f"by_region_{cc.lower()}"] = {}
+    for cc in paises_com_municipio:
+        stats[f"by_municipio_{cc.lower()}"] = {}
     total_squares = 0
     not_on_land = 0
     fallback_events = []  # squares resolvidos por proximidade (país e/ou concelho), não por área
@@ -216,6 +225,7 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
         out = []
         by_concelho_captured, by_distrito_captured = {}, {}
         by_foreign_captured = {}  # {country: {region: count}}
+        by_foreign_municipio_captured = {}  # {country: {municipio: count}}
         unclassified_foreign = 0
         pt_captured = foreign_captured = 0
         for x, y, lon, lat in squares:
@@ -228,6 +238,7 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
                 "concelho": info["concelho"],
                 "country": info["country"],
                 "region": info["region"],
+                "municipio": info["municipio"],
             })
             total_squares += 1
             if not info["on_land"]:
@@ -259,6 +270,11 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
                     by_foreign_captured[info["country"]][info["region"]] = (
                         by_foreign_captured[info["country"]].get(info["region"], 0) + 1
                     )
+                    if info["municipio"]:
+                        by_foreign_municipio_captured.setdefault(info["country"], {})
+                        by_foreign_municipio_captured[info["country"]][info["municipio"]] = (
+                            by_foreign_municipio_captured[info["country"]].get(info["municipio"], 0) + 1
+                        )
                 else:
                     # sem geometria disponível para este país — fallback genérico
                     # (mesmo comportamento de antes desta iteração)
@@ -318,6 +334,15 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
                 "captured": captured_pais, "total": total_pais or None,
                 "pct": pct(captured_pais, total_pais) if total_pais else None,
             }
+
+        for cc in paises_com_municipio:
+            captured_by_municipio = by_foreign_municipio_captured.get(cc, {})
+            for name, total_info in grid_totals.get(f"by_municipio_{cc.lower()}", {}).items():
+                total = total_info.get(zkey, 0)
+                captured = captured_by_municipio.get(name, 0)
+                stats[f"by_municipio_{cc.lower()}"].setdefault(name, {})[zkey] = {
+                    "captured": captured, "total": total, "pct": pct(captured, total),
+                }
         stats["foreign"][zkey] = {**by_foreign_captured, "unclassified": unclassified_foreign}
 
     if counts:
