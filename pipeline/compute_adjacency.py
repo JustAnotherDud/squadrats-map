@@ -109,6 +109,7 @@ def main():
         "distritos": process("distritos", os.path.join(REFDATA_DIR, "distritos_pt.geojson"), "district"),
         "provincias_es": process("provincias_es", os.path.join(REFDATA_DIR, "foreign", "ES.geojson"), "region"),
         "laender_de": process("laender_de", os.path.join(REFDATA_DIR, "foreign", "DE.geojson"), "region"),
+        "regioes_ma": process("regioes_ma", os.path.join(REFDATA_DIR, "foreign", "MA.geojson"), "region"),
     }
 
     out_path = os.path.join(DATA_DIR, "adjacency.json")
