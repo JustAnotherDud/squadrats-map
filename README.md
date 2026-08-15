@@ -39,10 +39,13 @@ mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteir
     errados.
     A cascata só corre quando é precisa: a cobertura z10 de cada atleta fica em
     `data/scan_cache.json` (coordenadas derivadas, nunca tiles em bruto; mais grosseiro do que o
-    que o `club.json` já publica) e a corrida seguinte vai directa aos filhos z12 — era ~2/3 dos
+    que o `club.json` já publica) e a corrida seguinte vai directa a esses tiles z10 — era ~2/3 dos
     pedidos de cada corrida. Seguro porque a cobertura nunca encolhe e a auto-validação acima
     invalida a cache sozinha: se o atleta capturou numa zona nova, a reconstrução não bate com o
-    `size`, faz-se a descoberta completa (sem repetir os z12 já buscados) e a cache refaz-se.
+    `size`, faz-se a descoberta completa (sem repetir os tiles já buscados) e a cache refaz-se.
+    Busca-se a z10, não a z12 (2026-08-15, ver `tiles_fetch.FETCH_ZOOM`): testado ao vivo que o
+    servidor não simplifica geometria a zooms mais grosseiros — z10 devolve o total exacto, com
+    16x menos tiles que z12 para a mesma área.
   - `run_all.py` — **ponto de entrada do workflow**: corre os três consumidores no mesmo
     processo, para cada atleta ser varrido uma vez só. Em passos separados, o José era varrido
     três vezes por run e a Xeira/Carolina duas — ~1200 pedidos em duplicado. A cache está no
@@ -120,12 +123,11 @@ já expõe o UID). Para não abusar:
   depois diário, subiu a 2x/dia em 2026-08-08 (só ficou justificável depois da cache de cobertura
   do `tiles_fetch.py` cortar o custo por corrida em 68%) e a 6x/dia em 2026-08-14, a seguir ao
   probe de 1 pedido/atleta (ver abaixo) — passo intermédio de propósito, não foi logo para 1x/hora.
-  Pior caso (todos os 5 atletas mudaram desde a última corrida): ~2032 pedidos com a cache de
-  cobertura a acertar (~6274 sem ela) — a 6x/dia isso seria ~12.2k pedidos/dia se acontecesse
-  sempre, mas não acontece: com o probe, quem não mudou custa só 1 pedido, não os ~400 do scan
-  completo, e correr mais vezes não faz alguém mudar mais vezes. Na prática a maioria das corridas
-  fica bem abaixo do pior caso. Não subir a frequência sem recalcular este orçamento pelo PIOR
-  caso, não pelo médio — o probe reduz o custo típico, não o tecto.
+  Pior caso hoje (todos os 5 mudaram desde a última corrida, `FETCH_ZOOM=10`, ver abaixo): ~138
+  pedidos (era ~2032 a z12, antes de 2026-08-15) — a 6x/dia isso são ~828/dia se acontecesse
+  sempre, mas não acontece: com o probe, quem não mudou custa só 1 pedido, e correr mais vezes não
+  faz alguém mudar mais vezes. Na prática a maioria das corridas fica bem abaixo disto. Não subir a
+  frequência sem recalcular este orçamento pelo PIOR caso, não pelo médio.
 - `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
 - Concorrência baixa (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` em `tiles_fetch.py` — subiu de
   4 em 2026-08-08, testado sem 500s/lentidão; não subir mais sem repetir essa verificação)
@@ -146,6 +148,14 @@ já expõe o UID). Para não abusar:
   parada de ~2032 pedidos para ~5 (1 por atleta); só paga o custo cheio de quem realmente captou
   algo. Comparação por igualdade estrita (não "≥"): uma actividade apagada/cortada depois de
   publicada pode fazer o total BAIXAR, e isso também tem de disparar o scan completo.
+- Fetch fino a z10, não z12 (2026-08-15, `tiles_fetch.FETCH_ZOOM`): testado ao vivo — o servidor
+  devolve a geometria exacta dos squares independentemente do zoom pedido, só recortada a uma bbox
+  maior, sem simplificar. Confirmado com reconstrução completa == `size` declarado em z10/z9/z8/z7
+  (os 5 atletas do clube, e também numa conta de 3984 células z10 para testar escala). Falha a
+  partir de z4 (perde squares) e rebenta a z2/z0 — nunca chegar perto disso. z10 fica com 4 zooms
+  de margem, e corta o custo de quem realmente mudou em mais 16x (672 -> 42 pedidos no caso do
+  José). Ainda haveria margem para z9/z8/z7 — não usada de propósito, o ganho marginal não
+  compensa arriscar mais perto do limite desconhecido.
 
 ### Nota sobre nomes de concelho duplicados
 
@@ -188,7 +198,7 @@ Fallback por KML (ver secção própria): `py pipeline/pipeline.py --kml data/sa
                     |
                     v
 [tiles_fetch.py] --fetch--> tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf
-   descoberta em cascata z4->z7->z10, depois busca os filhos z12 com cobertura
+   descoberta em cascata z4->z7->z10, depois busca esses tiles z10 directamente
    auto-validação: contagem reconstruída == `size` do servidor, senão rebenta
                     |
       +-------------+-------------+
