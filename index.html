@@ -590,6 +590,33 @@ function rankingFor(info) {
   return { rank: entries.findIndex(([n]) => n === info.name) + 1, outOf: entries.length };
 }
 
+// Muda de vista (Região/Zona) e já selecciona uma região directamente —
+// reaproveitado pelo link "Nível 2" do cartão de região e pelos links de
+// distrito/concelho do cartão de square (2026-08-16, pedido directo:
+// "também quero que funcione o click para abrir aqui").
+function irParaRegiao(visao, key) {
+  document.querySelectorAll('#seg-visao button').forEach(b => b.classList.toggle('active', b.dataset.val === visao));
+  state.visao = visao;
+  state.selected = null;
+  state.showZero = false;
+  updateColorToggleVisibility();
+  render();
+  selectItem(key, {});
+}
+function linkRegiao(visao, country, nome) {
+  const key = chaveRegiao(country, nome);
+  return `<a href="#" data-goto-regiao="${visao}::${escapeHtml(key)}">${escapeHtml(nome)} →</a>`;
+}
+// delegado num só sítio (sheet-detail é substituído por inteiro a cada
+// render, ligar directo aos elementos morria com o innerHTML seguinte)
+document.getElementById('sheet-detail').addEventListener('click', e => {
+  const a = e.target.closest('[data-goto-regiao]');
+  if (!a) return;
+  e.preventDefault();
+  const [visao, key] = a.dataset.gotoRegiao.split('::');
+  irParaRegiao(visao, key);
+});
+
 function renderDetailCard(name) {
   const info = getEntryInfo(name);
   const container = document.getElementById('sheet-detail');
@@ -612,8 +639,7 @@ function renderDetailCard(name) {
   if (state.visao === 'concelhos') {
     const parent = regionParent(info.country, info.name);
     if (parent) {
-      const parentKey = chaveRegiao(info.country, parent);
-      parentHtml = `<div class="detail-item"><div class="label">Região</div><div class="value"><a href="#" data-goto-parent="${escapeHtml(parentKey)}">${escapeHtml(parent)} →</a></div></div>`;
+      parentHtml = `<div class="detail-item"><div class="label">Região</div><div class="value">${linkRegiao('distritos', info.country, parent)}</div></div>`;
     }
   }
 
@@ -623,20 +649,6 @@ function renderDetailCard(name) {
     <div class="detail-grid">${grid}${parentHtml}</div>
   `;
   document.getElementById('detail-back-btn').onclick = clearSelection;
-  const gotoBtn = container.querySelector('[data-goto-parent]');
-  if (gotoBtn) {
-    gotoBtn.onclick = (e) => {
-      e.preventDefault();
-      const key = gotoBtn.dataset.gotoParent;
-      document.querySelectorAll('#seg-visao button').forEach(b => b.classList.toggle('active', b.dataset.val === 'distritos'));
-      state.visao = 'distritos';
-      state.selected = null;
-      state.showZero = false;
-      updateColorToggleVisibility();
-      render();
-      selectItem(key, {});
-    };
-  }
 }
 
 function selectItem(name, opts) {
@@ -842,21 +854,21 @@ function renderSquareDetailCard() {
   let grid = '';
   if (capturado) {
     if (capturado.in_portugal) {
-      grid += `<div class="detail-item"><div class="label">Concelho</div><div class="value">${escapeHtml(capturado.concelho || '—')}</div></div>`;
-      grid += `<div class="detail-item"><div class="label">Distrito</div><div class="value">${escapeHtml(capturado.district || '—')}</div></div>`;
+      if (capturado.concelho) grid += `<div class="detail-item"><div class="label">Concelho</div><div class="value">${linkRegiao('concelhos', 'PT', capturado.concelho)}</div></div>`;
+      if (capturado.district) grid += `<div class="detail-item"><div class="label">Distrito</div><div class="value">${linkRegiao('distritos', 'PT', capturado.district)}</div></div>`;
     } else if (capturado.region) {
-      grid += `<div class="detail-item"><div class="label">Região</div><div class="value">${BANDEIRA[capturado.country] || ''} ${escapeHtml(capturado.region)}</div></div>`;
+      grid += `<div class="detail-item"><div class="label">Região</div><div class="value">${BANDEIRA[capturado.country] || ''} ${linkRegiao('distritos', capturado.country, capturado.region)}</div></div>`;
       if (capturado.municipio) {
-        grid += `<div class="detail-item"><div class="label">Concelho/Município</div><div class="value">${escapeHtml(capturado.municipio)}</div></div>`;
+        grid += `<div class="detail-item"><div class="label">Concelho/Município</div><div class="value">${linkRegiao('concelhos', capturado.country, capturado.municipio)}</div></div>`;
       }
     }
   } else {
     const c = classificarPonto(latC, lonC);
     if (c) {
       grid += `<div class="detail-item"><div class="label">País</div><div class="value">${BANDEIRA[c.country] || ''} ${escapeHtml(PAIS_INFO[c.country].label)}</div></div>`;
-      grid += `<div class="detail-item"><div class="label">${c.country === 'PT' ? 'Distrito' : 'Região'}</div><div class="value">${escapeHtml(c.distrito)}</div></div>`;
+      grid += `<div class="detail-item"><div class="label">${c.country === 'PT' ? 'Distrito' : 'Região'}</div><div class="value">${linkRegiao('distritos', c.country, c.distrito)}</div></div>`;
       if (c.concelho) {
-        grid += `<div class="detail-item"><div class="label">${c.country === 'PT' ? 'Concelho' : 'Concelho/Município'}</div><div class="value">${escapeHtml(c.concelho)}</div></div>`;
+        grid += `<div class="detail-item"><div class="label">${c.country === 'PT' ? 'Concelho' : 'Concelho/Município'}</div><div class="value">${linkRegiao('concelhos', c.country, c.concelho)}</div></div>`;
       }
     }
   }
@@ -1426,25 +1438,69 @@ function setSheet(expanded) {
   sheet.classList.toggle('collapsed', !expanded);
   document.querySelector('#sheet-summary span:last-child').textContent = expanded ? '▼' : '▲';
 }
-document.getElementById('sheet-summary').onclick = () => {
+// qualquer selecção activa (região, país ou square) fecha para a lista;
+// sem nenhuma, alterna colapsado/expandido — faltava tratar square/país
+// aqui (só state.selected estava coberto, ficou esquecido ao acrescentar
+// os outros dois tipos de selecção nesta mesma sessão).
+function fecharQualquerDetalheOuAlternar() {
   if (state.selected) { clearSelection(); return; }
+  if (squareSelecionado) { clearSquareSelection(); return; }
+  if (paisSelecionado) { clearPaisSelection(); return; }
   setSheet(!state.sheetExpanded);
-};
+}
+document.getElementById('sheet-summary').onclick = fecharQualquerDetalheOuAlternar;
 
-let dragStartY = null;
+// arrastar a pega para esticar/encolher a sheet livremente (2026-08-16,
+// pedido directo) — antes só dava para largar e ela saltava para um de 3
+// tamanhos fixos (colapsada/expandida/detalhe). Um toque simples (sem
+// arrastar de facto) continua a alternar/fechar como sempre.
+const SHEET_MIN_H = 54;
+function sheetMaxH() { return window.innerHeight * 0.92; }
+let sheetDrag = null; // { startY, startHeight, moved } | null
 const handle = document.getElementById('sheet-handle');
-handle.addEventListener('pointerdown', e => { dragStartY = e.clientY; });
-handle.addEventListener('pointerup', e => {
-  if (dragStartY === null) return;
-  const dy = e.clientY - dragStartY;
-  if (state.selected) {
-    if (dy > 15) clearSelection(); // arrastar para baixo no cartão de detalhe volta à lista
-  } else if (dy < -15) setSheet(true);
-  else if (dy > 15) setSheet(false);
-  else setSheet(!state.sheetExpanded);
-  dragStartY = null;
+
+handle.addEventListener('pointerdown', e => {
+  sheetDrag = { startY: e.clientY, startHeight: sheet.getBoundingClientRect().height, moved: false };
+  sheet.style.transition = 'none'; // segue o dedo/rato sem atraso durante o arrasto
+  // sem try/catch, um dispositivo que recuse pointer capture (raro, mas
+  // acontece) partia o arrasto todo por uma chamada que só é optimização
+  try { handle.setPointerCapture(e.pointerId); } catch (err) { /* segue sem capture */ }
 });
-handle.addEventListener('pointercancel', () => { dragStartY = null; });
+handle.addEventListener('pointermove', e => {
+  if (!sheetDrag) return;
+  const dy = e.clientY - sheetDrag.startY;
+  if (!sheetDrag.moved && Math.abs(dy) < 4) return; // ainda pode ser só um toque
+  sheetDrag.moved = true;
+  const novaAltura = Math.min(sheetMaxH(), Math.max(SHEET_MIN_H, sheetDrag.startHeight - dy));
+  sheet.style.height = novaAltura + 'px';
+  const aberto = novaAltura > SHEET_MIN_H + 20;
+  const emDetalhe = !!(state.selected || squareSelecionado || paisSelecionado);
+  sheet.classList.toggle('collapsed', !aberto);
+  sheet.classList.toggle('detail', aberto && emDetalhe);
+  sheet.classList.toggle('expanded', aberto && !emDetalhe);
+});
+handle.addEventListener('pointerup', e => {
+  sheet.style.transition = '';
+  if (!sheetDrag) return;
+  const { moved, startY, startHeight } = sheetDrag;
+  sheetDrag = null;
+  if (!moved) { fecharQualquerDetalheOuAlternar(); return; }
+
+  const novaAltura = Math.min(sheetMaxH(), Math.max(SHEET_MIN_H, startHeight - (e.clientY - startY)));
+  if (novaAltura <= SHEET_MIN_H + 20) {
+    // perto do mínimo -> colapsa de vez (limpa a altura à medida, volta ao
+    // tamanho fixo do CSS) e sai de qualquer cartão de detalhe aberto
+    sheet.style.height = '';
+    if (state.selected) clearSelection();
+    else if (squareSelecionado) clearSquareSelection();
+    else if (paisSelecionado) clearPaisSelection();
+    else setSheet(false);
+  } else {
+    state.sheetExpanded = true;
+    document.querySelector('#sheet-summary span:last-child').textContent = '▼';
+  }
+});
+handle.addEventListener('pointercancel', () => { sheetDrag = null; sheet.style.transition = ''; });
 
 // limpar seleção: Escape ou clique no mapa fora de qualquer polígono
 // (addBoundaryFeature já para a propagação do click do polígono para o mapa
