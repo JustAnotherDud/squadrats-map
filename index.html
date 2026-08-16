@@ -113,11 +113,11 @@
 <div id="map"></div>
 
 <div id="topbar">
-  <div class="seg" id="seg-grelha">
+  <div class="seg seg-grelha">
     <button data-val="squadrats">Squadrats (1609 m)</button>
     <button data-val="squadratinhos" class="active">Squadratinhos (201 m)</button>
   </div>
-  <div class="seg" id="seg-visao">
+  <div class="seg seg-visao">
     <button data-val="paises" class="active">País</button>
     <button data-val="distritos">Região</button>
     <button data-val="concelhos">Zona</button>
@@ -133,6 +133,17 @@
   <div id="sheet-handle"><div class="bar"></div></div>
   <div id="sheet-summary"><span id="summary-text"></span><span style="color:#7d8598">▲</span></div>
   <div id="sheet-body">
+    <!-- duplicados do topbar (2026-08-16, pedido directo) — mesma classe,
+         mesmo wiring de clique lá em baixo, sincronizados sempre os dois -->
+    <div class="seg seg-grelha" style="margin-bottom:6px">
+      <button data-val="squadrats">Squadrats (1609 m)</button>
+      <button data-val="squadratinhos" class="active">Squadratinhos (201 m)</button>
+    </div>
+    <div class="seg seg-visao" style="margin-bottom:10px">
+      <button data-val="paises" class="active">País</button>
+      <button data-val="distritos">Região</button>
+      <button data-val="concelhos">Zona</button>
+    </div>
     <button id="btn-color-mode" style="display:none;">Cores: uniforme</button>
     <div id="sheet-list"></div>
     <div id="sheet-detail"></div>
@@ -494,24 +505,25 @@ function baseStyleFor(name, statsBucket, zkey, country) {
   };
 }
 
-function styleFor(name, statsBucket, zkey, country) {
+// `key` (composta, "PAIS:nome") é o que fica em state.selected.name — `name`
+// sozinho só coincide com ela para PT (chaveRegiao não lhe põe prefixo, ver
+// definição). Comparar contra `name` cru fazia a selecção nunca bater certo
+// fora de Portugal — o mapa navegava lá (isso usa boundaryLayersByName pela
+// key, sempre correcto) mas o contorno verde nunca acendia. Bug apanhado
+// 2026-08-16, mascarado precisamente pelo caso que mais se testa (PT).
+function styleFor(name, key, statsBucket, zkey, country) {
   const base = baseStyleFor(name, statsBucket, zkey, country);
-  const isSelected = state.selected && state.selected.name === name;
+  const isSelected = state.selected && state.selected.name === key;
   return isSelected ? { ...base, ...SELECTED_STYLE } : base;
 }
 
-// onClick por omissão é selectItem (regiões) — a vista "País" passa o seu
-// próprio (selecionarPais), que não segue o mesmo formato de chave/nível
-// (2026-08-16).
-function addBoundaryFeature(name, layer, styleFn, onClick) {
+// Só regista (para refreshBoundaryStyles + fitBounds via nome/key) — sem
+// clique próprio (2026-08-16, pedido directo: "há 2 coisas a competir pelo
+// clique, fica confuso"). Clicar numa fronteira no mapa faz parte do mesmo
+// clique do mapa em geral, que agora só selecciona o square por baixo; para
+// seleccionar a região é preciso ir à lista/link, nunca ao mapa directamente.
+function addBoundaryFeature(name, layer, styleFn) {
   boundaryLayersByName[name] = { layer, styleFn };
-  layer.on('click', (e) => {
-    // Leaflet propaga cliques de L.Path para o mapa por defeito
-    // (bubblingMouseEvents:true) — sem isto, o handler "clique fora limpa a
-    // seleção" do mapa disparava logo a seguir e desfazia a seleção no mesmo click.
-    L.DomEvent.stopPropagation(e);
-    (onClick || (() => selectItem(name, { fromMap: true })))();
-  });
 }
 
 function drawBoundaries() {
@@ -533,7 +545,7 @@ function drawBoundaries() {
         style: () => paisStyleFor(cc, info.cor),
         onEachFeature: (feat, layer) => {
           layer.bindTooltip(`<b>${BANDEIRA[cc]} ${info.label}</b><br>${label}`, { sticky: true });
-          addBoundaryFeature(cc, layer, () => paisStyleFor(cc, info.cor), () => selecionarPais(cc));
+          addBoundaryFeature(cc, layer, () => paisStyleFor(cc, info.cor));
         },
       }).addTo(boundaryLayer);
     }
@@ -546,13 +558,16 @@ function drawBoundaries() {
     if (!info) continue; // este país não tem fronteiras processadas para este nível ainda
     const statsBucket = stats[info.bucket] || {};
     L.geoJSON(info.geo(), {
-      style: feat => styleFor(feat.properties[info.nameProp], statsBucket, zkey, country),
+      style: feat => {
+        const name = feat.properties[info.nameProp];
+        return styleFor(name, chaveRegiao(country, name), statsBucket, zkey, country);
+      },
       onEachFeature: (feat, layer) => {
         const name = feat.properties[info.nameProp];
         const key = chaveRegiao(country, name);
         const s = (statsBucket[name] || {})[zkey] || { captured: 0, total: 0, pct: 0 };
         layer.bindTooltip(`<b>${BANDEIRA[country]} ${name}</b><br>${s.captured}/${s.total} · ${fmtPct(s.pct)}`, { sticky: true });
-        addBoundaryFeature(key, layer, () => styleFor(name, statsBucket, zkey, country));
+        addBoundaryFeature(key, layer, () => styleFor(name, key, statsBucket, zkey, country));
       },
     }).addTo(boundaryLayer);
   }
@@ -595,7 +610,7 @@ function rankingFor(info) {
 // distrito/concelho do cartão de square (2026-08-16, pedido directo:
 // "também quero que funcione o click para abrir aqui").
 function irParaRegiao(visao, key) {
-  document.querySelectorAll('#seg-visao button').forEach(b => b.classList.toggle('active', b.dataset.val === visao));
+  document.querySelectorAll('.seg-visao button').forEach(b => b.classList.toggle('active', b.dataset.val === visao));
   state.visao = visao;
   state.selected = null;
   state.showZero = false;
@@ -1407,20 +1422,22 @@ function resetSelectionUI() {
   }
 }
 
-document.querySelectorAll('#seg-grelha button').forEach(btn => {
+// .seg-grelha/.seg-visao existem duplicados (topbar + dentro da sheet,
+// 2026-08-16) — selector de classe apanha os dois de propósito, e o toggle
+// de active compara por data-val (não pelo botão clicado directamente) para
+// sincronizar sempre as duas cópias, seja qual for a que foi tocada.
+document.querySelectorAll('.seg-grelha button').forEach(btn => {
   btn.onclick = () => {
-    document.querySelectorAll('#seg-grelha button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('.seg-grelha button').forEach(b => b.classList.toggle('active', b.dataset.val === btn.dataset.val));
     state.grelha = btn.dataset.val;
     state.selected = null;
     resetSelectionUI();
     render();
   };
 });
-document.querySelectorAll('#seg-visao button').forEach(btn => {
+document.querySelectorAll('.seg-visao button').forEach(btn => {
   btn.onclick = () => {
-    document.querySelectorAll('#seg-visao button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('.seg-visao button').forEach(b => b.classList.toggle('active', b.dataset.val === btn.dataset.val));
     state.visao = btn.dataset.val;
     state.selected = null;
     state.showZero = false;
