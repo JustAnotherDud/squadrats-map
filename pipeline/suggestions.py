@@ -88,28 +88,23 @@ class _Dsu:
         return max((self.peso[r] for r in self.pai if self.find(r) == r), default=0)
 
 
-def melhor_ligacao(visitados, top=8):
-    """Que square, capturado sozinho, faz o yard crescer mais?
+def _candidatos_ligacao(visitados, comps, tam, comp_id, ignorar_idx=None):
+    """Núcleo comum a melhor_ligacao/melhor_ligacao_backyard: para cada square
+    vazio adjacente a algo visitado, vê que fechados nascem ao capturá-lo
+    sozinho e a que cluster(es) existentes eles se colam (union-find) —
+    `ignorar_idx` exclui um cluster da união (o yard, ao procurar backyard).
+    Devolve TODOS os candidatos com algum ganho — filtrar/ordenar/cortar ao
+    top-N fica para quem chama, cada um com o seu "actual" de referência.
 
     Capturar um square só pode mudar o estado "fechado" dele próprio e dos 4
-    vizinhos — nada mais longe depende dele. Por isso não é preciso recalcular
-    os clusters todos por candidato: basta ver que fechados nascem e que
-    clusters existentes eles colam uns aos outros (union-find).
-
-    É isto que explica os backyards órfãos: muitos estão a um ou dois squares
-    de colar ao yard principal.
+    vizinhos — nada mais longe depende dele, por isso não é preciso
+    recalcular os clusters todos por candidato.
     """
     fech = fechados(visitados)
-    comps = clusters_fechados(visitados)
-    comp_id = {s: i for i, c in enumerate(comps) for s in c}
-    tam = [len(c) for c in comps]
-    yard_atual = max(tam, default=0)
-
     candidatos = {v for s in visitados for v in viz4(s) if v not in visitados}
 
     resultados = []
     for c in candidatos:
-        # que squares passam a fechados se `c` for capturado
         novos = set()
         for s in [c] + viz4(c):
             if s in fech or (s != c and s not in visitados):
@@ -126,18 +121,62 @@ def melhor_ligacao(visitados, top=8):
             for v in viz4(s):
                 if v in novos:
                     dsu.union(("novo", s), ("novo", v))
-                elif v in comp_id:
+                elif v in comp_id and comp_id[v] != ignorar_idx:
                     i = comp_id[v]
                     dsu.add(("comp", i), tam[i])
                     dsu.union(("novo", s), ("comp", i))
 
-        novo_yard = max(yard_atual, dsu.maior())
+        resultados.append((c, dsu.maior()))
+    return resultados
+
+
+def melhor_ligacao(visitados, top=8):
+    """Que square, capturado sozinho, faz o yard crescer mais?
+
+    É isto que explica os backyards órfãos: muitos estão a um ou dois squares
+    de colar ao yard principal.
+    """
+    comps = clusters_fechados(visitados)
+    comp_id = {s: i for i, c in enumerate(comps) for s in c}
+    tam = [len(c) for c in comps]
+    yard_atual = max(tam, default=0)
+
+    resultados = []
+    for (x, y), maior in _candidatos_ligacao(visitados, comps, tam, comp_id):
+        novo_yard = max(yard_atual, maior)
         if novo_yard > yard_atual:
-            resultados.append({"x": c[0], "y": c[1], "novo_yard": novo_yard,
+            resultados.append({"x": x, "y": y, "novo_yard": novo_yard,
                                "ganho": novo_yard - yard_atual})
 
     resultados.sort(key=lambda r: (-r["ganho"], r["x"], r["y"]))
     return {"yard_atual": yard_atual, "melhores": resultados[:top]}
+
+
+def melhor_ligacao_backyard(visitados, top=8):
+    """Como melhor_ligacao, mas ignora o yard actual (o maior cluster) — que
+    square faz crescer mais o maior BACKYARD (2º maior cluster para baixo),
+    não o yard principal. Mesmo mecanismo, alvo diferente (2026-08-16).
+
+    Sem clusters a mais (só o yard, ou nenhum fechado ainda), não há backyard
+    nenhum para crescer — devolve lista vazia, não é erro."""
+    comps = clusters_fechados(visitados)
+    tam = [len(c) for c in comps]
+    if len(comps) < 2:
+        return {"backyard_atual": 0, "melhores": []}
+
+    comp_id = {s: i for i, c in enumerate(comps) for s in c}
+    idx_yard = max(range(len(comps)), key=lambda i: tam[i])
+    backyard_atual = max((t for i, t in enumerate(tam) if i != idx_yard), default=0)
+
+    resultados = []
+    for (x, y), maior in _candidatos_ligacao(visitados, comps, tam, comp_id, ignorar_idx=idx_yard):
+        novo_backyard = max(backyard_atual, maior)
+        if novo_backyard > backyard_atual:
+            resultados.append({"x": x, "y": y, "novo_backyard": novo_backyard,
+                               "ganho": novo_backyard - backyard_atual})
+
+    resultados.sort(key=lambda r: (-r["ganho"], r["x"], r["y"]))
+    return {"backyard_atual": backyard_atual, "melhores": resultados[:top]}
 
 
 def corredores(visitados, quantos=6, custo_max=80):

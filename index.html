@@ -77,15 +77,19 @@
   #btn-color-mode { display:block; margin:0 0 10px; }
   #btn-color-mode.active, #btn-grelha-linhas.active { background:#3d7bf5; border-color:#3d7bf5; }
 
-  #trofeus { display:flex; gap:4px; flex-wrap:wrap; pointer-events:auto; }
-  #trofeus button {
+  #trofeus, #sugestoes-area .sug-linha { display:flex; gap:4px; flex-wrap:wrap; pointer-events:auto; }
+  #sugestoes-area { pointer-events:auto; display:flex; flex-direction:column; gap:4px; }
+  #trofeus button, #sugestoes-area button {
     background:rgba(21,24,33,.92); color:#9aa2b1; border:1px solid #2c3242;
     border-radius:999px; padding:4px 10px; font-size:11px; cursor:pointer;
     backdrop-filter: blur(4px); display:inline-flex; align-items:center; gap:5px;
   }
-  #trofeus button .dot { width:8px; height:8px; border-radius:2px; background:currentColor; opacity:.55; }
-  #trofeus button.active { color:#fff; border-color:currentColor; }
-  #trofeus button.active .dot { opacity:1; }
+  #trofeus button .dot, #sugestoes-area button .dot { width:8px; height:8px; border-radius:2px; background:currentColor; opacity:.55; }
+  #trofeus button.active, #sugestoes-area button.active { color:#fff; border-color:currentColor; }
+  #trofeus button.active .dot, #sugestoes-area button.active .dot { opacity:1; }
+  /* toggle "Sugestões ▾/▲": mesmo visual mas sem cor própria (não representa
+     nenhum tipo de square, só abre/fecha o sub-painel) */
+  #btn-sugestoes-toggle.aberto { color:#fff; border-color:#4b5568; background:rgba(45,52,68,.95); }
 
   #sheet-detail { padding:2px 0 0; }
   #sheet-detail .detail-back { background:none; border:none; color:#7ab8ff; font-size:12px; padding:0 0 10px; cursor:pointer; }
@@ -117,6 +121,7 @@
     <button data-val="concelhos">Zona</button>
   </div>
   <div id="trofeus"></div>
+  <div id="sugestoes-area"></div>
   <button id="btn-grelha-linhas">Grelha</button>
 </div>
 
@@ -908,8 +913,51 @@ const trofeusActivos = new Set();
 // diferente das dos troféus: isto não é conquistado, é alvo.
 const COR_SUGESTAO = '#00d4ff';  // próximo über
 const COR_LIGACAO = '#b04fff';   // squares que fazem o yard crescer sozinhos
+const COR_LIGACAO_BACKYARD = '#84cc16';  // idem, mas para o maior backyard (2026-08-16)
 const COR_CORREDOR = '#ff4fa3';  // squares que ligam um cluster inteiro ao yard
-const sugestoesActivas = new Set(); // 'uber' | 'ligacao' | 'corredores'
+const sugestoesActivas = new Set(); // 'uber' | 'ligacao' | 'ligacao_backyard' | 'corredores'
+let sugestoesPainelAberto = false;  // sub-painel colapsável (2026-08-16) — ver renderSugestoes()
+
+const NOME_SUGESTAO = {
+  uber: 'Próximo über', ligacao: 'Crescer yard',
+  ligacao_backyard: 'Crescer backyard', corredores: 'Corredores',
+};
+
+// squares (crus, {x,y}) de um tipo de sugestão, para saber que coordenadas
+// cada camada activa está a usar — serve só para detectar sobreposição
+// entre tipos (ver desenharSobreposicoes), não para desenhar directamente.
+function squaresDeSugestao(tipo, s) {
+  if (tipo === 'uber') return (s.uber && s.uber.squares) || [];
+  if (tipo === 'ligacao') return (s.ligacao && s.ligacao.melhores) || [];
+  if (tipo === 'ligacao_backyard') return (s.ligacao_backyard && s.ligacao_backyard.melhores) || [];
+  if (tipo === 'corredores') return (s.corredores || []).flatMap(c => c.squares);
+  return [];
+}
+
+// squares que servem para mais que uma sugestão activa ao mesmo tempo —
+// destaque à parte, por cima de tudo (2026-08-16, pedido directo). Só entra
+// em jogo quando 2+ camadas de sugestão estão ligadas ao mesmo tempo.
+function desenharSobreposicoes(s) {
+  if (sugestoesActivas.size < 2) return;
+  const porCoord = new Map(); // "x,y" -> Set(tipos)
+  for (const tipo of sugestoesActivas) {
+    for (const q of squaresDeSugestao(tipo, s)) {
+      const chave = `${q.x},${q.y}`;
+      if (!porCoord.has(chave)) porCoord.set(chave, new Set());
+      porCoord.get(chave).add(tipo);
+    }
+  }
+  for (const [chave, tipos] of porCoord) {
+    if (tipos.size < 2) continue;
+    const [x, y] = chave.split(',').map(Number);
+    L.rectangle(tileBounds(x, y, s.zoom), {
+      color: '#ffffff', weight: 3, dashArray: '2 2', fill: false,
+    }).bindTooltip(
+      `<b>Serve para ${tipos.size} coisas</b><br>${[...tipos].map(t => NOME_SUGESTAO[t]).join(' + ')}`,
+      { sticky: true },
+    ).addTo(trophyLayer);
+  }
+}
 
 function drawSugestao() {
   const s = (cache.suggestions || {})[state.grelha];
@@ -973,6 +1021,34 @@ function drawSugestao() {
       }).addTo(trophyLayer);
     });
   }
+
+  // "Crescer backyard": mesmo mecanismo do "Crescer yard", mas mirando o
+  // maior backyard (2º maior cluster fechado) em vez do yard principal —
+  // útil quando o yard já está difícil de mexer mas há uma zona secundária
+  // a um square de crescer bastante (2026-08-16).
+  if (sugestoesActivas.has('ligacao_backyard') && s.ligacao_backyard) {
+    const { backyard_atual, melhores } = s.ligacao_backyard;
+    const maxGanho = Math.max(...melhores.map(m => m.ganho), 1);
+    melhores.forEach(m => {
+      L.rectangle(tileBounds(m.x, m.y, s.zoom), {
+        color: COR_LIGACAO_BACKYARD, weight: 2,
+        fillColor: COR_LIGACAO_BACKYARD, fillOpacity: 0.2 + 0.5 * (m.ganho / maxGanho),
+      }).bindTooltip(
+        `<b>+${m.ganho} ao maior backyard</b><br>${backyard_atual} → ${m.novo_backyard} squares`,
+        { sticky: true },
+      ).addTo(trophyLayer);
+      L.marker(tileCenter(m.x, m.y, s.zoom), {
+        icon: L.divIcon({
+          className: 'ganho-label-wrap',
+          html: `<span class="ganho-label">+${m.ganho}</span>`,
+          iconSize: null,
+        }),
+        interactive: false,
+      }).addTo(trophyLayer);
+    });
+  }
+
+  desenharSobreposicoes(s);
 }
 
 function drawTrophies() {
@@ -1003,6 +1079,7 @@ function voarPara(k, sug) {
   let squares = [];
   if (k === 'uber' && sug.uber) squares = sug.uber.squares;
   else if (k === 'ligacao' && sug.ligacao) squares = sug.ligacao.melhores;
+  else if (k === 'ligacao_backyard' && sug.ligacao_backyard) squares = sug.ligacao_backyard.melhores;
   else if (k === 'corredores' && sug.corredores && sug.corredores.length) {
     // o de melhor razão ganho/custo, não o de maior ganho: é o que se
     // apanha numa corrida
@@ -1020,28 +1097,54 @@ function voarPara(k, sug) {
 function renderTrofeus() {
   const box = document.getElementById('trofeus');
   const bloco = (cache.trophies || {})[state.grelha];
-  const sug = (cache.suggestions || {})[state.grelha];
-  if (!bloco && !sug) { box.innerHTML = ''; return; }
+  if (!bloco) { box.innerHTML = ''; return; }
   const botoes = TROFEUS[state.grelha]
-    .filter(t => bloco && bloco[t.k])
+    .filter(t => bloco[t.k])
     .map(t => `<button data-t="${t.k}" class="${trofeusActivos.has(t.k) ? 'active' : ''}"
       style="color:${trofeusActivos.has(t.k) ? t.cor : ''}">
       <span class="dot" style="background:${t.cor}"></span>${t.label}</button>`);
+
+  box.innerHTML = botoes.join('');
+  box.querySelectorAll('button').forEach(b => {
+    b.onclick = () => {
+      const k = b.dataset.t;
+      trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
+      renderTrofeus();
+      drawTrophies();
+    };
+  });
+}
+
+// Sugestões (o que falta, não o que já se tem) — separadas dos troféus num
+// sub-painel colapsável (2026-08-16): eram 3-4 pills sempre visíveis ao lado
+// dos troféus, empilhando o topbar. Fechado por defeito.
+function renderSugestoes() {
+  const box = document.getElementById('sugestoes-area');
+  const sug = (cache.suggestions || {})[state.grelha];
+  if (!sug) { box.innerHTML = ''; return; }
+
   const extras = [];
-  if (sug && sug.uber) {
+  if (sug.uber) {
     extras.push({
       k: 'uber', label: 'Próximo über', cor: COR_SUGESTAO,
       title: `Janela ${sug.uber.alvo}×${sug.uber.alvo} mais barata de fechar — faltam ${sug.uber.faltam} squares`,
     });
   }
-  if (sug && sug.ligacao && sug.ligacao.melhores.length) {
+  if (sug.ligacao && sug.ligacao.melhores.length) {
     const melhor = sug.ligacao.melhores[0];
     extras.push({
       k: 'ligacao', label: 'Crescer yard', cor: COR_LIGACAO,
       title: `Squares que mais aumentam o yard sozinhos — o melhor dá +${melhor.ganho}`,
     });
   }
-  if (sug && sug.corredores && sug.corredores.length) {
+  if (sug.ligacao_backyard && sug.ligacao_backyard.melhores.length) {
+    const melhor = sug.ligacao_backyard.melhores[0];
+    extras.push({
+      k: 'ligacao_backyard', label: 'Crescer backyard', cor: COR_LIGACAO_BACKYARD,
+      title: `Idem, mas para o maior backyard (não o yard) — o melhor dá +${melhor.ganho}`,
+    });
+  }
+  if (sug.corredores && sug.corredores.length) {
     const melhorRacio = sug.corredores.reduce(
       (a, b) => (b.ganho / b.custo > a.ganho / a.custo ? b : a));
     extras.push({
@@ -1050,26 +1153,32 @@ function renderTrofeus() {
         + `${melhorRacio.custo} squares por +${melhorRacio.ganho}`,
     });
   }
-  extras.forEach(e => botoes.push(
-    `<button data-sug="${e.k}" class="${sugestoesActivas.has(e.k) ? 'active' : ''}"
-      title="${e.title}" style="color:${sugestoesActivas.has(e.k) ? e.cor : ''}">
-      <span class="dot" style="background:${e.cor}"></span>${e.label}</button>`));
+  if (!extras.length) { box.innerHTML = ''; return; }
 
-  box.innerHTML = botoes.join('');
-  box.querySelectorAll('button').forEach(b => {
+  const nActivas = extras.filter(e => sugestoesActivas.has(e.k)).length;
+  const rotulo = nActivas ? `Sugestões (${nActivas}) ${sugestoesPainelAberto ? '▲' : '▼'}` : `Sugestões ${sugestoesPainelAberto ? '▲' : '▼'}`;
+  let html = `<button id="btn-sugestoes-toggle" class="${sugestoesPainelAberto || nActivas ? 'aberto' : ''}">${rotulo}</button>`;
+  if (sugestoesPainelAberto) {
+    html += '<div class="sug-linha">' + extras.map(e =>
+      `<button data-sug="${e.k}" class="${sugestoesActivas.has(e.k) ? 'active' : ''}"
+        title="${e.title}" style="color:${sugestoesActivas.has(e.k) ? e.cor : ''}">
+        <span class="dot" style="background:${e.cor}"></span>${e.label}</button>`).join('') + '</div>';
+  }
+  box.innerHTML = html;
+
+  document.getElementById('btn-sugestoes-toggle').onclick = () => {
+    sugestoesPainelAberto = !sugestoesPainelAberto;
+    renderSugestoes();
+  };
+  box.querySelectorAll('[data-sug]').forEach(b => {
     b.onclick = () => {
-      if (b.dataset.sug) {
-        const k = b.dataset.sug;
-        const ligou = !sugestoesActivas.has(k);
-        ligou ? sugestoesActivas.add(k) : sugestoesActivas.delete(k);
-        // as sugestões são punhados de squares algures no mapa — ao ligar,
-        // levar a vista até lá, senão fica-se a olhar para nada
-        if (ligou) voarPara(k, sug);
-      } else {
-        const k = b.dataset.t;
-        trofeusActivos.has(k) ? trofeusActivos.delete(k) : trofeusActivos.add(k);
-      }
-      renderTrofeus();
+      const k = b.dataset.sug;
+      const ligou = !sugestoesActivas.has(k);
+      ligou ? sugestoesActivas.add(k) : sugestoesActivas.delete(k);
+      // as sugestões são punhados de squares algures no mapa — ao ligar,
+      // levar a vista até lá, senão fica-se a olhar para nada
+      if (ligou) voarPara(k, sug);
+      renderSugestoes();
       drawTrophies();
     };
   });
@@ -1080,6 +1189,7 @@ function render() {
   drawBoundaries();
   drawTrophies();
   renderTrofeus();
+  renderSugestoes();
   refreshGrelhaLinhas();
   renderStats();
 }

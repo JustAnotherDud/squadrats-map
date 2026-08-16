@@ -139,7 +139,7 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
     rigorosa e não é.
     """
     from suggestions import (verify_rules, proximo_ubersquadrat, melhor_ligacao,
-                             corredores)
+                             melhor_ligacao_backyard, corredores)
 
     out = {}
     for grelha, (visitados, zoom) in visitados_por_grelha.items():
@@ -152,6 +152,7 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
         bloco = {
             "zoom": zoom,
             "ligacao": melhor_ligacao(visitados),
+            "ligacao_backyard": melhor_ligacao_backyard(visitados),
             "corredores": corredores(visitados),
         }
 
