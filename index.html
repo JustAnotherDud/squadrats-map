@@ -40,6 +40,8 @@
   table.stats-table td.col-name { text-align:left; overflow:hidden; text-overflow:ellipsis; max-width:0; width:100%; }
   table.stats-table tr.selectable { cursor:pointer; }
   table.stats-table tr.selectable:active td { background:#1c2130; }
+  .stat-row.selectable { cursor:pointer; }
+  .stat-row.selectable:active { background:#1c2130; }
   table.stats-table tr.selected td { background:#1a2420; }
   table.stats-table tr.selected td.col-name { font-weight:700; color:#fff; box-shadow: inset 3px 0 0 #39d97a; }
   @media (max-width:420px) {
@@ -498,14 +500,17 @@ function styleFor(name, statsBucket, zkey, country) {
   return isSelected ? { ...base, ...SELECTED_STYLE } : base;
 }
 
-function addBoundaryFeature(name, layer, styleFn) {
+// onClick por omissão é selectItem (regiões) — a vista "País" passa o seu
+// próprio (selecionarPais), que não segue o mesmo formato de chave/nível
+// (2026-08-16).
+function addBoundaryFeature(name, layer, styleFn, onClick) {
   boundaryLayersByName[name] = { layer, styleFn };
   layer.on('click', (e) => {
     // Leaflet propaga cliques de L.Path para o mapa por defeito
     // (bubblingMouseEvents:true) — sem isto, o handler "clique fora limpa a
     // seleção" do mapa disparava logo a seguir e desfazia a seleção no mesmo click.
     L.DomEvent.stopPropagation(e);
-    selectItem(name, { fromMap: true });
+    (onClick || (() => selectItem(name, { fromMap: true })))();
   });
 }
 
@@ -525,9 +530,10 @@ function drawBoundaries() {
       if (!s) continue;
       const label = s.total ? `${s.captured}/${s.total} · ${fmtPct(s.pct)}` : `${s.captured} sq`;
       L.geoJSON(info.geo(), {
-        style: { color: info.cor, weight: 2, fill: false },
+        style: () => paisStyleFor(cc, info.cor),
         onEachFeature: (feat, layer) => {
           layer.bindTooltip(`<b>${BANDEIRA[cc]} ${info.label}</b><br>${label}`, { sticky: true });
+          addBoundaryFeature(cc, layer, () => paisStyleFor(cc, info.cor), () => selecionarPais(cc));
         },
       }).addTo(boundaryLayer);
     }
@@ -640,7 +646,8 @@ function selectItem(name, opts) {
     return;
   }
   state.selected = { name };
-  squareSelecionado = null; // exclusivo com a selecção de square (2026-08-16)
+  squareSelecionado = null; // exclusivo com a selecção de square/país (2026-08-16)
+  paisSelecionado = null;
   squareHighlightLayer.clearLayers();
   refreshBoundaryStyles();
   if (opts.fromMap) state.sheetExpanded = true;
@@ -668,6 +675,67 @@ function clearSelection() {
   sheet.classList.remove('detail');
   setSheet(state.sheetExpanded);
   renderStats();
+}
+
+// --- clique num país da lista Nível 1 (2026-08-16) — mesma ideia da Região/
+// Zona, mas país não vive em NIVEL_INFO (é PAIS_INFO, tabela à parte), por
+// isso tem o seu próprio par seleccionar/limpar em vez de reaproveitar
+// selectItem(). Mútuamente exclusivo com região/square seleccionados.
+let paisSelecionado = null; // código do país | null
+
+function paisStyleFor(cc, cor) {
+  const base = { color: cor, weight: 2, fill: false };
+  return paisSelecionado === cc ? { ...base, ...SELECTED_STYLE } : base;
+}
+
+function selecionarPais(cc) {
+  if (paisSelecionado === cc) { clearPaisSelection(); return; }
+  state.selected = null;
+  squareSelecionado = null;
+  squareHighlightLayer.clearLayers();
+  paisSelecionado = cc;
+  refreshBoundaryStyles();
+  sheet.classList.remove('collapsed', 'expanded');
+  sheet.classList.add('detail');
+  document.querySelector('#sheet-summary span:last-child').textContent = '▼';
+  renderPaisDetailCard(cc);
+  const entry = boundaryLayersByName[cc];
+  if (entry) {
+    map.fitBounds(entry.layer.getBounds(), {
+      paddingTopLeft: [20, 100],
+      paddingBottomRight: [20, DETAIL_HEIGHT_PX + 20],
+    });
+  }
+}
+
+function clearPaisSelection() {
+  paisSelecionado = null;
+  refreshBoundaryStyles();
+  sheet.classList.remove('detail');
+  setSheet(state.sheetExpanded);
+  renderStats();
+}
+
+function renderPaisDetailCard(cc) {
+  const container = document.getElementById('sheet-detail');
+  const info = PAIS_INFO[cc];
+  const zkey = ZKEY[state.grelha];
+  const s = (cache.stats[info.statsKey] || {})[zkey];
+  if (!s) { container.innerHTML = ''; return; }
+
+  let grid = `<div class="detail-item"><div class="label">Capturados</div><div class="value">${s.captured}</div></div>`;
+  if (s.total) {
+    grid += `<div class="detail-item"><div class="label">Total</div><div class="value">${s.total}</div></div>`;
+    grid += `<div class="detail-item"><div class="label">Por capturar</div><div class="value">${s.total - s.captured}</div></div>`;
+    grid += `<div class="detail-item"><div class="label">%</div><div class="value">${fmtPct(s.pct)}</div></div>`;
+  }
+
+  container.innerHTML = `
+    <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
+    <h2>${BANDEIRA[cc]} ${escapeHtml(info.label)}</h2>
+    <div class="detail-grid">${grid}</div>
+  `;
+  document.getElementById('detail-back-btn').onclick = clearPaisSelection;
 }
 
 // --- clique num square qualquer, capturado ou não (2026-08-16) ---
@@ -743,6 +811,7 @@ function classificarPonto(lat, lon) {
 
 function selecionarSquare(x, y, zoom) {
   state.selected = null;
+  paisSelecionado = null;
   squareSelecionado = { x, y, zoom };
   refreshBoundaryStyles();
   squareHighlightLayer.clearLayers();
@@ -886,7 +955,7 @@ function renderStats() {
     const visibleRows = state.showZero ? paisRows : paisRows.filter(r => r.s.captured > 0);
     visibleRows.forEach(({ cc, info, s }) => {
       const label = s.total ? `${s.captured}/${s.total} · ${fmtPct(s.pct)}` : `${s.captured} sq`;
-      html += `<div class="stat-row"><span class="stat-name">${BANDEIRA[cc]} ${info.label}</span><b>${label}</b></div>`;
+      html += `<div class="stat-row selectable" data-pais-nome="${cc}"><span class="stat-name">${BANDEIRA[cc]} ${info.label}</span><b>${label}</b></div>`;
     });
     if (zeroCount) {
       html += state.showZero
@@ -1050,7 +1119,9 @@ document.getElementById('sheet-list').addEventListener('click', e => {
     return;
   }
   const row = e.target.closest('tr.selectable');
-  if (row) selectItem(row.dataset.name, { fromMap: false });
+  if (row) { selectItem(row.dataset.name, { fromMap: false }); return; }
+  const paisRow = e.target.closest('[data-pais-nome]');
+  if (paisRow) selecionarPais(paisRow.dataset.paisNome);
 });
 
 // --- troféus (yard / backyards / übersquadrat) ---
