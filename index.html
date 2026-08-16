@@ -78,7 +78,8 @@
   #btn-color-mode.active, #btn-grelha-linhas.active { background:#3d7bf5; border-color:#3d7bf5; }
 
   #trofeus, #sugestoes-area .sug-linha { display:flex; gap:4px; flex-wrap:wrap; pointer-events:auto; }
-  #sugestoes-area { pointer-events:auto; display:flex; flex-direction:column; gap:4px; }
+  #sugestoes-area { pointer-events:auto; display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+  .linha-sugestoes-grelha { display:flex; gap:4px; align-items:flex-start; pointer-events:auto; }
   #trofeus button, #sugestoes-area button {
     background:rgba(21,24,33,.92); color:#9aa2b1; border:1px solid #2c3242;
     border-radius:999px; padding:4px 10px; font-size:11px; cursor:pointer;
@@ -121,8 +122,10 @@
     <button data-val="concelhos">Zona</button>
   </div>
   <div id="trofeus"></div>
-  <div id="sugestoes-area"></div>
-  <button id="btn-grelha-linhas">Grelha</button>
+  <div class="linha-sugestoes-grelha">
+    <div id="sugestoes-area"></div>
+    <button id="btn-grelha-linhas">Grelha</button>
+  </div>
 </div>
 
 <div id="sheet" class="collapsed">
@@ -295,6 +298,11 @@ squaresLayer.addTo(map);
 boundaryLayer.addTo(map);
 trophyLayer.addTo(map); // por cima dos squares, por baixo das fronteiras
 
+// os números "+N" das sugestões (ver LIMIAR_GANHO_LABEL) têm de aparecer/
+// desaparecer ao aproximar/afastar — drawTrophies() já desenha tudo de
+// novo a cada chamada, só falta chamá-lo quando o zoom muda (2026-08-16).
+map.on('zoomend', () => drawTrophies());
+
 // --- slippy-tile math (mesma convenção do pipeline: kml_parse.py) ---
 function tileNW(x, y, z) {
   const n = Math.pow(2, z);
@@ -311,6 +319,13 @@ function tileCenter(x, y, z) {
   const [nw, se] = tileBounds(x, y, z);
   return [(nw[0] + se[0]) / 2, (nw[1] + se[1]) / 2];
 }
+// px no ecrã de um square cuja grelha nasceu no zoom `zoomOrigem` (14 ou 17
+// dos squares, não o zoom do Leaflet) — mesma conta do MIN_PX da grelha de
+// linhas (256px por tile a cada zoom do Leaflet, dobra por nível).
+function pxPorSquare(zoomOrigem) {
+  return 256 * Math.pow(2, map.getZoom() - zoomOrigem);
+}
+const LIMIAR_GANHO_LABEL = 22;  // abaixo disto o "+N" não cabe, esconde-se
 
 // --- grelha de squares (linhas), para ver onde caem as fronteiras ---
 // Pane próprio acima do overlayPane (400): senão as linhas ficavam por baixo
@@ -455,11 +470,10 @@ function drawSquares() {
       // ver por onde se passou, não só a mancha
       color, weight, fillColor: color, fillOpacity: 0.32,
     });
-    let where;
-    if (sq.in_portugal) where = `${sq.concelho}, ${sq.district}`;
-    else if (sq.region) where = `${sq.region}, ${sq.country === 'ES' ? 'Espanha' : sq.country}`;
-    else where = 'Estrangeiro (região desconhecida)';
-    rect.bindPopup(`<b>${where}</b><br>${sq.lat.toFixed(4)}, ${sq.lon.toFixed(4)}`);
+    rect.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      selecionarSquare(sq.x, sq.y, sq.zoom);
+    });
     squaresLayer.addLayer(rect);
   });
 }
@@ -651,6 +665,78 @@ function clearSelection() {
   sheet.classList.remove('detail');
   setSheet(state.sheetExpanded);
   renderStats();
+}
+
+// --- clique num square qualquer, capturado ou não (2026-08-16) ---
+// pedido directo: já dava para clicar numa REGIÃO e ver detalhe na sheet,
+// mas não num square individual. Squares capturados já tinham um popup do
+// Leaflet (bindPopup) — substituído por isto, para ficar tudo no mesmo
+// sítio (a sheet), com mais informação (Google Maps incluído).
+let squareSelecionado = null; // {x, y, zoom} | null
+
+// inverso de tileNW: lat/lng -> tile x/y num dado zoom (mesma convenção
+// slippy-tile, ver kml_parse.py / club.html coordDoPonto).
+function coordDoPonto(latlng, zoom) {
+  const n = Math.pow(2, zoom);
+  const rad = latlng.lat * Math.PI / 180;
+  return [
+    Math.floor((latlng.lng + 180) / 360 * n),
+    Math.floor((1 - Math.asinh(Math.tan(rad)) / Math.PI) / 2 * n),
+  ];
+}
+
+function squareCapturadoEm(x, y, zoom) {
+  const squares = cache[state.grelha];
+  return squares && squares.find(sq => sq.x === x && sq.y === y && sq.zoom === zoom);
+}
+
+function selecionarSquare(x, y, zoom) {
+  state.selected = null;
+  squareSelecionado = { x, y, zoom };
+  refreshBoundaryStyles();
+  sheet.classList.remove('collapsed', 'expanded');
+  sheet.classList.add('detail');
+  document.querySelector('#sheet-summary span:last-child').textContent = '▼';
+  renderSquareDetailCard();
+}
+
+function clearSquareSelection() {
+  squareSelecionado = null;
+  sheet.classList.remove('detail');
+  setSheet(state.sheetExpanded);
+  renderStats();
+}
+
+function renderSquareDetailCard() {
+  const container = document.getElementById('sheet-detail');
+  if (!squareSelecionado) { container.innerHTML = ''; return; }
+  const { x, y, zoom } = squareSelecionado;
+  const [latC, lonC] = tileCenter(x, y, zoom);
+  const capturado = squareCapturadoEm(x, y, zoom);
+
+  let grid = '';
+  if (capturado) {
+    if (capturado.in_portugal) {
+      grid += `<div class="detail-item"><div class="label">Concelho</div><div class="value">${escapeHtml(capturado.concelho || '—')}</div></div>`;
+      grid += `<div class="detail-item"><div class="label">Distrito</div><div class="value">${escapeHtml(capturado.district || '—')}</div></div>`;
+    } else if (capturado.region) {
+      grid += `<div class="detail-item"><div class="label">Região</div><div class="value">${BANDEIRA[capturado.country] || ''} ${escapeHtml(capturado.region)}</div></div>`;
+      if (capturado.municipio) {
+        grid += `<div class="detail-item"><div class="label">Concelho/Município</div><div class="value">${escapeHtml(capturado.municipio)}</div></div>`;
+      }
+    }
+  }
+  grid += `<div class="detail-item"><div class="label">Coordenadas</div><div class="value">${latC.toFixed(5)}, ${lonC.toFixed(5)}</div></div>`;
+  grid += `<div class="detail-item"><div class="label">Tile</div><div class="value">${x}/${y} (z${zoom})</div></div>`;
+
+  const mapsUrl = `https://www.google.com/maps?q=${latC.toFixed(6)},${lonC.toFixed(6)}`;
+  container.innerHTML = `
+    <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
+    <h2>${capturado ? '✓ Square capturado' : 'Square por capturar'}</h2>
+    <div class="detail-grid">${grid}</div>
+    <p style="margin-top:12px"><a href="${mapsUrl}" target="_blank" rel="noopener">Abrir no Google Maps →</a></p>
+  `;
+  document.getElementById('detail-back-btn').onclick = clearSquareSelection;
 }
 
 // sempre 2 casas decimais, mesmo quando são .00 — antes cortava os zeros à
@@ -1009,16 +1095,19 @@ function drawSugestao() {
         { sticky: true },
       ).addTo(trophyLayer);
       // número do ganho sempre visível dentro do square, não só no hover —
-      // pedido directo (2026-08-15): a um square de distância não dá para
-      // ver qual vale mais sem tocar em cada um.
-      L.marker(tileCenter(m.x, m.y, s.zoom), {
-        icon: L.divIcon({
-          className: 'ganho-label-wrap',
-          html: `<span class="ganho-label">+${m.ganho}</span>`,
-          iconSize: null,
-        }),
-        interactive: false,
-      }).addTo(trophyLayer);
+      // pedido directo (2026-08-15). Escondido abaixo de LIMIAR_GANHO_LABEL
+      // px/square (2026-08-16): a zoom afastado o texto não cabe e não lê,
+      // é só ruído — a mesma lógica do MIN_PX da grelha de linhas.
+      if (pxPorSquare(s.zoom) >= LIMIAR_GANHO_LABEL) {
+        L.marker(tileCenter(m.x, m.y, s.zoom), {
+          icon: L.divIcon({
+            className: 'ganho-label-wrap',
+            html: `<span class="ganho-label">${m.ganho}</span>`,
+            iconSize: null,
+          }),
+          interactive: false,
+        }).addTo(trophyLayer);
+      }
     });
   }
 
@@ -1037,14 +1126,16 @@ function drawSugestao() {
         `<b>+${m.ganho} ao maior backyard</b><br>${backyard_atual} → ${m.novo_backyard} squares`,
         { sticky: true },
       ).addTo(trophyLayer);
-      L.marker(tileCenter(m.x, m.y, s.zoom), {
-        icon: L.divIcon({
-          className: 'ganho-label-wrap',
-          html: `<span class="ganho-label">+${m.ganho}</span>`,
-          iconSize: null,
-        }),
-        interactive: false,
-      }).addTo(trophyLayer);
+      if (pxPorSquare(s.zoom) >= LIMIAR_GANHO_LABEL) {
+        L.marker(tileCenter(m.x, m.y, s.zoom), {
+          icon: L.divIcon({
+            className: 'ganho-label-wrap',
+            html: `<span class="ganho-label">${m.ganho}</span>`,
+            iconSize: null,
+          }),
+          interactive: false,
+        }).addTo(trophyLayer);
+      }
     });
   }
 
@@ -1274,7 +1365,15 @@ handle.addEventListener('pointercancel', () => { dragStartY = null; });
 // via L.DomEvent.stopPropagation — sem isso este handler disparava a seguir
 // e desfazia a seleção no mesmo click)
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.selected) clearSelection(); });
-map.on('click', () => { if (state.selected) clearSelection(); });
+// clique no mapa que não caiu em cima de nenhum square/fronteira (esses
+// param a propagação nos seus próprios handlers) — trata-se como clique
+// num square por capturar, na grelha do zoom activo.
+map.on('click', (e) => {
+  if (state.selected) clearSelection();
+  const zoom = ZOOM_GRELHA[state.grelha];
+  const [x, y] = coordDoPonto(e.latlng, zoom);
+  selecionarSquare(x, y, zoom);
+});
 
 (async function init() {
   await loadAll();
