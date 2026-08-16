@@ -111,7 +111,6 @@
 <div id="map"></div>
 
 <div id="topbar">
-  <h1>Squadrats — Análise</h1>
   <div class="seg" id="seg-grelha">
     <button data-val="squadrats">Squadrats (1609 m)</button>
     <button data-val="squadratinhos" class="active">Squadratinhos (201 m)</button>
@@ -284,6 +283,7 @@ let cache = {};
 let squaresLayer = L.layerGroup();
 let boundaryLayer = L.layerGroup();
 let trophyLayer = L.layerGroup();
+let squareHighlightLayer = L.layerGroup(); // destaque do square clicado (2026-08-16)
 let boundaryLayersByName = {}; // nome -> layer Leaflet, reconstruído a cada drawBoundaries()
 
 // zoom em baixo à direita: o topbar ocupa a largura toda (os segmentos vão de
@@ -297,6 +297,7 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 squaresLayer.addTo(map);
 boundaryLayer.addTo(map);
 trophyLayer.addTo(map); // por cima dos squares, por baixo das fronteiras
+squareHighlightLayer.addTo(map); // por cima de tudo — o destaque nunca pode ficar tapado
 
 // os números "+N" das sugestões (ver LIMIAR_GANHO_LABEL) têm de aparecer/
 // desaparecer ao aproximar/afastar — drawTrophies() já desenha tudo de
@@ -639,6 +640,8 @@ function selectItem(name, opts) {
     return;
   }
   state.selected = { name };
+  squareSelecionado = null; // exclusivo com a selecção de square (2026-08-16)
+  squareHighlightLayer.clearLayers();
   refreshBoundaryStyles();
   if (opts.fromMap) state.sheetExpanded = true;
 
@@ -690,10 +693,62 @@ function squareCapturadoEm(x, y, zoom) {
   return squares && squares.find(sq => sq.x === x && sq.y === y && sq.zoom === zoom);
 }
 
+// point-in-polygon (ray casting) sobre um GeoJSON Polygon/MultiPolygon cru —
+// os squares por capturar não têm país/distrito/concelho já resolvido (isso
+// só existe para os capturados, calculado no pipeline); para esses, faz-se
+// aqui a mesma pergunta contra as fronteiras já carregadas no browser
+// (2026-08-16, pedido directo: "clicar num não obtido não mostra info de
+// país/distrito/concelho"). Não é rápido (percorre todas as features de um
+// nível até encontrar), mas só corre uma vez por clique, não em loop.
+function pontoDentroDeAnel(lat, lon, anel) {
+  let dentro = false;
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    const [xi, yi] = anel[i], [xj, yj] = anel[j];
+    if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      dentro = !dentro;
+    }
+  }
+  return dentro;
+}
+function pontoDentroDePoligono(lat, lon, coordsPoligono) {
+  if (!pontoDentroDeAnel(lat, lon, coordsPoligono[0])) return false;
+  for (let k = 1; k < coordsPoligono.length; k++) {
+    if (pontoDentroDeAnel(lat, lon, coordsPoligono[k])) return false; // buraco
+  }
+  return true;
+}
+function encontrarRegiao(lat, lon, geojson, nameProp) {
+  if (!geojson) return null;
+  for (const feat of geojson.features) {
+    const g = feat.geometry;
+    const poligonos = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+    if (poligonos.some(p => pontoDentroDePoligono(lat, lon, p))) return feat.properties[nameProp];
+  }
+  return null;
+}
+// país + nível 2 + nível 3 (se houver) para um ponto qualquer, tentando
+// cada país conhecido pela mesma ordem do toggle "Todos" (PAIS_INFO).
+function classificarPonto(lat, lon) {
+  for (const cc of Object.keys(PAIS_INFO)) {
+    const nivelDistrito = NIVEL_INFO.distritos[cc];
+    if (!nivelDistrito) continue;
+    const nomeDistrito = encontrarRegiao(lat, lon, nivelDistrito.geo(), nivelDistrito.nameProp);
+    if (!nomeDistrito) continue;
+    const nivelConcelho = NIVEL_INFO.concelhos[cc];
+    const nomeConcelho = nivelConcelho ? encontrarRegiao(lat, lon, nivelConcelho.geo(), nivelConcelho.nameProp) : null;
+    return { country: cc, distrito: nomeDistrito, concelho: nomeConcelho };
+  }
+  return null;
+}
+
 function selecionarSquare(x, y, zoom) {
   state.selected = null;
   squareSelecionado = { x, y, zoom };
   refreshBoundaryStyles();
+  squareHighlightLayer.clearLayers();
+  L.rectangle(tileBounds(x, y, zoom), {
+    color: '#39d97a', weight: 3, fill: false,
+  }).addTo(squareHighlightLayer);
   sheet.classList.remove('collapsed', 'expanded');
   sheet.classList.add('detail');
   document.querySelector('#sheet-summary span:last-child').textContent = '▼';
@@ -702,6 +757,7 @@ function selecionarSquare(x, y, zoom) {
 
 function clearSquareSelection() {
   squareSelecionado = null;
+  squareHighlightLayer.clearLayers();
   sheet.classList.remove('detail');
   setSheet(state.sheetExpanded);
   renderStats();
@@ -725,15 +781,37 @@ function renderSquareDetailCard() {
         grid += `<div class="detail-item"><div class="label">Concelho/Município</div><div class="value">${escapeHtml(capturado.municipio)}</div></div>`;
       }
     }
+  } else {
+    const c = classificarPonto(latC, lonC);
+    if (c) {
+      grid += `<div class="detail-item"><div class="label">País</div><div class="value">${BANDEIRA[c.country] || ''} ${escapeHtml(PAIS_INFO[c.country].label)}</div></div>`;
+      grid += `<div class="detail-item"><div class="label">${c.country === 'PT' ? 'Distrito' : 'Região'}</div><div class="value">${escapeHtml(c.distrito)}</div></div>`;
+      if (c.concelho) {
+        grid += `<div class="detail-item"><div class="label">${c.country === 'PT' ? 'Concelho' : 'Concelho/Município'}</div><div class="value">${escapeHtml(c.concelho)}</div></div>`;
+      }
+    }
   }
-  grid += `<div class="detail-item"><div class="label">Coordenadas</div><div class="value">${latC.toFixed(5)}, ${lonC.toFixed(5)}</div></div>`;
+  grid += `<div class="detail-item"><div class="label">Coordenadas (centro)</div><div class="value">${latC.toFixed(5)}, ${lonC.toFixed(5)}</div></div>`;
   grid += `<div class="detail-item"><div class="label">Tile</div><div class="value">${x}/${y} (z${zoom})</div></div>`;
+
+  // info das sugestões activas para este square, se houver — mesmo texto do
+  // tooltip do mapa, para não obrigar a passar o rato em cima para saber
+  // (2026-08-16, pedido directo).
+  let sugestaoHtml = '';
+  const s = (cache.suggestions || {})[state.grelha];
+  if (s && sugestoesActivas.size) {
+    const entrada = construirSugestoesPorCoord(s).get(`${x},${y}`);
+    if (entrada) {
+      sugestaoHtml = `<div class="detail-item" style="grid-column:1/-1"><div class="label">Sugestão</div>
+        <div class="value" style="font-size:13px">${entrada.entradas.map(e => e.texto).join('<br>')}</div></div>`;
+    }
+  }
 
   const mapsUrl = `https://www.google.com/maps?q=${latC.toFixed(6)},${lonC.toFixed(6)}`;
   container.innerHTML = `
     <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
     <h2>${capturado ? '✓ Square capturado' : 'Square por capturar'}</h2>
-    <div class="detail-grid">${grid}</div>
+    <div class="detail-grid">${grid}${sugestaoHtml}</div>
     <p style="margin-top:12px"><a href="${mapsUrl}" target="_blank" rel="noopener">Abrir no Google Maps →</a></p>
   `;
   document.getElementById('detail-back-btn').onclick = clearSquareSelection;
@@ -999,56 +1077,53 @@ const trofeusActivos = new Set();
 // diferente das dos troféus: isto não é conquistado, é alvo.
 const COR_SUGESTAO = '#00d4ff';  // próximo über
 const COR_LIGACAO = '#b04fff';   // squares que fazem o yard crescer sozinhos
-const COR_LIGACAO_BACKYARD = '#84cc16';  // idem, mas para o maior backyard (2026-08-16)
 const COR_CORREDOR = '#ff4fa3';  // squares que ligam um cluster inteiro ao yard
-const sugestoesActivas = new Set(); // 'uber' | 'ligacao' | 'ligacao_backyard' | 'corredores'
+const sugestoesActivas = new Set(); // 'uber' | 'ligacao' | 'corredores'
 let sugestoesPainelAberto = false;  // sub-painel colapsável (2026-08-16) — ver renderSugestoes()
 
-const NOME_SUGESTAO = {
-  uber: 'Próximo über', ligacao: 'Crescer yard',
-  ligacao_backyard: 'Crescer backyard', corredores: 'Corredores',
-};
-
-// squares (crus, {x,y}) de um tipo de sugestão, para saber que coordenadas
-// cada camada activa está a usar — serve só para detectar sobreposição
-// entre tipos (ver desenharSobreposicoes), não para desenhar directamente.
-function squaresDeSugestao(tipo, s) {
-  if (tipo === 'uber') return (s.uber && s.uber.squares) || [];
-  if (tipo === 'ligacao') return (s.ligacao && s.ligacao.melhores) || [];
-  if (tipo === 'ligacao_backyard') return (s.ligacao_backyard && s.ligacao_backyard.melhores) || [];
-  if (tipo === 'corredores') return (s.corredores || []).flatMap(c => c.squares);
-  return [];
-}
-
-// squares que servem para mais que uma sugestão activa ao mesmo tempo —
-// destaque à parte, por cima de tudo (2026-08-16, pedido directo). Só entra
-// em jogo quando 2+ camadas de sugestão estão ligadas ao mesmo tempo.
-function desenharSobreposicoes(s) {
-  if (sugestoesActivas.size < 2) return;
-  const porCoord = new Map(); // "x,y" -> Set(tipos)
-  for (const tipo of sugestoesActivas) {
-    for (const q of squaresDeSugestao(tipo, s)) {
-      const chave = `${q.x},${q.y}`;
-      if (!porCoord.has(chave)) porCoord.set(chave, new Set());
-      porCoord.get(chave).add(tipo);
-    }
+// Junta as sugestões activas por coordenada — um square pode servir para
+// mais que uma ao mesmo tempo (ex: "Crescer yard" e "Corredores" a apontar
+// para o mesmo sítio). Antes cada tipo desenhava o seu próprio rectângulo
+// com o seu próprio tooltip, empilhados — hover só apanhava um dos dois (ou
+// nenhum, no caso dos corredores: o tooltip estava preso ao LayerGroup, sem
+// geometria própria, nunca disparava por cima de um square individual).
+// Agora é sempre UM rectângulo por square, com o texto de todas as
+// sugestões activas fundido no mesmo tooltip (2026-08-16, pedido directo:
+// "funde as tooltips, não aplicar 2 diferentes"). Reaproveitado também pelo
+// cartão de detalhe ao clicar num square (renderSquareDetailCard).
+function construirSugestoesPorCoord(s) {
+  const porCoord = new Map(); // "x,y" -> {x, y, entradas: [{cor, texto, peso}]}
+  function registar(x, y, cor, texto, peso) {
+    const chave = `${x},${y}`;
+    if (!porCoord.has(chave)) porCoord.set(chave, { x, y, entradas: [] });
+    porCoord.get(chave).entradas.push({ cor, texto, peso });
   }
-  for (const [chave, tipos] of porCoord) {
-    if (tipos.size < 2) continue;
-    const [x, y] = chave.split(',').map(Number);
-    L.rectangle(tileBounds(x, y, s.zoom), {
-      color: '#ffffff', weight: 3, dashArray: '2 2', fill: false,
-    }).bindTooltip(
-      `<b>Serve para ${tipos.size} coisas</b><br>${[...tipos].map(t => NOME_SUGESTAO[t]).join(' + ')}`,
-      { sticky: true },
-    ).addTo(trophyLayer);
+
+  if (sugestoesActivas.has('uber') && s.uber) {
+    const u = s.uber;
+    u.squares.forEach(q => registar(q.x, q.y, COR_SUGESTAO, `Próximo über ${u.alvo}×${u.alvo}`, 1));
   }
+  // Corredores: ligar um cluster fechado inteiro ao yard. É onde estão os
+  // saltos grandes — capturar squares isolados nunca passa de +4 ou +5.
+  if (sugestoesActivas.has('corredores') && s.corredores) {
+    s.corredores.forEach(c => {
+      const texto = `+${c.ganho} no yard (corredor de ${c.custo} squares, liga um cluster de ${c.alvo})`;
+      c.squares.forEach(q => registar(q.x, q.y, COR_CORREDOR, texto, c.ganho));
+    });
+  }
+  if (sugestoesActivas.has('ligacao') && s.ligacao) {
+    const { yard_atual, melhores } = s.ligacao;
+    melhores.forEach(m => registar(m.x, m.y, COR_LIGACAO, `+${m.ganho} ao yard (${yard_atual} → ${m.novo_yard})`, m.ganho));
+  }
+  return porCoord;
 }
 
 function drawSugestao() {
   const s = (cache.suggestions || {})[state.grelha];
   if (!s) return;
 
+  // moldura da janela-alvo do über: não é um "square" para efeitos de
+  // fusão, é só o enquadramento — desenha-se à parte, sempre.
   if (sugestoesActivas.has('uber') && s.uber) {
     const u = s.uber;
     const nw = tileNW(u.canto.x, u.canto.y, s.zoom);
@@ -1056,90 +1131,38 @@ function drawSugestao() {
     L.rectangle([nw, se], { color: COR_SUGESTAO, weight: 3, dashArray: '6 4', fill: false })
       .bindTooltip(`<b>Próximo über ${u.alvo}×${u.alvo}</b><br>faltam ${u.faltam} squares`, { sticky: true })
       .addTo(trophyLayer);
-    u.squares.forEach(q => {
-      L.rectangle(tileBounds(q.x, q.y, s.zoom), {
-        color: COR_SUGESTAO, weight: 1, fillColor: COR_SUGESTAO, fillOpacity: 0.45,
+  }
+
+  const porCoord = construirSugestoesPorCoord(s);
+  const maxPeso = Math.max(...[...porCoord.values()].map(v => Math.max(...v.entradas.map(e => e.peso))), 1);
+  const mostrarLabel = pxPorSquare(s.zoom) >= LIMIAR_GANHO_LABEL;
+
+  for (const { x, y, entradas } of porCoord.values()) {
+    const multiplo = entradas.length > 1;
+    entradas.sort((a, b) => b.peso - a.peso);
+    const melhorPeso = entradas[0].peso;
+    L.rectangle(tileBounds(x, y, s.zoom), {
+      color: multiplo ? '#ffffff' : entradas[0].cor,
+      weight: multiplo ? 3 : 2,
+      dashArray: multiplo ? '3 2' : null,
+      fillColor: entradas[0].cor, fillOpacity: 0.2 + 0.5 * (melhorPeso / maxPeso),
+    }).bindTooltip(entradas.map(e => e.texto).join('<br>'), { sticky: true }).addTo(trophyLayer);
+
+    // número do ganho sempre visível dentro do square, não só no hover —
+    // pedido directo (2026-08-15). Escondido a zoom afastado (2026-08-16):
+    // a essa distância o texto não cabe/não lê, é só ruído — mesma lógica
+    // do MIN_PX da grelha de linhas. Redesenha em cada zoomend.
+    if (mostrarLabel) {
+      L.marker(tileCenter(x, y, s.zoom), {
+        icon: L.divIcon({
+          className: 'ganho-label-wrap',
+          html: `<span class="ganho-label">${melhorPeso}</span>`,
+          iconSize: null,
+        }),
+        interactive: false,
       }).addTo(trophyLayer);
-    });
+    }
   }
-
-  // Corredores: ligar um cluster fechado inteiro ao yard. É onde estão os
-  // saltos grandes — capturar squares isolados nunca passa de +4 ou +5.
-  if (sugestoesActivas.has('corredores') && s.corredores) {
-    s.corredores.forEach((c, i) => {
-      const grupo = L.layerGroup();
-      c.squares.forEach(q => {
-        L.rectangle(tileBounds(q.x, q.y, s.zoom), {
-          color: COR_CORREDOR, weight: 1,
-          fillColor: COR_CORREDOR, fillOpacity: i === 0 ? 0.65 : 0.4,
-        }).addTo(grupo);
-      });
-      grupo.bindTooltip(
-        `<b>+${c.ganho} no yard</b><br>capturar ${c.custo} squares para ligar ` +
-        `um cluster de ${c.alvo}<br>yard ${c.novo_yard - c.ganho} → ${c.novo_yard}`,
-        { sticky: true },
-      ).addTo(trophyLayer);
-    });
-  }
-
-  if (sugestoesActivas.has('ligacao') && s.ligacao) {
-    const { yard_atual, melhores } = s.ligacao;
-    const maxGanho = Math.max(...melhores.map(m => m.ganho), 1);
-    melhores.forEach(m => {
-      // opacidade proporcional ao ganho: o melhor square salta à vista
-      L.rectangle(tileBounds(m.x, m.y, s.zoom), {
-        color: COR_LIGACAO, weight: 2,
-        fillColor: COR_LIGACAO, fillOpacity: 0.2 + 0.5 * (m.ganho / maxGanho),
-      }).bindTooltip(
-        `<b>+${m.ganho} ao yard</b><br>${yard_atual} → ${m.novo_yard} squares`,
-        { sticky: true },
-      ).addTo(trophyLayer);
-      // número do ganho sempre visível dentro do square, não só no hover —
-      // pedido directo (2026-08-15). Escondido abaixo de LIMIAR_GANHO_LABEL
-      // px/square (2026-08-16): a zoom afastado o texto não cabe e não lê,
-      // é só ruído — a mesma lógica do MIN_PX da grelha de linhas.
-      if (pxPorSquare(s.zoom) >= LIMIAR_GANHO_LABEL) {
-        L.marker(tileCenter(m.x, m.y, s.zoom), {
-          icon: L.divIcon({
-            className: 'ganho-label-wrap',
-            html: `<span class="ganho-label">${m.ganho}</span>`,
-            iconSize: null,
-          }),
-          interactive: false,
-        }).addTo(trophyLayer);
-      }
-    });
-  }
-
-  // "Crescer backyard": mesmo mecanismo do "Crescer yard", mas mirando o
-  // maior backyard (2º maior cluster fechado) em vez do yard principal —
-  // útil quando o yard já está difícil de mexer mas há uma zona secundária
-  // a um square de crescer bastante (2026-08-16).
-  if (sugestoesActivas.has('ligacao_backyard') && s.ligacao_backyard) {
-    const { backyard_atual, melhores } = s.ligacao_backyard;
-    const maxGanho = Math.max(...melhores.map(m => m.ganho), 1);
-    melhores.forEach(m => {
-      L.rectangle(tileBounds(m.x, m.y, s.zoom), {
-        color: COR_LIGACAO_BACKYARD, weight: 2,
-        fillColor: COR_LIGACAO_BACKYARD, fillOpacity: 0.2 + 0.5 * (m.ganho / maxGanho),
-      }).bindTooltip(
-        `<b>+${m.ganho} ao maior backyard</b><br>${backyard_atual} → ${m.novo_backyard} squares`,
-        { sticky: true },
-      ).addTo(trophyLayer);
-      if (pxPorSquare(s.zoom) >= LIMIAR_GANHO_LABEL) {
-        L.marker(tileCenter(m.x, m.y, s.zoom), {
-          icon: L.divIcon({
-            className: 'ganho-label-wrap',
-            html: `<span class="ganho-label">${m.ganho}</span>`,
-            iconSize: null,
-          }),
-          interactive: false,
-        }).addTo(trophyLayer);
-      }
-    });
-  }
-
-  desenharSobreposicoes(s);
 }
 
 function drawTrophies() {
@@ -1170,7 +1193,6 @@ function voarPara(k, sug) {
   let squares = [];
   if (k === 'uber' && sug.uber) squares = sug.uber.squares;
   else if (k === 'ligacao' && sug.ligacao) squares = sug.ligacao.melhores;
-  else if (k === 'ligacao_backyard' && sug.ligacao_backyard) squares = sug.ligacao_backyard.melhores;
   else if (k === 'corredores' && sug.corredores && sug.corredores.length) {
     // o de melhor razão ganho/custo, não o de maior ganho: é o que se
     // apanha numa corrida
@@ -1226,13 +1248,6 @@ function renderSugestoes() {
     extras.push({
       k: 'ligacao', label: 'Crescer yard', cor: COR_LIGACAO,
       title: `Squares que mais aumentam o yard sozinhos — o melhor dá +${melhor.ganho}`,
-    });
-  }
-  if (sug.ligacao_backyard && sug.ligacao_backyard.melhores.length) {
-    const melhor = sug.ligacao_backyard.melhores[0];
-    extras.push({
-      k: 'ligacao_backyard', label: 'Crescer backyard', cor: COR_LIGACAO_BACKYARD,
-      title: `Idem, mas para o maior backyard (não o yard) — o melhor dá +${melhor.ganho}`,
     });
   }
   if (sug.corredores && sug.corredores.length) {

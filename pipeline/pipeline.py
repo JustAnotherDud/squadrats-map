@@ -138,8 +138,7 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
     divergirem, aborta: uma sugestão calculada com regras erradas parece
     rigorosa e não é.
     """
-    from suggestions import (verify_rules, proximo_ubersquadrat, melhor_ligacao,
-                             melhor_ligacao_backyard, corredores)
+    from suggestions import verify_rules, proximo_ubersquadrat, melhor_ligacao, corredores
 
     out = {}
     for grelha, (visitados, zoom) in visitados_por_grelha.items():
@@ -152,7 +151,9 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
         bloco = {
             "zoom": zoom,
             "ligacao": melhor_ligacao(visitados),
-            "ligacao_backyard": melhor_ligacao_backyard(visitados),
+            # "ligacao_backyard" (melhor_ligacao_backyard, suggestions.py) foi
+            # removido daqui a pedido (2026-08-16, "não uso") — a função fica
+            # no suggestions.py, só deixou de ser chamada/publicada.
             "corredores": corredores(visitados),
         }
 
