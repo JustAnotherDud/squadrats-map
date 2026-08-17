@@ -617,7 +617,7 @@ function irParaRegiao(visao, key) {
   state.showZero = false;
   updateColorToggleVisibility();
   render();
-  selectItem(key, {});
+  selectItem(key);
 }
 function linkRegiao(visao, country, nome) {
   const key = chaveRegiao(country, nome);
@@ -667,8 +667,7 @@ function renderDetailCard(name) {
   document.getElementById('detail-back-btn').onclick = clearSelection;
 }
 
-function selectItem(name, opts) {
-  opts = opts || {};
+function selectItem(name) {
   if (state.selected && state.selected.name === name) {
     clearSelection();
     return;
@@ -678,7 +677,6 @@ function selectItem(name, opts) {
   paisSelecionado = null;
   squareHighlightLayer.clearLayers();
   refreshBoundaryStyles();
-  if (opts.fromMap) state.sheetExpanded = true;
 
   sheet.classList.remove('collapsed', 'expanded');
   sheet.classList.add('detail');
@@ -1160,7 +1158,7 @@ document.getElementById('sheet-list').addEventListener('click', e => {
     return;
   }
   const row = e.target.closest('tr.selectable');
-  if (row) { selectItem(row.dataset.name, { fromMap: false }); return; }
+  if (row) { selectItem(row.dataset.name); return; }
   const paisRow = e.target.closest('[data-pais-nome]');
   if (paisRow) selecionarPais(paisRow.dataset.paisNome);
 });
@@ -1429,7 +1427,18 @@ document.getElementById('btn-color-mode').onclick = () => {
 
 document.getElementById('btn-grelha-linhas').onclick = toggleGrelhaLinhas;
 
+// chamado ao trocar grelha/visão — sai de qualquer cartão de detalhe aberto
+// (região, país OU square). Antes só limpava state.selected: trocar de
+// grelha com um square/país seleccionado deixava squareSelecionado/
+// paisSelecionado por limpar e o highlight verde preso no mapa (nunca mais
+// desaparecia sozinho) — o toque seguinte na barra ia rebentar em
+// clearSquareSelection()/clearPaisSelection() em vez de expandir a folha,
+// como já tinha acontecido uma vez com fecharQualquerDetalheOuAlternar()
+// (bug irmão deste, mesma causa: um tipo de selecção novo por cobrir).
 function resetSelectionUI() {
+  squareSelecionado = null;
+  paisSelecionado = null;
+  squareHighlightLayer.clearLayers();
   if (sheet.classList.contains('detail')) {
     sheet.classList.remove('detail');
     setSheet(state.sheetExpanded);
@@ -1537,7 +1546,12 @@ handle.addEventListener('pointercancel', () => { sheetDrag = null; sheet.style.t
 // (addBoundaryFeature já para a propagação do click do polígono para o mapa
 // via L.DomEvent.stopPropagation — sem isso este handler disparava a seguir
 // e desfazia a seleção no mesmo click)
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.selected) clearSelection(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (state.selected) clearSelection();
+  else if (squareSelecionado) clearSquareSelection();
+  else if (paisSelecionado) clearPaisSelection();
+});
 // clique no mapa que não caiu em cima de nenhum square/fronteira (esses
 // param a propagação nos seus próprios handlers) — trata-se como clique
 // num square por capturar, na grelha do zoom activo.
