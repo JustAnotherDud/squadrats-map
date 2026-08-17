@@ -845,6 +845,14 @@ function selecionarSquare(x, y, zoom) {
   L.rectangle(tileBounds(x, y, zoom), {
     color: '#39d97a', weight: 3, fill: false,
   }).addTo(squareHighlightLayer);
+  // aproxima o suficiente para o destaque se ver bem — antes ficava ao zoom
+  // que já lá estava, que podia ser tão afastado que o square desaparecia
+  // visualmente (não desenha "no Google Maps" como foi pedido — nem a
+  // Google nem o OSM desenham um rectângulo só por URL, confirmado a
+  // testar; isto usa o destaque que já temos no nosso próprio mapa, só
+  // garante que se vê). Só aproxima, nunca afasta (Math.max) — clicar
+  // noutro square perto sem sair do zoom actual não deve saltar para trás.
+  map.flyTo(tileCenter(x, y, zoom), Math.max(map.getZoom(), zoom + 1), { duration: 0.6 });
   sheet.classList.remove('collapsed', 'expanded');
   sheet.classList.add('detail');
   document.querySelector('#sheet-summary span:last-child').textContent = '▼';
