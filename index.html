@@ -97,6 +97,7 @@
   #sheet-detail { padding:2px 0 0; }
   #sheet-detail .detail-back { background:none; border:none; color:#7ab8ff; font-size:12px; padding:0 0 10px; cursor:pointer; }
   #sheet-detail h2 { margin:0 0 8px; font-size:16px; }
+  #btn-aproximar-square { background:#1b1f2a; color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 12px; font-size:12px; cursor:pointer; }
   .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 16px; }
   .detail-item { }
   .detail-item .label { font-size:10px; text-transform:uppercase; letter-spacing:.03em; color:#7d8598; }
@@ -845,14 +846,10 @@ function selecionarSquare(x, y, zoom) {
   L.rectangle(tileBounds(x, y, zoom), {
     color: '#39d97a', weight: 3, fill: false,
   }).addTo(squareHighlightLayer);
-  // aproxima o suficiente para o destaque se ver bem — antes ficava ao zoom
-  // que já lá estava, que podia ser tão afastado que o square desaparecia
-  // visualmente (não desenha "no Google Maps" como foi pedido — nem a
-  // Google nem o OSM desenham um rectângulo só por URL, confirmado a
-  // testar; isto usa o destaque que já temos no nosso próprio mapa, só
-  // garante que se vê). Só aproxima, nunca afasta (Math.max) — clicar
-  // noutro square perto sem sair do zoom actual não deve saltar para trás.
-  map.flyTo(tileCenter(x, y, zoom), Math.max(map.getZoom(), zoom + 1), { duration: 0.6 });
+  // já não aproxima sozinho ao seleccionar (2026-08-16, revisto no mesmo
+  // dia) — saltar o mapa a cada clique tornava a navegação chata. Fica um
+  // botão no cartão (ver renderSquareDetailCard) para quem quiser mesmo
+  // aproximar, só quando pedido.
   sheet.classList.remove('collapsed', 'expanded');
   sheet.classList.add('detail');
   document.querySelector('#sheet-summary span:last-child').textContent = '▼';
@@ -916,9 +913,18 @@ function renderSquareDetailCard() {
     <button class="detail-back" id="detail-back-btn">← voltar à lista</button>
     <h2>${capturado ? '✓ Square capturado' : 'Square por capturar'}</h2>
     <div class="detail-grid">${grid}${sugestaoHtml}</div>
-    <p style="margin-top:12px"><a href="${mapsUrl}" target="_blank" rel="noopener">Abrir no Google Maps →</a></p>
+    <p style="margin-top:12px">
+      <button id="btn-aproximar-square">Aproximar no mapa</button>
+      <a href="${mapsUrl}" target="_blank" rel="noopener" style="margin-left:10px">Abrir no Google Maps →</a>
+    </p>
   `;
   document.getElementById('detail-back-btn').onclick = clearSquareSelection;
+  // aproximar só quando pedido, não automaticamente ao seleccionar
+  // (2026-08-16, revisto no mesmo dia — saltar o mapa a cada clique
+  // tornava a navegação chata).
+  document.getElementById('btn-aproximar-square').onclick = () => {
+    map.flyTo(tileCenter(x, y, zoom), Math.max(map.getZoom(), zoom + 1), { duration: 0.6 });
+  };
 }
 
 // sempre 2 casas decimais, mesmo quando são .00 — antes cortava os zeros à
