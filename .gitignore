@@ -4,6 +4,24 @@ state.json
 .env
 *.key.json
 .secrets/
-supabase/.temp/
 pipeline/spikes/*.pbf
 pipeline/spikes/*.pkl
+
+# Dados dinâmicos: vivem SÓ na branch `data` (2026-08-14), regenerados 6x/dia
+# pelo fetch-map-data.yml. Estiveram também no master até 2026-08-18, mas como
+# nada os lia de lá ficaram congelados no dia da migração — 1,2 MB a dizer
+# valores de 14 Ago enquanto o site servia os de hoje, pronto a enganar quem
+# fosse debugar com eles. As páginas puxam-nos de raw.githubusercontent
+# (branch `data`); o workflow faz `git checkout origin/data -- $FILES`.
+# Para trabalhar com eles localmente: `git checkout origin/data -- data/`.
+data/tile_info_squadrats.json
+data/tile_info_squadratinhos.json
+data/stats.json
+data/squadrats.json
+data/trophies.json
+data/suggestions.json
+data/club.json
+data/club_regioes.json
+data/daily_gains.json
+data/scan_cache.json
+data/classification_fallbacks.json

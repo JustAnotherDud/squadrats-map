@@ -16,6 +16,15 @@ tempo que o cron corria colidia com o commit do bot. Os 3 consumidores
 mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteiras e o
 `adjacency.json` são estáticos, continuam só no `master`, caminho relativo normal.
 
+Até 2026-08-18 esses ficheiros dinâmicos continuavam **também** commitados no master, parados no dia
+da migração — 1,2 MB a dizer valores de 14 Ago enquanto o site já servia os de hoje, prontos a
+enganar quem fosse debugar por eles. Passaram para o `.gitignore`: existem só na branch `data`. Para
+trabalhar com eles localmente:
+
+```
+git checkout origin/data -- data/
+```
+
 ## Estrutura
 
 - `index.html` — o mapa detalhado do José (GitHub Pages serve isto na raiz)

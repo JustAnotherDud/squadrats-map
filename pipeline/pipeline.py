@@ -133,9 +133,6 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
         bloco = {
             "zoom": zoom,
             "ligacao": melhor_ligacao(visitados),
-            # "ligacao_backyard" (melhor_ligacao_backyard, suggestions.py) foi
-            # removido daqui a pedido (2026-08-16, "não uso") — a função fica
-            # no suggestions.py, só deixou de ser chamada/publicada.
             "corredores": corredores(visitados),
         }
 
