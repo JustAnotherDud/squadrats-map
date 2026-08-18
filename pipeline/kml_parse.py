@@ -1,63 +1,19 @@
-"""Parse o KML exportado do Squadrats e reconstrói os squares individuais (x, y, zoom)."""
-import math
-import xml.etree.ElementTree as ET
-from shapely.geometry import Polygon, MultiPolygon
-from shapely.ops import unary_union
+"""Geometria da grelha XYZ do Squadrats: conversão lon/lat <-> tile e
+reconstrução dos squares individuais (x, y, zoom) a partir de um polígono.
 
-KML_NS = "{http://www.opengis.net/kml/2.2}"
+O nome do ficheiro é histórico: nasceu a fazer parse do KML exportado à mão
+do squadrats.com. Esse caminho foi removido em 2026-08-18 (o pipeline lê
+vector tiles, ver tiles_fetch.py) e ficou só a matemática da grelha, que é
+partilhada por praticamente todo o pipeline (compute_grid_totals, classify_club,
+fetch_club_squares, fetch_club_koms, pipeline).
+"""
+import math
 
 # zoom XYZ correspondente a cada categoria do squadrats.com
 ZOOM_BY_TYPE = {
     "squadrats": 14,
     "squadratinhos": 17,
 }
-
-
-def _parse_coords(text):
-    pts = []
-    for pair in text.strip().split():
-        lon, lat = pair.split(",")[:2]
-        pts.append((float(lon), float(lat)))
-    return pts
-
-
-def parse_kml_geometries(kml_path):
-    """Devolve {placemark_name: (declared_size, shapely_geometry)}."""
-    tree = ET.parse(kml_path)
-    root = tree.getroot()
-    result = {}
-
-    for placemark in root.iter(f"{KML_NS}Placemark"):
-        name_el = placemark.find(f"{KML_NS}name")
-        if name_el is None:
-            continue
-        name = name_el.text.strip()
-
-        size = None
-        for data in placemark.iter(f"{KML_NS}Data"):
-            if data.get("name") == "size":
-                size = int(data.find(f"{KML_NS}value").text)
-
-        polygons = []
-        for poly_el in placemark.iter(f"{KML_NS}Polygon"):
-            outer_el = poly_el.find(f"{KML_NS}outerBoundaryIs/{KML_NS}LinearRing/{KML_NS}coordinates")
-            if outer_el is None:
-                continue
-            outer = _parse_coords(outer_el.text)
-
-            holes = []
-            for inner_el in poly_el.findall(f"{KML_NS}innerBoundaryIs/{KML_NS}LinearRing/{KML_NS}coordinates"):
-                holes.append(_parse_coords(inner_el.text))
-
-            polygons.append(Polygon(outer, holes))
-
-        if not polygons:
-            continue
-
-        geom = unary_union(polygons)
-        result[name] = (size, geom)
-
-    return result
 
 
 def lonlat_to_tile(lon, lat, z):

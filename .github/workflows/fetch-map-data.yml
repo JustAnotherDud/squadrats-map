@@ -139,3 +139,40 @@ jobs:
           git add $FILES
           git commit -m "chore(data): atualizar squares via vector tiles [skip ci]"
           git push origin data
+
+      # GitHub desativa `schedule` em repos sem atividade há 60 dias — se isso
+      # acontecer, o cron morre em silêncio e o mapa fica congelado. Este passo
+      # mantém o master "vivo" sem depender de trabalho real: só commita
+      # heartbeat.txt se o último commit ao master tiver mais de 25 dias.
+      #
+      # Herdado do renew-drive-watch.yml, removido em 2026-08-18 com o resto do
+      # stack Drive/KML. Lá o passo tinha um bug latente: lia
+      # `git log -1 -- heartbeat.txt` num checkout shallow (depth 1), onde o
+      # commit de fronteira parece introduzir todos os ficheiros — devolvia a
+      # data do último commit ao master, não a do último heartbeat (o log dizia
+      # "há 1 dias" com o heartbeat.txt parado desde 19 Jul). Como o que
+      # interessa é mesmo a atividade do repo, aqui pede-se isso directamente,
+      # sem precisar do histórico do ficheiro (continua a dar certo em shallow).
+      - name: Heartbeat (mantém o schedule do Actions ativo)
+        if: always()
+        # nunca deixar um problema do heartbeat marcar como falhada uma corrida
+        # que publicou dados bem — isto é rede de segurança, não o trabalho.
+        continue-on-error: true
+        run: |
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          dias=$(( ( $(date +%s) - $(git log -1 --format=%ct) ) / 86400 ))
+          if [ "$dias" -lt 25 ]; then
+            echo "último commit ao master há $dias dias — schedule seguro, nada a fazer."
+            exit 0
+          fi
+
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > heartbeat.txt
+          # --only heartbeat.txt de propósito: o passo "carregar o estado mais
+          # recente" faz `git checkout origin/data -- $FILES`, que deixa esses
+          # ficheiros de dados STAGED no índice do master. Um `git commit` sem
+          # restrição de caminho arrastava-os para o master — exactamente o que
+          # a migração para a branch `data` (2026-08-14) veio evitar.
+          git commit --only heartbeat.txt -m "chore: heartbeat (mantém o schedule do Actions ativo) [skip ci]"
+          git push origin HEAD:master
