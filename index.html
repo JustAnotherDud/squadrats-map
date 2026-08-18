@@ -6,6 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<!-- vocabulário partilhado com o club.html (países, bandeiras, níveis, grelha
+     XYZ) — síncrono de propósito, o script inline abaixo usa-o logo -->
+<script src="shared.js"></script>
 <style>
   html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
   #map { position:absolute; inset:0; }
@@ -200,30 +203,23 @@ let state = {
   paises: new Set(),
 };
 
-// SVG em vez de emoji de bandeira (🇵🇹/🇪🇸): o emoji depende da fonte do
-// sistema — em vários ambientes (Linux/Chrome headless, algumas versões
-// mobile) cai para as letras "PT"/"ES" em vez de desenhar a bandeira. Um
-// SVG inline desenha sempre a mesma coisa, sem depender de fonte nenhuma.
-// Simplificadas (sem brasão/escudo), só para identificar o país num relance.
-const BANDEIRA = {
-  PT: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/><circle cx="6" cy="5.5" r="2" fill="#ffd400"/></svg>',
-  ES: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
-  AD: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
-  DE: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
-  MA: '<svg width="15" height="11" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#c1272d"/><polygon points="7.5,2.5 8.2,4.53 10.35,4.57 8.64,5.87 9.26,7.93 7.5,6.7 5.74,7.93 6.36,5.87 4.65,4.57 6.8,4.53" fill="#006233"/></svg>',
-};
+// bandeiras e nomes de país vêm do shared.js (partilhados com o club.html) —
+// aqui só se escolhe o tamanho de render.
+const BANDEIRA = bandeiras(15, 11);
 state.paises = new Set(Object.keys(BANDEIRA));
 
 // nível país (vista "Países") — um país novo no futuro é só uma entrada
 // aqui + bandeira em BANDEIRA + a fonte de contorno/stats no backend
 // (compute_grid_totals.py). O resto (drawBoundaries, renderStats) já lê
 // esta tabela em vez de ter PT/ES escritos à mão.
+// `label` vem do PAIS_NOME (shared.js) — aqui só o que é próprio desta vista:
+// cor do contorno, de onde sai a geometria e a chave no stats.json.
 const PAIS_INFO = {
-  PT: { label: 'Portugal', cor: '#39d97a', geo: () => cache.portugal, statsKey: 'country_pt' },
-  ES: { label: 'Espanha', cor: '#c9743d', geo: () => cache.spain, statsKey: 'country_es' },
-  AD: { label: 'Andorra', cor: '#0018a8', geo: () => cache.andorra, statsKey: 'country_ad' },
-  DE: { label: 'Alemanha', cor: '#dd0000', geo: () => cache.germany, statsKey: 'country_de' },
-  MA: { label: 'Marrocos', cor: '#c1272d', geo: () => cache.morocco, statsKey: 'country_ma' },
+  PT: { label: PAIS_NOME.PT, cor: '#39d97a', geo: () => cache.portugal, statsKey: 'country_pt' },
+  ES: { label: PAIS_NOME.ES, cor: '#c9743d', geo: () => cache.spain, statsKey: 'country_es' },
+  AD: { label: PAIS_NOME.AD, cor: '#0018a8', geo: () => cache.andorra, statsKey: 'country_ad' },
+  DE: { label: PAIS_NOME.DE, cor: '#dd0000', geo: () => cache.germany, statsKey: 'country_de' },
+  MA: { label: PAIS_NOME.MA, cor: '#c1272d', geo: () => cache.morocco, statsKey: 'country_ma' },
 };
 
 // por nível (distritos/concelhos) e país: onde está a geometria da fronteira
@@ -319,12 +315,7 @@ squareHighlightLayer.addTo(map); // por cima de tudo — o destaque nunca pode f
 map.on('zoomend', () => drawTrophies());
 
 // --- slippy-tile math (mesma convenção do pipeline: kml_parse.py) ---
-function tileNW(x, y, z) {
-  const n = Math.pow(2, z);
-  const lon = x / n * 360 - 180;
-  const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
-  return [lat, lon];
-}
+const tileNW = tileNoroeste; // shared.js
 function tileBounds(x, y, z) {
   const nw = tileNW(x, y, z);
   const se = tileNW(x + 1, y + 1, z);
@@ -771,15 +762,10 @@ function renderPaisDetailCard(cc) {
 // sítio (a sheet), com mais informação (Google Maps incluído).
 let squareSelecionado = null; // {x, y, zoom} | null
 
-// inverso de tileNW: lat/lng -> tile x/y num dado zoom (mesma convenção
-// slippy-tile, ver kml_parse.py / club.html coordDoPonto).
+// inverso de tileNW: lat/lng -> tile x/y num dado zoom (shared.js, mesma
+// convenção do pipeline/kml_parse.py).
 function coordDoPonto(latlng, zoom) {
-  const n = Math.pow(2, zoom);
-  const rad = latlng.lat * Math.PI / 180;
-  return [
-    Math.floor((latlng.lng + 180) / 360 * n),
-    Math.floor((1 - Math.asinh(Math.tan(rad)) / Math.PI) / 2 * n),
-  ];
+  return lonlatParaTile(latlng.lat, latlng.lng, zoom);
 }
 
 function squareCapturadoEm(x, y, zoom) {
@@ -1019,7 +1005,7 @@ function renderStats() {
         ${BANDEIRA[p]} ${PAIS_INFO[p].label}
       </button>`).join('') + '</div>';
 
-    const title = state.visao === 'distritos' ? 'Região' : 'Zona';
+    const title = state.visao === 'distritos' ? NIVEL_LABEL.regiao : NIVEL_LABEL.zona;
     html += `<div class="section-title">${title}</div>`;
 
     // uma tabela só, países activos misturados e ordenados em conjunto —
@@ -1415,7 +1401,7 @@ function updateColorToggleVisibility() {
   const applicable = state.visao === 'distritos' || state.visao === 'concelhos';
   btn.style.display = applicable ? 'inline-block' : 'none';
   btn.classList.toggle('active', state.colorMode === 'region');
-  const byLabel = state.visao === 'concelhos' ? 'zona' : 'região';
+  const byLabel = (state.visao === 'concelhos' ? NIVEL_LABEL.zona : NIVEL_LABEL.regiao).toLowerCase();
   btn.textContent = state.colorMode === 'region' ? `Cores: ${byLabel}` : 'Cores: uniforme';
 }
 

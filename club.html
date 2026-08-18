@@ -6,6 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<!-- vocabulário partilhado com o index.html (países, bandeiras, níveis, grelha
+     XYZ) — síncrono de propósito, o script inline abaixo usa-o logo -->
+<script src="shared.js"></script>
 <style>
   html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
   #map { position:absolute; inset:0; }
@@ -80,15 +83,10 @@ const COR_ATLETA = [
   '#38bdf8', // Pedro — azul
 ];
 
-// Mesmas bandeiras SVG do mapa pessoal (index.html) — copiadas aqui de
-// propósito: são páginas independentes, sem módulo partilhado (2026-08-15).
-const BANDEIRA = {
-  PT: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/><circle cx="6" cy="5.5" r="2" fill="#ffd400"/></svg>',
-  ES: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#aa151b"/><rect y="2.75" width="15" height="5.5" fill="#f1bf00"/></svg>',
-  AD: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#fcdd09"/><rect width="5" height="11" fill="#0018a8"/><rect x="10" width="5" height="11" fill="#d50032"/></svg>',
-  DE: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="3.67" y="0" fill="#000000"/><rect width="15" height="3.67" y="3.67" fill="#dd0000"/><rect width="15" height="3.67" y="7.33" fill="#ffce00"/></svg>',
-  MA: '<svg width="13" height="10" viewBox="0 0 15 11" class="bandeira"><rect width="15" height="11" fill="#c1272d"/><polygon points="7.5,2.5 8.2,4.53 10.35,4.57 8.64,5.87 9.26,7.93 7.5,6.7 5.74,7.93 6.36,5.87 4.65,4.57 6.8,4.53" fill="#006233"/></svg>',
-};
+// bandeiras do shared.js (as mesmas do index.html) — aqui em 13x10, um pouco
+// mais pequenas que no mapa pessoal. Estiveram copiadas à mão até 2026-08-18,
+// e a cópia já tinha divergido uma vez.
+const BANDEIRA = bandeiras(13, 10);
 
 // Escala neutra do modo "quantos": não compete com nenhuma cor de pessoa
 // (não tem matiz nenhuma) e clareia com o número de donos.
@@ -185,12 +183,7 @@ function redesenhar() {
 
 // --- interacção ---
 function coordDoPonto(latlng) {
-  const n = Math.pow(2, dados.zoom);
-  const rad = latlng.lat * Math.PI / 180;
-  return [
-    Math.floor((latlng.lng + 180) / 360 * n),
-    Math.floor((1 - Math.asinh(Math.tan(rad)) / Math.PI) / 2 * n),
-  ];
+  return lonlatParaTile(latlng.lat, latlng.lng, dados.zoom); // shared.js
 }
 
 const hover = document.getElementById('hover');
@@ -360,7 +353,7 @@ function totalDe(bucket, nome) {
   return s && s.z17 ? s.z17.total : null;
 }
 
-const NOME_PAIS = { PT: 'Portugal', ES: 'Espanha', AD: 'Andorra', DE: 'Alemanha', MA: 'Marrocos' };
+const NOME_PAIS = PAIS_NOME; // shared.js
 
 // País — geo.country já vem pronto do classify_club.py, só falta
 // juntar o total partilhado (stats.json) para a percentagem (2026-08-15).
@@ -472,7 +465,8 @@ function bucketDe(nivel, cc) {
   return cc === 'PT' ? 'by_concelho' : `by_municipio_${cc.toLowerCase()}`;
 }
 
-const LEADERBOARD_NIVEIS = { pais: 'País', distrito: 'Região', concelho: 'Zona' };
+// chaves internas antigas (distrito/concelho), rótulos do shared.js
+const LEADERBOARD_NIVEIS = { pais: NIVEL_LABEL.pais, distrito: NIVEL_LABEL.regiao, concelho: NIVEL_LABEL.zona };
 
 function renderLeaderboard() {
   const linhas = [];
