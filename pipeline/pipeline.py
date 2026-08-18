@@ -1,9 +1,8 @@
-"""Pipeline: squares do squadrats.com (KML ou vector tiles) -> JSON classificado
+"""Pipeline: squares do squadrats.com (vector tiles) -> JSON classificado
 por concelho/distrito.
 
 Uso:
-  py pipeline.py --kml <caminho.kml> [pasta_saida]      (fallback, ver tiles_fetch.py)
-  py pipeline.py --uid <firebase_uid> [pasta_saida]      (fonte principal)
+  py pipeline.py --uid <firebase_uid> [pasta_saida]
 
 ATENÇÃO (2026-08-15): correr este ficheiro directamente só actualiza o mapa
 pessoal do José (tile_info_*.json, stats.json, trophies.json). Não toca em
@@ -19,29 +18,12 @@ import json
 import os
 import sys
 
-from kml_parse import parse_kml_geometries, reconstruct_squares, tile_bounds, ZOOM_BY_TYPE
+from kml_parse import reconstruct_squares, tile_bounds, ZOOM_BY_TYPE
 from classify import Classifier
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 REFDATA_DIR = os.path.join(HERE, "refdata")  # fronteiras não-simplificadas, só para classificação
-
-
-def run(kml_path, out_dir):
-    """Fallback: export manual de KML (ver README — mantido caso o endpoint
-    de vector tiles mude ou fique indisponível sem aviso)."""
-    geoms = parse_kml_geometries(kml_path)
-
-    # falhar alto e cedo: um KML sem a camada "squadrats" é quase certamente um
-    # export incompleto/de teste, não um export real — nunca deve gerar JSON
-    # vazio/parcial que silenciosamente apague os dados reais do site.
-    if "squadrats" not in geoms:
-        raise RuntimeError(
-            f"KML '{kml_path}' não tem a camada 'squadrats' — export incompleto ou "
-            f"ficheiro errado. Placemarks encontrados: {list(geoms.keys()) or '(nenhum)'}. "
-            f"A abortar sem tocar em ficheiros de saída."
-        )
-    return run_from_geoms(geoms, out_dir, strict_validation=False)
 
 
 def run_from_tiles(uid, out_dir, bbox=None):
@@ -69,7 +51,7 @@ def run_from_tiles(uid, out_dir, bbox=None):
             f"varrimento incompleto ou atleta sem dados. A abortar sem tocar em ficheiros de saída."
         )
     write_trophies(trophies, counts, out_dir)
-    return run_from_geoms(geoms, out_dir, strict_validation=True, counts=counts)
+    return run_from_geoms(geoms, out_dir, counts=counts)
 
 
 # grelha a que cada troféu pertence — o mapa mostra os do zoom activo
@@ -175,7 +157,7 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
     print(f"suggestions -> {path}")
 
 
-def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
+def run_from_geoms(geoms, out_dir, counts=None):
     classifier = Classifier(
         os.path.join(REFDATA_DIR, "distritos_pt.geojson"),
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
@@ -222,16 +204,14 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
         squares = reconstruct_squares(geom, zoom)
 
         if declared_size is not None and len(squares) != declared_size:
-            msg = (
+            # a auto-validação É a rede de segurança do pipeline (ver
+            # tiles_fetch.py) — nunca publicar dados que não batam com o total
+            # que o próprio servidor da Squadrats reporta. Era tolerável (só
+            # aviso) no caminho do KML, que deixou de existir em 2026-08-18.
+            raise RuntimeError(
                 f"{type_name} — reconstruídos {len(squares)}, declarados {declared_size} "
                 f"(diferença indica varrimento incompleto ou bug de geometria)"
             )
-            if strict_validation:
-                # vector tiles: a auto-validação É a rede de segurança do
-                # pipeline (ver tiles_fetch.py) — nunca publicar dados que não
-                # batam com o total que o próprio servidor da Squadrats reporta.
-                raise RuntimeError(msg)
-            print(f"aviso: {msg}", file=sys.stderr)
 
         out = []
         by_concelho_captured, by_distrito_captured = {}, {}
@@ -385,9 +365,7 @@ def run_from_geoms(geoms, out_dir, strict_validation, counts=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--kml", dest="kml_path", help="fallback: caminho para um KML exportado manualmente")
-    source.add_argument("--uid", dest="uid", help="fonte principal: Firebase UID do atleta")
+    parser.add_argument("--uid", dest="uid", required=True, help="Firebase UID do atleta")
     parser.add_argument("out_dir", nargs="?", default=DATA_DIR)
     args = parser.parse_args()
 
@@ -400,8 +378,5 @@ if __name__ == "__main__":
     )
 
     os.makedirs(args.out_dir, exist_ok=True)
-    if args.uid:
-        result = run_from_tiles(args.uid, args.out_dir)
-    else:
-        result = run(args.kml_path, args.out_dir)
+    result = run_from_tiles(args.uid, args.out_dir)
     print(json.dumps(result, indent=2, ensure_ascii=False))

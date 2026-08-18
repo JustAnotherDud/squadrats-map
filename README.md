@@ -56,8 +56,7 @@ mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteir
     cluster fechado ao yard — é onde estão os saltos grandes (capturas isoladas nunca
     passam de +4/+5). O ganho publicado vem sempre de recalcular os clusters, nunca de
     aritmética sobre tamanhos.
-  - `pipeline.py` — orquestrador do mapa detalhado. `py pipeline.py --uid <firebase_uid> <out_dir>` (fonte principal)
-    ou `py pipeline.py --kml <caminho.kml> <out_dir>` (fallback, ver abaixo)
+  - `pipeline.py` — orquestrador do mapa detalhado. `py pipeline.py --uid <firebase_uid> <out_dir>`
   - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`.
     Também actualiza `data/daily_gains.json` (ganhos por dia, ver `daily_gains.py` — baseline é o
     `ultimo_total` guardado no próprio ficheiro, nunca o git: no CI o checkout é shallow e o
@@ -67,23 +66,20 @@ mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteir
     `data/club.json` (o `fetch_club_koms.py` só traz totais; este traz as coordenadas).
     A ordem da lista `ATLETAS` fixa a atribuição dos bits: não reordenar
     sem regenerar o ficheiro.
-  - `kml_parse.py` — **fallback**: parse de KML exportado manualmente + reconstrução dos squares
-    individuais (x, y, zoom) por varrimento da grelha XYZ. `reconstruct_squares()` é partilhado
-    com `tiles_fetch.py` — o resto do pipeline (classificação, stats) não sabe nem quer saber se
-    os squares vieram de um KML ou de um tile
+  - `kml_parse.py` — matemática da grelha XYZ: conversão lon/lat ↔ tile e reconstrução dos squares
+    individuais (x, y, zoom). Nome histórico — nasceu a fazer parse do KML exportado à mão, caminho
+    removido em 2026-08-18; ficou só a geometria, partilhada por quase todo o pipeline
+    (`compute_grid_totals`, `classify_club`, `fetch_club_squares`, `fetch_club_koms`, `pipeline`)
   - `classify.py` — classifica cada square em concelho/distrito (point-in-polygon com STRtree)
-  - `download_kml.py` — descarrega um ficheiro do Drive pelo `fileId` (só usado pelo fallback `process-kml.yml`)
   - `compute_grid_totals.py` — **one-off**, corre manualmente, nunca pelo pipeline: calcula quantos tiles (zoom14/17) existem no total em cada concelho/distrito/país, usando o mesmo critério do `classify.py` (centro do tile). Output commitado em `refdata/grid_totals.json` — recalcular sempre que as fronteiras OU a regra de classificação (`classify.py`) mudarem, para os totais nunca divergirem do critério usado nos capturados.
   - `compute_adjacency.py` — **one-off**: adjacência entre concelhos/distritos/províncias ES (`geom.buffer(eps).intersects()`) + greedy coloring sobre a paleta categórica do `index.html`, para vizinhos nunca partilharem cor no modo "Cores: região". Output commitado em `data/adjacency.json`. Recalcular só se as fronteiras mudarem.
   - `refdata/` — fronteiras de concelho/distrito **não simplificadas** (só para classificação — mais precisas que as de `data/`, que estão simplificadas para pesarem menos no browser) + `grid_totals.json`
   - `refdata/foreign/` — geometria de precisão de regiões estrangeiras, um ficheiro por país (`ES.geojson`). Adicionar um país novo (ex: França) = só adicionar `FR.geojson` com o mesmo formato (`properties.country` + `properties.region` por feature), zero alterações de código em `classify.py`/`pipeline.py`.
   - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
-- `supabase/functions/` — Edge Functions do caminho **fallback** por KML (ver arquitetura abaixo)
 - `.github/workflows/`
-  - `fetch-map-data.yml` — **principal**, cron 6x/dia (01/05/09/13/17/22h UTC — a última perto do
+  - `fetch-map-data.yml` — **o único**, cron 6x/dia (01/05/09/13/17/22h UTC — a última perto do
     fim do dia em Lisboa, com ~2h de folga até à meia-noite UTC para absorver atrasos do GitHub
-    Actions a disparar o cron), sem dependência do Drive
-  - `process-kml.yml` + `renew-drive-watch.yml` — **fallback**, ver secção própria abaixo
+    Actions a disparar o cron). Leva também o passo de heartbeat que mantém o `schedule` vivo
 
 ## O que significa cada camada (`size`)
 
@@ -187,11 +183,9 @@ py pipeline/fetch_club_koms.py data                                # totais dos 
 
 Produz `data/tile_info_squadrats.json`, `data/tile_info_squadratinhos.json`, `data/stats.json` e `data/squadrats.json`.
 
-Fallback por KML (ver secção própria): `py pipeline/pipeline.py --kml data/sample-export.kml data`.
-
 ## Arquitetura
 
-### Caminho principal — vector tiles (`fetch-map-data.yml`, cron 6x/dia)
+### Vector tiles (`fetch-map-data.yml`, cron 6x/dia)
 
 ```
 [fetch-map-data.yml, cron 6x/dia ou workflow_dispatch]
@@ -218,64 +212,22 @@ Fallback por KML (ver secção própria): `py pipeline/pipeline.py --kml data/sa
           [GitHub Pages: redeploy automático]
 ```
 
-### Caminho fallback — export manual de KML (`process-kml.yml` + Drive/Supabase)
+### Caminho por KML/Drive — removido (2026-08-18)
 
-Mantido caso o endpoint de vector tiles mude ou fique bloqueado sem aviso (não documentado, sem
-API pública — ver "Regras de uso" acima). Desativado na prática assim que ninguém largar KMLs na
-pasta do Drive, mas pronto a usar sem reconstruir nada.
+Existiu um segundo caminho, mantido como fallback: export manual de KML para uma pasta do Google
+Drive → `changes.watch()` → duas Edge Functions no Supabase → `repository_dispatch` →
+`process-kml.yml`. Foi removido por inteiro (workflows, Edge Functions, migrations,
+`download_kml.py`, spikes `t1_*`/`t5_*`, deps `google-*` do `requirements.txt`) — não corria desde
+27 Jul 2026 e custava dois crons, uma tabela e quatro secrets para ficar parado.
 
-```
-[App squadrats.com] --export manual do KML--> [Google Drive: pasta squadrats-exports]
-                                                          |
-                                             Drive changes.watch() (push)
-                                                          |
-                                                          v
-                              [Supabase Edge Function: drive-webhook-receiver]
-                            valida X-Goog-Channel-Token, chama changes.list(),
-                            filtra por .kml + pasta certa + não-trashed/removed
-                                                          |
-                                             repository_dispatch (GitHub API)
-                                                          |
-                                                          v
-                              [GitHub Actions: process-kml.yml]
-                    download do KML pelo fileId -> pipeline.py -> commit condicional
-                                                          |
-                                             (só se houver diff real)
-                                                          v
-                                        [GitHub Pages: redeploy automático]
+Se o endpoint de vector tiles for bloqueado sem aviso (não documentado, sem API pública — ver
+"Regras de uso" acima), o caminho tem de ser reconstruído; está no histórico até ao commit anterior
+a esta remoção. A geometria da grelha (`kml_parse.py`) ficou, é partilhada pelo pipeline vivo.
 
-[GitHub Actions: renew-drive-watch.yml, cron 12h] --> [Supabase Edge Function: drive-watch-setup]
-                    cria canal novo (expiration +24h) -> confirma -> pára o canal antigo
-```
-
-### Porquê duas Edge Functions
-
-- **`drive-webhook-receiver`** — recebe as notificações da Google. Tem de aceitar pedidos
-  não-autenticados (a Google não sabe autenticar-se com o Supabase), por isso a única defesa é o
-  header `X-Goog-Channel-Token` batendo certo com o secret `CHANNEL_TOKEN`.
-- **`drive-watch-setup`** — só é chamada pelo GitHub Actions (nunca pela Google), por isso pode ser
-  mais fechada: exige `X-Setup-Token` próprio. Sem isto, qualquer pessoa com o URL conseguiria
-  recriar/parar os canais à vontade.
-
-Ambas partilham código em `supabase/functions/_shared/` (`google_auth.ts` assina o JWT da service
-account com Web Crypto, sem dependências externas; `sync_state.ts` lê/escreve a tabela
-`drive_sync_state`).
-
-### Porquê a tabela `drive_sync_state`
-
-O webhook da Google só diz "algo mudou" — não diz o quê. É preciso `changes.list()` com o
-`pageToken` guardado para descobrir. A tabela é um singleton (`id=1 check`) com RLS ativo e sem
-policies — só a service role key (usada pelas Edge Functions) lhe acede; a `anon` key exposta no
-browser da app de nutrição do mesmo projeto Supabase não consegue tocar-lhe.
-
-### Secrets (nunca em ficheiro versionado)
-
-| Secret | Onde | Para quê |
-|---|---|---|
-| `GOOGLE_SA_KEY` | Supabase secrets **e** GitHub Actions secrets (duplicado, arquitetura obriga) | autenticar como a service account do Drive (`squadrats-drive-sa@garmin-calendar-sync-488923`, permissão **Viewer** na pasta) |
-| `GH_PAT` | Supabase secrets | `drive-webhook-receiver` dispara o `repository_dispatch` — fine-grained, só `squadrats-map`, Contents R/W |
-| `CHANNEL_TOKEN` | Supabase secrets | única defesa do `drive-webhook-receiver` (`verify_jwt=false`) |
-| `SETUP_TOKEN` | Supabase secrets **e** GitHub Actions secrets | única defesa do `drive-watch-setup` |
+**Secrets a revogar** (já não são usados por nada): `GOOGLE_SA_KEY`, `GH_PAT`, `CHANNEL_TOKEN`,
+`SETUP_TOKEN` — no Supabase, nos GitHub Actions secrets, e a chave da service account
+`squadrats-drive-sa@garmin-calendar-sync-488923` na Google Cloud. Localmente, `.secrets/` (ignorado
+pelo git) só tem ficheiros deste caminho.
 
 ## Debugar: "o mapa parou de atualizar"
 
@@ -287,19 +239,12 @@ browser da app de nutrição do mesmo projeto Supabase não consegue tocar-lhe.
 2. **UID devolve 500.** `SquadratsHttpError` — o UID mudou ou ficou inválido. Confirmar em
    `squadrats.com/map/{uid}/17` que o mapa do atleta ainda abre.
 3. **O endpoint de vector tiles mudou ou está bloqueado.** Não é documentado, pode mudar sem aviso
-   (ver "Regras de uso" acima). Ativa o fallback por KML: exporta manualmente da app, larga na
-   pasta `squadrats-exports` do Drive (o watch ainda está ativo, ver `renew-drive-watch.yml`) —
-   `process-kml.yml` retoma sozinho. Ou corre à mão:
-   ```
-   py pipeline/pipeline.py --kml <kml_descarregado_à_mão> data
-   git add data/tile_info_*.json data/stats.json && git commit -m "chore(data): update manual" && git push
-   ```
-4. **O canal do Drive expirou (só importa se estiveres a usar o fallback).** Confirma em
-   `drive_sync_state.channel_expiration` (tabela Supabase) se já passou. Se sim, corre
-   `workflow_dispatch` em [renew-drive-watch](../../actions/workflows/renew-drive-watch.yml)
-   manualmente para recuperar já.
-5. **O schedule do GitHub foi desativado por inatividade (60 dias sem commits).** Corre
-   `workflow_dispatch` em qualquer um dos workflows uma vez — reativa o schedule.
+   (ver "Regras de uso" acima). Já não há fallback automático — o caminho por KML/Drive foi removido
+   em 2026-08-18 (ver secção da arquitetura). Recuperar significa reconstruí-lo a partir do
+   histórico, ou reescrever o `tiles_fetch.py` para a fonte nova que houver.
+4. **O schedule do GitHub foi desativado por inatividade (60 dias sem commits).** Corre
+   `workflow_dispatch` no `fetch-map-data.yml` uma vez — reativa o schedule. O passo de heartbeat
+   desse workflow existe para isto nunca chegar a acontecer.
 
 ## Ver também
 
