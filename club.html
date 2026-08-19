@@ -36,6 +36,30 @@
   .detalhe-toggle .seta { color:#7ab8ff; text-transform:none; letter-spacing:0; font-size:11px; }
   .detalhe-toggle:active { opacity:.7; }
   .fraco { color:#7d8598; font-weight:400; font-size:11px; }
+  /* Ecrãs largos (2026-08-19): o painel ocupa a largura toda e cada .linha-stat
+     é um flex com space-between — num monitor de 1900px o número acabava a
+     meio metro do nome a que pertence. Encolher o painel resolvia a distância
+     mas desperdiçava o espaço todo; em vez disso o conteúdo flui por colunas,
+     que aproxima o valor do nome E mostra mais linhas sem scroll.
+     Os controlos (.seg) e as notas de rodapé atravessam as colunas todas —
+     senão apareciam espremidos numa só.
+     Largura de coluna fixa, não número fixo de colunas: com column-count:2 num
+     ecrã de 1280 cada coluna ficava com 640px e o número continuava a 475px do
+     nome. Com column-width o browser mete as colunas que couberem a ~330px, que
+     é a largura a que "Rio Maior ... 1677 34.4%" se lê de uma assentada. */
+  @media (min-width: 900px) {
+    #painel-corpo { columns:260px; column-gap:26px; }
+    #painel-corpo > .seg, #painel-corpo > .nota { column-span:all; }
+    /* um grupo (região + os seus atletas, ou título + as suas linhas) nunca
+       parte a meio de uma coluna */
+    .grupo { break-inside:avoid; }
+    /* nem um título fica órfão no fundo de uma coluna, longe das suas linhas */
+    .titulo-seccao { break-after:avoid; }
+    .linha-stat { break-inside:avoid; }
+    /* o painel pode crescer mais: com colunas cabe muito mais no mesmo scroll */
+    #painel { max-height:70vh; }
+  }
+
   /* levantar o zoom acima do painel colapsado */
   .leaflet-bottom.leaflet-right { bottom:52px; }
 
@@ -261,29 +285,30 @@ function renderPainel() {
   </div>`);
 
   if (painelTab === 'sobreposicao') {
-    linhas.push('<div class="titulo-seccao">Por atleta</div>');
-    dados.atletas.forEach((a, i) => {
+    // cada secção num .grupo: em ecrã largo o painel flui por colunas e um
+    // título não se pode separar das linhas que encabeça (ver CSS)
+    const porAtleta = dados.atletas.map((a, i) => {
       const ligado = activos & (1 << i);
-      linhas.push(`<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
+      return `<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
         <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
         <span class="txt">${a.nome}</span></span>
-        <b>${a.total.toLocaleString('pt-PT')}</b></div>`);
-    });
+        <b>${a.total.toLocaleString('pt-PT')}</b></div>`;
+    }).join('');
+    linhas.push(`<div class="grupo"><div class="titulo-seccao">Por atleta</div>${porAtleta}</div>`);
 
-    linhas.push('<div class="titulo-seccao">No mapa</div>');
-    dados.atletas.forEach((a, i) => {
-      if (!soDe.has(i)) return;
-      linhas.push(`<div class="linha-stat">
+    const soLinhas = dados.atletas.map((a, i) => {
+      if (!soDe.has(i)) return '';
+      return `<div class="linha-stat">
         <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
         <span class="txt">Só ${a.nome}</span></span>
-        <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`);
-    });
-    [...partilhados.keys()].sort((a, b) => a - b).forEach(c => {
-      linhas.push(`<div class="linha-stat">
+        <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`;
+    }).join('');
+    const partLinhas = [...partilhados.keys()].sort((a, b) => a - b).map(c => `
+      <div class="linha-stat">
         <span class="esq"><span class="dot" style="background:${corPartilha(c)}"></span>
         <span class="txt">${c} pessoas</span></span>
-        <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`);
-    });
+        <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`).join('');
+    linhas.push(`<div class="grupo"><div class="titulo-seccao">No mapa</div>${soLinhas}${partLinhas}</div>`);
 
     // Quem partilha com quem vive aqui, com as riscas certas de cada combinação —
     // escondido por defeito para o painel não ficar uma parede de números.
@@ -390,7 +415,7 @@ function tabelaGeo(titulo, linhas) {
       <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${r.nome}</span></span>
       <b>${r.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
   }).join('');
-  return `<div class="titulo-seccao">${titulo}</div>${corpo}`;
+  return `<div class="grupo"><div class="titulo-seccao">${titulo}</div>${corpo}</div>`;
 }
 
 function renderDetalheGeo() {
@@ -511,9 +536,9 @@ function renderLeaderboard() {
         <span class="txt">${e.atleta}</span></span>
         <b>${e.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
     }).join('');
-    linhas.push(`<div class="linha-stat" style="font-weight:600">
+    linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
       <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${r.nome}</span></span>
-      <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}`);
+      <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}</div>`);
   });
 
   linhas.push(`<div class="nota">Ranking por squares capturados (não por %) dentro de cada região.
