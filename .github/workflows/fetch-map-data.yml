@@ -61,8 +61,10 @@ name: fetch-map-data
 # dias sem 500s/lentidão nova (mesmo critério já usado para a concorrência),
 # só depois considerar ir mais além.
 on:
-  schedule:
-    - cron: "7 1,5,9,13,17,22 * * *" # 6x/dia, de 4 em 4h aprox., minuto 7 (ver nota acima)
+  # schedule TEMPORARIAMENTE desactivado durante a reescrita de histórico
+  # (lote de autoria, 28 Ago 2026). Reactivar logo após o force-push de
+  # master + data. Cron original:
+  #   - cron: "7 1,5,9,13,17,22 * * *" # 6x/dia, de 4 em 4h aprox., minuto 7 (ver nota acima)
   workflow_dispatch: {} # para correr manualmente sem esperar pelo cron
 
 concurrency:
