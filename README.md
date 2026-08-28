@@ -11,16 +11,16 @@ totals (no geographic breakdown) for the club athletes, consumed by
 
 **Data on its own branch (2026-08-14):** the files the cron regenerates (the
 full list is in `env.FILES` of `fetch-map-data.yml`) live on the `data`
-branch, not `master` — committing on master made Pages (classic mode) rebuild
+branch, not `main` — committing on main made Pages (classic mode) rebuild
 on every run, and a code push of ours at the same time as the cron running
 collided with the bot's commit. The 3 consumers (`index.html`, `club.html`,
 `folha-do-clube`) read those files from
 `raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/...`, not the
 Pages URL — faster (no rebuild) and without that collision risk. The border
-geojsons and `adjacency.json` are static, they stay only on `master`, normal
+geojsons and `adjacency.json` are static, they stay only on `main`, normal
 relative path.
 
-Until 2026-08-18 those dynamic files were **also** still committed on master,
+Until 2026-08-18 those dynamic files were **also** still committed on main,
 frozen at the migration day — 1.2 MB stating 14 Aug values while the site
 already served today's, ready to mislead anyone debugging from them. They
 moved to `.gitignore`: they exist only on the `data` branch. To work with them
