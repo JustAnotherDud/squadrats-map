@@ -87,8 +87,8 @@
 <script>
 // Página do club: só squadratinhos, só os três que têm conta Squadrats.
 // Sem classificação por concelho nem troféus — o assunto aqui é quem
-// partilha o quê. Deliberadamente sem link para o mapa pessoal do José: são
-// dois sítios separados, e quem recebe este link não deve cair no outro.
+// partilha o quê. Deliberadamente sem link para o mapa pessoal individual:
+// são dois sítios separados, e quem recebe este link não deve cair no outro.
 
 // Só o modo "quantos" (2026-08-15, tirei o "quem" — cor da pessoa nos
 // exclusivos, escala neutra cinzento-a-branco nos partilhados, sem riscas).
@@ -99,12 +99,14 @@
 // Matizes escolhidas o mais afastadas possível umas das outras: 0 (vermelho),
 // 48 (amarelo), 142 (verde), 199 (azul), 271 (roxo). A ordem tem de acompanhar
 // a lista ATLETAS do pipeline/fetch_club_squares.py, que é quem fixa os bits.
+// uma cor por atleta, na ordem de ATLETAS (pipeline/fetch_club_squares.py) —
+// nomes vêm dos dados (data/club.json), não daqui
 const COR_ATLETA = [
-  '#ef4444', // Zé — vermelho
-  '#a855f7', // Xeira — roxo
-  '#facc15', // Carolina — amarelo
-  '#22c55e', // Inês S. — verde
-  '#38bdf8', // Pedro — azul
+  '#ef4444', // vermelho
+  '#a855f7', // roxo
+  '#facc15', // amarelo
+  '#22c55e', // verde
+  '#38bdf8', // azul
 ];
 
 // bandeiras do shared.js (as mesmas do index.html) — aqui em 13x10, um pouco
@@ -258,9 +260,9 @@ function renderPainel() {
     `<b>${visiveis.toLocaleString('pt-PT')}</b> squadratinhos visíveis`;
 
   // contar pelas máscaras efectivas (m & activos), não pelas do ficheiro:
-  // com a Xeira desligada, um square Xeira+Carolina passa a ser só da Carolina
-  // no mapa, e a legenda tem de dizer o mesmo — senão explica riscas que lá não
-  // estão e omite as que estão
+  // com um atleta desligado, um square que era partilhado por dois passa a ser
+  // só do outro no mapa, e a legenda tem de dizer o mesmo — senão explica
+  // riscas que lá não estão e omite as que estão
   const efectivas = new Map();
   for (const s of dados.squares) {
     const em = s[2] & activos;

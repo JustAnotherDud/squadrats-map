@@ -52,9 +52,9 @@ TROPHY_LAYERS = [
 # só desce de zoom dentro dos tiles que já mostraram cobertura. Torna o
 # varrimento robusto a qualquer atleta ter capturas em qualquer parte do
 # mundo, sem ter de adivinhar/manter um bbox por atleta — descoberto na
-# prática: um bbox só de Portugal falhava a auto-validação do José (tem
-# squadrats em Espanha) e um bbox só da Ibéria falhava a da Xeira (tem
-# squadrats fora da Ibéria). Evita polos/Antártida (lat -60..75), onde não
+# prática: um bbox só de Portugal falhava a auto-validação de um atleta com
+# squadrats em Espanha, e um bbox só da Ibéria falhava outro com squadrats
+# fora da Ibéria. Evita polos/Antártida (lat -60..75), onde não
 # há capturas possíveis, para não desperdiçar pedidos.
 WORLD_BBOX = (-180.0, -60.0, 180.0, 75.0)
 DISCOVERY_LEVELS = (4, 7, 10)  # zooms intermédios da cascata
@@ -304,7 +304,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
 
     Há três consumidores dos mesmos UIDs (`pipeline.py`, `fetch_club_koms.py`,
     `fetch_club_squares.py`). Corridos em processos separados, cada um varria
-    tudo outra vez — o José era varrido três vezes por run. Com esta cache e o
+    tudo outra vez — o primeiro atleta era varrido três vezes por run. Com esta cache e o
     `run_all.py` a chamá-los no mesmo processo, é um varrimento por atleta.
 
     Varre-se sempre com a geometria de troféus (é um superconjunto e não custa

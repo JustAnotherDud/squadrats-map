@@ -8,7 +8,7 @@ from shapely.ops import unary_union
 from tiles_fetch import fetch_tile, discover_coverage, _project_geometry, FETCH_CONCURRENCY
 from kml_parse import reconstruct_squares
 
-UID = "PjHY1RpxbmgMrQG3ITdTeDa7t6M2"
+UID = os.environ["SQUADRATS_UID"]  # firebase UID do atleta a analisar
 FETCH_ZOOM = 12
 
 coarse = discover_coverage(UID)

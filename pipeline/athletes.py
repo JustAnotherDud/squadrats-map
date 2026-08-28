@@ -1,30 +1,47 @@
 """Lista única dos atletas do clube.
 
-Antes desta extracção, os mesmos 5 nomes/UIDs viviam em triplicado
+Antes desta extracção, os mesmos nomes/UIDs viviam em triplicado
 (fetch_club_koms.py, fetch_club_squares.py, run_all.py) — um UID trocado
 por engano num só desses sítios só se notaria quando os totais não
 batessem. Agora há uma fonte só.
 
-fetch_club_squares.py depende da ORDEM de ATLETAS para atribuir os bits do
-bitmask dos squares partilhados (bit 0 = primeiro atleta, e por aí fora) —
-não reordenar sem regenerar o ficheiro de squares do club.
+Os dados (nome → firebase UID) vêm do env `ATHLETES_JSON`, não do código —
+é informação de terceiros, não pertence a um repo público. No CI vem de um
+secret (ver .github/workflows/fetch-map-data.yml); localmente, exportar à
+mão:
+
+    export ATHLETES_JSON='{"Nome A": "uid...", "Nome B": "uid..."}'
+
+A ORDEM das entradas é contrato: fetch_club_squares.py atribui o bit N do
+bitmask dos squares partilhados ao N-ésimo atleta (bit 0 = primeiro, e por
+aí fora) e club.html assume a mesma ordem nas cores. Não reordenar sem
+regenerar data/club.json.
 """
 import json
 import os
 
-ATHLETES = {
-    "Zé": "PjHY1RpxbmgMrQG3ITdTeDa7t6M2",
-    "Xeira": "yIVPnafX3WcNbDt5MKWqEZMqUD42",
-    "Carolina": "ZF81dc6PXFQm3iEfyNFMsUPlSHz2",
-    "Inês S.": "C4bIQgAqI7SlSo7SPsudWM4LSwq2",
-    "Pedro": "zrId7ywBfCQPt28q5VAzpva01ST2",
-}
+_raw = os.environ.get("ATHLETES_JSON", "").strip()
+if not _raw:
+    raise RuntimeError(
+        "ATHLETES_JSON não definido. Esperado: JSON {nome: firebase_uid, ...}, "
+        "na ordem que fixa os bits do bitmask (ver docstring). No CI vem de um "
+        "secret; localmente exportar à mão."
+    )
+try:
+    ATHLETES: dict[str, str] = json.loads(_raw)
+except json.JSONDecodeError as e:
+    raise RuntimeError(f"ATHLETES_JSON não é JSON válido: {e}") from e
+if not ATHLETES:
+    raise RuntimeError("ATHLETES_JSON está vazio.")
 
-# mesma ordem que ATHLETES (dict preserva ordem de inserção) — usada onde a
-# ordem importa (bitmask em fetch_club_squares.py)
+# mesma ordem que ATHLETES (o dict preserva a ordem de inserção do JSON) —
+# usada onde a ordem importa (bitmask em fetch_club_squares.py, cores em
+# club.html)
 ATLETAS = list(ATHLETES.items())
 
-JOSE_UID = ATHLETES["Zé"]
+# primeiro atleta na ordem = dono do mapa detalhado (run_all.py) — mesma
+# convenção do bit 0
+JOSE_UID = next(iter(ATHLETES.values()))
 
 
 def known_squadratinhos(out_dir):

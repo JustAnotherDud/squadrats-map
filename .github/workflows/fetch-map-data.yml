@@ -108,6 +108,11 @@ jobs:
       # (ver pipeline/run_all.py). Em passos separados, cada um varria os
       # mesmos UIDs outra vez.
       - name: Varrer e gerar tudo (mapa detalhado + totais do clube + club)
+        env:
+          # nomes → firebase UID dos atletas do clube; fora do código porque é
+          # informação de terceiros (ver pipeline/athletes.py). Ordem do JSON =
+          # ordem dos bits do bitmask, não mexer sem regenerar data/club.json.
+          ATHLETES_JSON: ${{ secrets.ATHLETES_JSON }}
         run: python3 pipeline/run_all.py data
 
       - name: Publicar na branch 'data' só se houver diferença real

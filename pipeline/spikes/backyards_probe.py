@@ -19,7 +19,7 @@ from tiles_fetch import (
 )
 from kml_parse import reconstruct_squares
 
-UID = "PjHY1RpxbmgMrQG3ITdTeDa7t6M2"  # Zé
+UID = os.environ["SQUADRATS_UID"]  # firebase UID do atleta a analisar
 LAYERS = ["yard", "backyards", "yardinho", "backyardinhos"]
 FETCH_ZOOM = 12
 

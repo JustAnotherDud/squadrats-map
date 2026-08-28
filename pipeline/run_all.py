@@ -2,7 +2,7 @@
 uma vez só.
 
 Em passos separados do workflow, cada script varria os mesmos UIDs de novo: o
-José três vezes por run, a Xeira e a Carolina duas. Eram ~1200 pedidos de
+primeiro atleta três vezes por run, dois deles duas. Eram ~1200 pedidos de
 tiles em duplicado, sem ganho nenhum — e o servidor da Squadrats não é uma API
 pública, por isso a metade que se poupa conta mais do que os minutos.
 
@@ -29,7 +29,7 @@ DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 def main(out_dir):
     inicio = time.time()
     passos = [
-        ("mapa detalhado (José)", lambda: pipeline.run_from_tiles(JOSE_UID, out_dir)),
+        ("mapa detalhado", lambda: pipeline.run_from_tiles(JOSE_UID, out_dir)),
         ("totais do clube", lambda: fetch_club_koms.main(out_dir)),
         ("squares do club", lambda: fetch_club_squares.main(out_dir)),
         # depende do club.json escrito no passo anterior (mesma corrida) —

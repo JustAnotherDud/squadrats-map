@@ -5,7 +5,7 @@ Uso:
   py pipeline.py --uid <firebase_uid> [pasta_saida]
 
 ATENÇÃO (2026-08-15): correr este ficheiro directamente só actualiza o mapa
-pessoal do José (tile_info_*.json, stats.json, trophies.json). Não toca em
+detalhado (index.html — tile_info_*.json, stats.json, trophies.json). Não toca em
 squadrats.json/club.json/daily_gains.json — os ficheiros que o folha-do-clube
 e o club.html lêem. Para actualizar tudo de uma vez (o que se quer quase
 sempre), usar `run_all.py`, não este ficheiro directamente. Fora de emergência
