@@ -1,261 +1,338 @@
 # squadrats-map
 
-Mapa de squares (squadrats/squadratinhos) capturados, com % por concelho/distrito de Portugal, servido via GitHub Pages.
+Map of captured squares (squadrats/squadratinhos), with % per
+municipality/district of Portugal, served via GitHub Pages.
 
-O ciclo é automático: `fetch-map-data.yml` corre 6x/dia, busca os dados **diretamente aos
-vector tiles da Squadrats** (sem export manual de KML) e publica se houver diferença real. Também
-publica `data/squadrats.json` — totais simples (sem breakdown geográfico) para os atletas do
-clube, consumido pelo `folha-do-clube` como o `prs.json`.
+The cycle is automatic: `fetch-map-data.yml` runs 6×/day, fetches the data
+**directly from Squadrats' vector tiles** (no manual KML export) and publishes
+if there is a real difference. It also publishes `data/squadrats.json` — plain
+totals (no geographic breakdown) for the club athletes, consumed by
+`folha-do-clube` the same way as its `prs.json`.
 
-**Dados numa branch própria (2026-08-14):** os ficheiros que o cron regenera (a lista completa
-está no `env.FILES` do `fetch-map-data.yml`) vivem na branch `data`, não no `master` — comitar no
-master fazia o Pages (modo clássico) rebuildar a cada corrida, e um push nosso a código ao mesmo
-tempo que o cron corria colidia com o commit do bot. Os 3 consumidores
-(`index.html`, `club.html`, `folha-do-clube`) leem esses ficheiros de
-`raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/...`, não do URL do Pages —
-mais rápido (sem rebuild) e sem esse risco de colisão. Os geojsons de fronteiras e o
-`adjacency.json` são estáticos, continuam só no `master`, caminho relativo normal.
+**Data on its own branch (2026-08-14):** the files the cron regenerates (the
+full list is in `env.FILES` of `fetch-map-data.yml`) live on the `data`
+branch, not `master` — committing on master made Pages (classic mode) rebuild
+on every run, and a code push of ours at the same time as the cron running
+collided with the bot's commit. The 3 consumers (`index.html`, `club.html`,
+`folha-do-clube`) read those files from
+`raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/...`, not the
+Pages URL — faster (no rebuild) and without that collision risk. The border
+geojsons and `adjacency.json` are static, they stay only on `master`, normal
+relative path.
 
-Até 2026-08-18 esses ficheiros dinâmicos continuavam **também** commitados no master, parados no dia
-da migração — 1,2 MB a dizer valores de 14 Ago enquanto o site já servia os de hoje, prontos a
-enganar quem fosse debugar por eles. Passaram para o `.gitignore`: existem só na branch `data`. Para
-trabalhar com eles localmente:
+Until 2026-08-18 those dynamic files were **also** still committed on master,
+frozen at the migration day — 1.2 MB stating 14 Aug values while the site
+already served today's, ready to mislead anyone debugging from them. They
+moved to `.gitignore`: they exist only on the `data` branch. To work with them
+locally:
 
 ```
 git checkout origin/data -- data/
 ```
 
-## Estrutura
+## Structure
 
-- `index.html` — o mapa detalhado do José (GitHub Pages serve isto na raiz)
-- `club.html` — página do club: squadratinhos dos atletas com conta Squadrats. Uma cor por
-  pessoa, e dois modos para os partilhados: **Quantos** (escala cinzenta pelo nº de donos —
-  legível de longe, é o defeito) e **Quem** (riscas com as cores dos donos, para aproximar e
-  investigar). Nenhuma vista responde bem às duas perguntas, e inventar cor por combinação não
-  escala: com 5 atletas seriam 26. Abaixo de 10px por square as riscas ficam mais finas que o
-  legível e o modo Quem cai para a escala cinzenta. Sem classificação por concelho nem troféus —
-  é outro assunto e outro ficheiro de dados (`data/club.json`). Squares desenhados em canvas
-  (~9000; em SVG o mapa engasgava a arrastar).
-- `data/` — ficheiros consumidos pelo `index.html` (geometria simplificada, classificação dos squares) + `squadrats.json` (totais do clube) + `trophies.json` (formas de yard/backyards/übersquadrat, para as camadas opcionais do mapa)
-- `pipeline/` — busca os squares do José e produz os ficheiros em `data/`
-  - `tiles_fetch.py` — **fonte principal**: fetch directo aos vector tiles da Squadrats
-    (`tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf`, endpoint não documentado, ver
-    "Regras de uso" abaixo). Descoberta em cascata (z4→z7→z10, cada nível só explora filhos dos
-    tiles com cobertura do nível anterior) — robusto a um atleta ter capturas em qualquer parte
-    do mundo, sem bbox fixo a adivinhar. Auto-validação obrigatória: a contagem reconstruída de
-    `squadrats`/`squadratinhos` tem de bater exatamente com o `size` que o próprio servidor
-    reporta — se não bater, `pipeline.py`/`fetch_club_koms.py` rebentam em vez de publicar dados
-    errados.
-    A cascata só corre quando é precisa: a cobertura z10 de cada atleta fica em
-    `data/scan_cache.json` (coordenadas derivadas, nunca tiles em bruto; mais grosseiro do que o
-    que o `club.json` já publica) e a corrida seguinte vai directa a esses tiles z10 — era ~2/3 dos
-    pedidos de cada corrida. Seguro porque a cobertura nunca encolhe e a auto-validação acima
-    invalida a cache sozinha: se o atleta capturou numa zona nova, a reconstrução não bate com o
-    `size`, faz-se a descoberta completa (sem repetir os tiles já buscados) e a cache refaz-se.
-    Busca-se a z10, não a z12 (2026-08-15, ver `tiles_fetch.FETCH_ZOOM`): testado ao vivo que o
-    servidor não simplifica geometria a zooms mais grosseiros — z10 devolve o total exacto, com
-    16x menos tiles que z12 para a mesma área.
-  - `run_all.py` — **ponto de entrada do workflow**: corre os três consumidores no mesmo
-    processo, para cada atleta ser varrido uma vez só. Em passos separados, o José era varrido
-    três vezes por run e a Xeira/Carolina duas — ~1200 pedidos em duplicado. A cache está no
-    `tiles_fetch.scan_athlete`. Os três scripts continuam a correr sozinhos, para debug.
-  - `suggestions.py` — sugestões de progresso -> `data/suggestions.json`. `verify_rules()` é o
-    guard: confirma que reproduzimos o yard/übersquadrat que o servidor reporta antes de
-    publicar seja o que for. `corredores()` procura o caminho mais barato para ligar um
-    cluster fechado ao yard — é onde estão os saltos grandes (capturas isoladas nunca
-    passam de +4/+5). O ganho publicado vem sempre de recalcular os clusters, nunca de
-    aritmética sobre tamanhos.
-  - `pipeline.py` — orquestrador do mapa detalhado. `py pipeline.py --uid <firebase_uid> <out_dir>`
-  - `fetch_club_koms.py` — totais simples (todas as 8 camadas) para Zé/Xeira/Carolina → `data/squadrats.json`.
-    Também actualiza `data/daily_gains.json` (ganhos por dia, ver `daily_gains.py` — baseline é o
-    `ultimo_total` guardado no próprio ficheiro, nunca o git: no CI o checkout é shallow e o
-    histórico não existe).
-    Histórico inicial (24 Jul em diante) reconstruído uma vez com `backfill_daily_gains.py`.
-  - `fetch_club_squares.py` — squadratinhos dos mesmos três, com bitmask de quem tem cada square →
-    `data/club.json` (o `fetch_club_koms.py` só traz totais; este traz as coordenadas).
-    A ordem da lista `ATLETAS` fixa a atribuição dos bits: não reordenar
-    sem regenerar o ficheiro.
-  - `kml_parse.py` — matemática da grelha XYZ: conversão lon/lat ↔ tile e reconstrução dos squares
-    individuais (x, y, zoom). Nome histórico — nasceu a fazer parse do KML exportado à mão, caminho
-    removido em 2026-08-18; ficou só a geometria, partilhada por quase todo o pipeline
-    (`compute_grid_totals`, `classify_club`, `fetch_club_squares`, `fetch_club_koms`, `pipeline`)
-  - `classify.py` — classifica cada square em concelho/distrito (point-in-polygon com STRtree)
-  - `compute_grid_totals.py` — **one-off**, corre manualmente, nunca pelo pipeline: calcula quantos tiles (zoom14/17) existem no total em cada concelho/distrito/país, usando o mesmo critério do `classify.py` (centro do tile). Output commitado em `refdata/grid_totals.json` — recalcular sempre que as fronteiras OU a regra de classificação (`classify.py`) mudarem, para os totais nunca divergirem do critério usado nos capturados.
-  - `compute_adjacency.py` — **one-off**: adjacência entre concelhos/distritos/províncias ES (`geom.buffer(eps).intersects()`) + greedy coloring sobre a paleta categórica do `index.html`, para vizinhos nunca partilharem cor no modo "Cores: região". Output commitado em `data/adjacency.json`. Recalcular só se as fronteiras mudarem.
-  - `refdata/` — fronteiras de concelho/distrito **não simplificadas** (só para classificação — mais precisas que as de `data/`, que estão simplificadas para pesarem menos no browser) + `grid_totals.json`
-  - `refdata/foreign/` — geometria de precisão de regiões estrangeiras, um ficheiro por país (`ES.geojson`). Adicionar um país novo (ex: França) = só adicionar `FR.geojson` com o mesmo formato (`properties.country` + `properties.region` por feature), zero alterações de código em `classify.py`/`pipeline.py`.
-  - `spikes/` — scripts de teste/validação usados durante o desenvolvimento — não fazem parte do pipeline em produção
+- `index.html` — the map owner's detailed map (GitHub Pages serves this at the
+  root)
+- `club.html` — the club page: squadratinhos of the athletes with a Squadrats
+  account. One colour per person, and two modes for the shared ones: **How
+  many** (grey scale by number of owners — legible from afar, it is the
+  default) and **Who** (stripes in the owners' colours, to zoom in and
+  investigate). Neither view answers both questions well, and inventing a
+  colour per combination does not scale: with 5 athletes that would be 26.
+  Below 10px per square the stripes get thinner than legible and the Who mode
+  falls back to the grey scale. No per-municipality classification or trophies
+  — that is a different subject and a different data file (`data/club.json`).
+  Squares drawn on canvas (~9000; in SVG the map choked when dragging).
+- `data/` — files consumed by `index.html` (simplified geometry, square
+  classification) + `squadrats.json` (club totals) + `trophies.json`
+  (yard/backyards/übersquadrat shapes, for the map's optional layers)
+- `pipeline/` — fetches the map owner's squares and produces the files in
+  `data/`
+  - `tiles_fetch.py` — **main source**: direct fetch from Squadrats' vector
+    tiles (`tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf`,
+    undocumented endpoint, see "Usage rules" below). Cascading discovery
+    (z4→z7→z10, each level only explores children of tiles with coverage at
+    the previous level) — robust to an athlete having captures anywhere in the
+    world, with no fixed bbox to guess. Mandatory self-validation: the
+    reconstructed count of `squadrats`/`squadratinhos` must match exactly the
+    `size` the server itself reports — if it does not,
+    `pipeline.py`/`fetch_club_koms.py` blow up instead of publishing wrong
+    data.
+    The cascade only runs when needed: each athlete's z10 coverage is stored
+    in `data/scan_cache.json` (derived coordinates, never raw tiles; coarser
+    than what `club.json` already publishes) and the next run goes straight to
+    those z10 tiles — it was ~2/3 of each run's requests. Safe because
+    coverage never shrinks and the self-validation above invalidates the cache
+    on its own: if the athlete captured in a new area, the reconstruction does
+    not match `size`, full discovery runs (without repeating tiles already
+    fetched) and the cache is rebuilt.
+    Fetched at z10, not z12 (2026-08-15, see `tiles_fetch.FETCH_ZOOM`): tested
+    live that the server does not simplify geometry at coarser zooms — z10
+    returns the exact total, with 16× fewer tiles than z12 for the same area.
+  - `run_all.py` — **workflow entry point**: runs the three consumers in the
+    same process, so each athlete is scanned only once. In separate steps, the
+    first athlete was scanned three times per run and two others twice — ~1200
+    duplicated requests. The cache is in `tiles_fetch.scan_athlete`. The three
+    scripts still run standalone, for debugging.
+  - `suggestions.py` — progress suggestions -> `data/suggestions.json`.
+    `verify_rules()` is the guard: it confirms we reproduce the
+    yard/übersquadrat the server reports before publishing anything.
+    `corredores()` looks for the cheapest path to connect a closed cluster to
+    the yard — that is where the big gains are (isolated captures never go
+    beyond +4/+5). The published gain always comes from recomputing the
+    clusters, never from arithmetic on sizes.
+  - `pipeline.py` — detailed-map orchestrator.
+    `py pipeline.py --uid <firebase_uid> <out_dir>`
+  - `fetch_club_koms.py` — plain totals (all 8 layers) for the club athletes →
+    `data/squadrats.json`. Also updates `data/daily_gains.json` (gains per
+    day, see `daily_gains.py` — baseline is the `ultimo_total` stored in the
+    file itself, never git: in CI the checkout is shallow and history does not
+    exist). Initial history (24 Jul onward) reconstructed once with
+    `backfill_daily_gains.py`.
+  - `fetch_club_squares.py` — squadratinhos of the same athletes, with a
+    bitmask of who has each square → `data/club.json` (`fetch_club_koms.py`
+    only brings totals; this one brings the coordinates). The order of the
+    `ATLETAS` list fixes the bit assignment: do not reorder without
+    regenerating the file.
+  - `kml_parse.py` — XYZ grid maths: lon/lat ↔ tile conversion and
+    reconstruction of individual squares (x, y, zoom). Historical name — it
+    was born parsing hand-exported KML, that path removed 2026-08-18; only the
+    geometry remained, shared by almost the whole pipeline
+    (`compute_grid_totals`, `classify_club`, `fetch_club_squares`,
+    `fetch_club_koms`, `pipeline`)
+  - `classify.py` — classifies each square into municipality/district
+    (point-in-polygon with STRtree)
+  - `compute_grid_totals.py` — **one-off**, run manually, never by the
+    pipeline: computes how many tiles (zoom14/17) exist in total in each
+    municipality/district/country, using the same criterion as `classify.py`
+    (tile centre). Output committed to `refdata/grid_totals.json` — recompute
+    whenever the borders OR the classification rule (`classify.py`) change, so
+    the totals never diverge from the criterion used on the captured ones.
+  - `compute_adjacency.py` — **one-off**: adjacency between
+    municipalities/districts/ES provinces (`geom.buffer(eps).intersects()`) +
+    greedy coloring over `index.html`'s categorical palette, so neighbours
+    never share a colour in the "Colours: region" mode. Output committed to
+    `data/adjacency.json`. Recompute only if the borders change.
+  - `refdata/` — municipality/district borders **not simplified** (for
+    classification only — more precise than those in `data/`, which are
+    simplified to weigh less in the browser) + `grid_totals.json`
+  - `refdata/foreign/` — precision geometry of foreign regions, one file per
+    country (`ES.geojson`). Adding a new country (e.g. France) = just add
+    `FR.geojson` in the same format (`properties.country` +
+    `properties.region` per feature), zero code changes in
+    `classify.py`/`pipeline.py`.
+  - `spikes/` — test/validation scripts used during development — not part of
+    the production pipeline
 - `.github/workflows/`
-  - `fetch-map-data.yml` — **o único**, cron 6x/dia (01/05/09/13/17/22h UTC — a última perto do
-    fim do dia em Lisboa, com ~2h de folga até à meia-noite UTC para absorver atrasos do GitHub
-    Actions a disparar o cron). Leva também o passo de heartbeat que mantém o `schedule` vivo
+  - `fetch-map-data.yml` — **the only one**, cron 6×/day (01/05/09/13/17/22h
+    UTC — the last one near the end of the day in Lisbon, with ~2h of slack
+    until midnight UTC to absorb GitHub Actions delays firing the cron). It
+    also carries the heartbeat step that keeps the `schedule` alive.
 
-## O que significa cada camada (`size`)
+## What each layer's `size` means
 
-Confirmado empiricamente (`pipeline/spikes/backyards_probe.py`, 25 jul 2026) — o `size` **não
-significa a mesma coisa em todas as camadas**:
+Empirically confirmed (`pipeline/spikes/backyards_probe.py`, 25 Jul 2026) —
+`size` **does not mean the same thing in every layer**:
 
-| Camada | `size` é… | Verificado (Zé) |
+| Layer | `size` is… | Verified (map owner) |
 |---|---|---|
-| `squadrats` / `squadratinhos` | nº de **squares** visitados | 392 squares / 5050 squares |
-| `yard` / `yardinho` | nº de **squares** do maior cluster fechado | 90 squares em 1 cluster / 480 em 1 |
-| `ubersquadrat` / `ubersquadratinho` | o **N** do maior quadrado cheio NxN | 6 → 6x6 |
-| `backyards` / `backyardinhos` | nº de **clusters** fechados, **incluindo o principal** | 10 clusters (101 squares) / 144 clusters (1264 squares) |
+| `squadrats` / `squadratinhos` | number of **squares** visited | 392 squares / 5050 squares |
+| `yard` / `yardinho` | number of **squares** in the largest closed cluster | 90 squares in 1 cluster / 480 in 1 |
+| `ubersquadrat` / `ubersquadratinho` | the **N** of the largest full NxN square | 6 → 6x6 |
+| `backyards` / `backyardinhos` | number of **closed clusters**, **including the main one** | 10 clusters (101 squares) / 144 clusters (1264 squares) |
 
-"Cluster fechado" = conjunto contíguo de squares visitados em que cada um tem os 4 vizinhos
-(N/E/S/O) também visitados.
+"Closed cluster" = contiguous set of visited squares where each one also has
+its 4 neighbours (N/E/S/W) visited.
 
-**A pegadinha do `backyards`:** conta clusters, não squares — e a sua geometria **contém** a do
-`yard` (verificado: `backyards.contains(yard) == True`, área da interseção idêntica à do yard).
-Logo `yard + backyards` **não** é somável: dos 10 backyards do Zé, 1 é o yard principal (90
-squares) e os outros 9 somam 11 squares entre todos — quase todos um único square fechado
-isolado, invisíveis no mapa e não renderizados pela app. Isto fecha a questão que estava em
-aberto no brief de investigação (§10.1).
+**The `backyards` gotcha:** it counts clusters, not squares — and its geometry
+**contains** that of the `yard` (verified: `backyards.contains(yard) == True`,
+intersection area identical to the yard's). So `yard + backyards` is **not**
+additive: of the map owner's 10 backyards, 1 is the main yard (90 squares) and
+the other 9 sum to 11 squares between them all — almost all a single isolated
+closed square, invisible on the map and not rendered by the app. This closes
+the question that was open in the investigation brief (§10.1).
 
-**No mapa:** estas formas estão em `data/trophies.json` e podem ser ligadas nos chips do topo
-(desligadas por defeito), seguindo a grelha activa — em Squadrats mostram yard/backyards/über, em
-Squadratinhos as versões "-inho". A geometria de `backyards` publicada aí é a dos clusters
-**secundários** (subtrai-se o yard, para as duas camadas poderem estar ligadas ao mesmo tempo sem
-se taparem); o `size` continua a ser o do servidor, com o yard incluído.
+**On the map:** these shapes are in `data/trophies.json` and can be toggled in
+the chips at the top (off by default), following the active grid — in
+Squadrats they show yard/backyards/über, in Squadratinhos the "-inho"
+versions. The `backyards` geometry published there is that of the
+**secondary** clusters (the yard is subtracted, so both layers can be on at
+the same time without covering each other); `size` is still the server's, with
+the yard included.
 
-## Regras de uso do endpoint de vector tiles
+## Vector-tile endpoint usage rules
 
-`tiles1.squadrats.com` não é uma API pública nem documentada — são dados que os atletas tornaram
-públicos e cujos links partilharam voluntariamente (o URL do mapa em `squadrats.com/map/{uid}/17`
-já expõe o UID). Para não abusar:
+`tiles1.squadrats.com` is not a public or documented API — it is data the
+athletes made public and whose links they shared voluntarily (the map URL at
+`squadrats.com/map/{uid}/17` already exposes the UID). To avoid abuse:
 
-- Correr no máximo 6x/dia (`fetch-map-data.yml`, cron `7 1,5,9,13,17,22 * * *`). Era semanal,
-  depois diário, subiu a 2x/dia em 2026-08-08 (só ficou justificável depois da cache de cobertura
-  do `tiles_fetch.py` cortar o custo por corrida em 68%) e a 6x/dia em 2026-08-14, a seguir ao
-  probe de 1 pedido/atleta (ver abaixo) — passo intermédio de propósito, não foi logo para 1x/hora.
-  Pior caso hoje (todos os 5 mudaram desde a última corrida, `FETCH_ZOOM=10`, ver abaixo): ~138
-  pedidos (era ~2032 a z12, antes de 2026-08-15) — a 6x/dia isso são ~828/dia se acontecesse
-  sempre, mas não acontece: com o probe, quem não mudou custa só 1 pedido, e correr mais vezes não
-  faz alguém mudar mais vezes. Na prática a maioria das corridas fica bem abaixo disto. Não subir a
-  frequência sem recalcular este orçamento pelo PIOR caso, não pelo médio.
-- `User-Agent` identificável (`squadrats-map-sync/1.0 (+github.com/...)`, ver `tiles_fetch.py`)
-- Concorrência baixa (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` em `tiles_fetch.py` — subiu de
-  4 em 2026-08-08, testado sem 500s/lentidão; não subir mais sem repetir essa verificação)
-- Nunca publicar os tiles em bruto — só os agregados derivados (`tile_info_*.json`, `stats.json`, `squadrats.json`)
-- O `{TS}` no URL tem de ser fresco (`int(time.time()*1000)`) a cada pedido — o servidor ignora o
-  valor mas o URL é a chave de cache; um timestamp fixo pode devolver dados congelados sem erro
-  nenhum (falha silenciosa). **Actualizado 2026-08-14**: testado ao vivo (com `ts` fixo e com `ts`
-  real) e a resposta vem sempre com `Cache-Control: no-store`, não `max-age=31536000` como esta
-  nota dizia antes — não há CDN nem cache de resposta para explorar (não vale a pena tentar poupar
-  pedidos por aí). Mantém-se o `ts` fresco na mesma: o aviso de "dados congelados" pode não ser só
-  sobre cache HTTP, e não há necessidade de mexer nisso — o ganho real de pedidos está no probe de
-  `tiles_fetch.py` (ver abaixo).
-- Probe de 1 pedido antes de varrer a sério (2026-08-14, `tiles_fetch._probe_sem_alteracoes`): lê o
-  total global de squadratinhos embutido em qualquer tile já conhecido e compara com o último
-  publicado (`data/squadrats.json`). Squadratinhos é a grelha mais fina — qualquer ganho nas outras
-  7 camadas implica sempre um squadratinho novo, nunca ao contrário — por isso esta única contagem
-  chega para confirmar "nada mudou" e saltar o resto do varrimento desse atleta. Corta uma corrida
-  parada de ~2032 pedidos para ~5 (1 por atleta); só paga o custo cheio de quem realmente captou
-  algo. Comparação por igualdade estrita (não "≥"): uma actividade apagada/cortada depois de
-  publicada pode fazer o total BAIXAR, e isso também tem de disparar o scan completo.
-- Fetch fino a z10, não z12 (2026-08-15, `tiles_fetch.FETCH_ZOOM`): testado ao vivo — o servidor
-  devolve a geometria exacta dos squares independentemente do zoom pedido, só recortada a uma bbox
-  maior, sem simplificar. Confirmado com reconstrução completa == `size` declarado em z10/z9/z8/z7
-  (os 5 atletas do clube, e também numa conta de 3984 células z10 para testar escala). Falha a
-  partir de z4 (perde squares) e rebenta a z2/z0 — nunca chegar perto disso. z10 fica com 4 zooms
-  de margem, e corta o custo de quem realmente mudou em mais 16x (672 -> 42 pedidos no caso do
-  José). Ainda haveria margem para z9/z8/z7 — não usada de propósito, o ganho marginal não
-  compensa arriscar mais perto do limite desconhecido.
+- Run at most 6×/day (`fetch-map-data.yml`, cron `7 1,5,9,13,17,22 * * *`). It
+  was weekly, then daily, went to 2×/day on 2026-08-08 (only justifiable after
+  `tiles_fetch.py`'s coverage cache cut the per-run cost by 68%) and to 6×/day
+  on 2026-08-14, following the 1-request/athlete probe (see below) — an
+  intermediate step on purpose, not straight to 1×/hour. Worst case today (all
+  5 changed since the last run, `FETCH_ZOOM=10`, see below): ~138 requests (it
+  was ~2032 at z12, before 2026-08-15) — at 6×/day that is ~828/day if it
+  always happened, but it does not: with the probe, whoever did not change
+  costs only 1 request, and running more often does not make anyone change
+  more often. In practice most runs are well below this. Do not raise the
+  frequency without recomputing this budget by the WORST case, not the
+  average.
+- Identifiable `User-Agent` (`squadrats-map-sync/1.0 (+github.com/...)`, see
+  `tiles_fetch.py`)
+- Low concurrency (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` in
+  `tiles_fetch.py` — up from 4 on 2026-08-08, tested without 500s/new
+  slowness; do not raise further without repeating that check)
+- Never publish the raw tiles — only the derived aggregates
+  (`tile_info_*.json`, `stats.json`, `squadrats.json`)
+- The `{TS}` in the URL has to be fresh (`int(time.time()*1000)`) on every
+  request — the server ignores the value but the URL is the cache key; a fixed
+  timestamp can return frozen data with no error at all (silent failure).
+  **Updated 2026-08-14**: tested live (with fixed `ts` and with real `ts`) and
+  the response always comes with `Cache-Control: no-store`, not
+  `max-age=31536000` as this note said before — there is no CDN or response
+  cache to exploit (not worth trying to save requests that way). Keep `ts`
+  fresh anyway: the "frozen data" warning may not be only about HTTP cache,
+  and there is no need to touch it — the real request saving is in
+  `tiles_fetch.py`'s probe (see below).
+- 1-request probe before scanning for real (2026-08-14,
+  `tiles_fetch._probe_sem_alteracoes`): reads the global squadratinhos total
+  embedded in any already-known tile and compares it with the last published
+  one (`data/squadrats.json`). Squadratinhos is the finest grid — any gain in
+  the other 7 layers always implies a new squadratinho, never the other way
+  round — so this single count is enough to confirm "nothing changed" and skip
+  the rest of that athlete's scan. Cuts an unchanged run of ~2032 requests to
+  ~5 (1 per athlete); only pays the full cost for whoever actually captured
+  something. Strict-equality comparison (not "≥"): an activity deleted/cropped
+  after being published can make the total go DOWN, and that also has to
+  trigger the full scan.
+- Fine fetch at z10, not z12 (2026-08-15, `tiles_fetch.FETCH_ZOOM`): tested
+  live — the server returns the exact square geometry regardless of the
+  requested zoom, only clipped to a larger bbox, without simplifying.
+  Confirmed with full reconstruction == declared `size` at z10/z9/z8/z7 (the 5
+  club athletes, and also on a 3984-cell z10 account to test scale). It fails
+  from z4 (loses squares) and blows up at z2/z0 — never go near that. z10
+  leaves 4 zooms of margin, and cuts the cost of whoever actually changed by
+  another 16× (672 -> 42 requests for the map owner). There would still be
+  margin for z9/z8/z7 — deliberately not used, the marginal gain does not
+  justify risking closer to the unknown limit.
 
-### Nota sobre nomes de concelho duplicados
+### Note on duplicate municipality names
 
-Dois pares de concelhos têm o mesmo nome em Portugal: **Calheta** (Açores/Madeira) e **Lagoa**
-(Açores/Algarve). Os ficheiros de fronteiras (`concelhos_pt.geojson`, refdata e display) já vêm
-com isso desambiguado — `Calheta (Açores)`, `Calheta (Madeira)`, `Lagoa (Açores)`, `Lagoa (Faro)` —
-gerado a partir do `NAME_1` (distrito/região) do GADM. Sem isto, os dois concelhos colidiam na
-mesma chave e um dos dois perdia todas as capturas/totais na agregação.
+Two pairs of municipalities have the same name in Portugal: **Calheta**
+(Azores/Madeira) and **Lagoa** (Azores/Algarve). The border files
+(`concelhos_pt.geojson`, refdata and display) already come with this
+disambiguated — `Calheta (Açores)`, `Calheta (Madeira)`, `Lagoa (Açores)`,
+`Lagoa (Faro)` — generated from GADM's `NAME_1` (district/region). Without
+this, the two municipalities collided on the same key and one of them lost all
+captures/totals in the aggregation.
 
-### Regiões estrangeiras (Espanha e futuras)
+### Foreign regions (Spain and future ones)
 
-Squares fora de Portugal são classificados por província espanhola quando há geometria
-disponível (`refdata/foreign/ES.geojson`, 52 províncias/GADM ESP nível 2, nomes corrigidos —
-`Asturias`, `Cantabria`, `Madrid`, `León`, etc., sem os espaços em falta do GADM). Sem geometria
-para o país em causa (ex: um square em França, hoje), o square fica genérico — `country`/`region`
-a `null` no `tile_info_*.json`, contado em `stats.foreign[zkey].unclassified`, sem quebrar nada.
+Squares outside Portugal are classified by Spanish province when geometry is
+available (`refdata/foreign/ES.geojson`, 52 provinces/GADM ESP level 2, names
+corrected — `Asturias`, `Cantabria`, `Madrid`, `León`, etc., without GADM's
+missing spaces). Without geometry for the country in question (e.g. a square in
+France, today), the square stays generic — `country`/`region` `null` in
+`tile_info_*.json`, counted in `stats.foreign[zkey].unclassified`, without
+breaking anything.
 
-Só a **contagem** de capturados por província é calculada (`stats.json` → `foreign`) — não há
-"total da grelha" nem `%` para regiões estrangeiras (seria trabalho especulativo sem volume de
-dados; ver `grid_totals.json`, que já tem o schema preparado mas não calcula nada para ES).
+Only the **count** of captured per province is computed (`stats.json` →
+`foreign`) — there is no "grid total" or `%` for foreign regions (it would be
+speculative work without data volume; see `grid_totals.json`, which already has
+the schema prepared but computes nothing for ES).
 
-## Rodar o pipeline manualmente
+## Running the pipeline manually
 
 ```
 py -m pip install -r requirements.txt
-py pipeline/pipeline.py --uid PjHY1RpxbmgMrQG3ITdTeDa7t6M2 data   # José, via vector tiles
-py pipeline/fetch_club_koms.py data                                # totais dos 3 atletas
+py pipeline/pipeline.py --uid <FIREBASE_UID> data   # a club athlete, via vector tiles
+py pipeline/fetch_club_koms.py data                 # totals for the club athletes
 ```
 
-Produz `data/tile_info_squadrats.json`, `data/tile_info_squadratinhos.json`, `data/stats.json` e `data/squadrats.json`.
+Produces `data/tile_info_squadrats.json`,
+`data/tile_info_squadratinhos.json`, `data/stats.json` and
+`data/squadrats.json`.
 
-## Arquitetura
+`ATHLETES_JSON` (env) holds `{name: firebase_uid, ...}` for the club athletes —
+kept out of the code because it is third-party data (see
+`pipeline/athletes.py`). In CI it comes from a repo secret; locally, export it
+by hand. The JSON order fixes the bitmask bit order — do not reorder without
+regenerating `data/club.json`.
 
-### Vector tiles (`fetch-map-data.yml`, cron 6x/dia)
+## Architecture
+
+### Vector tiles (`fetch-map-data.yml`, cron 6×/day)
 
 ```
-[fetch-map-data.yml, cron 6x/dia ou workflow_dispatch]
+[fetch-map-data.yml, cron 6x/day or workflow_dispatch]
                     |
                     v
 [tiles_fetch.py] --fetch--> tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf
-   descoberta em cascata z4->z7->z10, depois busca esses tiles z10 directamente
-   auto-validação: contagem reconstruída == `size` do servidor, senão rebenta
+   cascading discovery z4->z7->z10, then fetch those z10 tiles directly
+   self-validation: reconstructed count == server `size`, else blow up
                     |
       +-------------+-------------+
       |                           |
       v                           v
 [pipeline.py --uid]      [fetch_club_koms.py]
-  José -> classify.py       Zé/Xeira/Carolina -> totais simples (8 camadas)
-  -> tile_info_*.json,      -> data/squadrats.json
+  map owner -> classify.py   club athletes -> plain totals (8 layers)
+  -> tile_info_*.json,       -> data/squadrats.json
      data/stats.json
       |                           |
       +-------------+-------------+
                     |
                     v
-          commit condicional (só se houver diff real)
+          conditional commit (only on a real diff)
                     |
                     v
-          [GitHub Pages: redeploy automático]
+          [GitHub Pages: automatic redeploy]
 ```
 
-### Caminho por KML/Drive — removido (2026-08-18)
+### KML/Drive path — removed (2026-08-18)
 
-Existiu um segundo caminho, mantido como fallback: export manual de KML para uma pasta do Google
-Drive → `changes.watch()` → duas Edge Functions no Supabase → `repository_dispatch` →
-`process-kml.yml`. Foi removido por inteiro (workflows, Edge Functions, migrations,
-`download_kml.py`, spikes `t1_*`/`t5_*`, deps `google-*` do `requirements.txt`) — não corria desde
-27 Jul 2026 e custava dois crons, uma tabela e quatro secrets para ficar parado.
+There was a second path, kept as a fallback: manual KML export to a Google
+Drive folder → `changes.watch()` → two Supabase Edge Functions →
+`repository_dispatch` → `process-kml.yml`. It was removed entirely (workflows,
+Edge Functions, migrations, `download_kml.py`, `t1_*`/`t5_*` spikes,
+`google-*` deps from `requirements.txt`) — it had not run since 27 Jul 2026 and
+cost two crons, a table and four secrets to sit idle.
 
-Se o endpoint de vector tiles for bloqueado sem aviso (não documentado, sem API pública — ver
-"Regras de uso" acima), o caminho tem de ser reconstruído; está no histórico até ao commit anterior
-a esta remoção. A geometria da grelha (`kml_parse.py`) ficou, é partilhada pelo pipeline vivo.
+If the vector-tile endpoint is blocked without warning (undocumented, no
+public API — see "Usage rules" above), the path has to be rebuilt; it is in
+history up to the commit before this removal. The grid geometry
+(`kml_parse.py`) stayed, it is shared by the live pipeline.
 
-**Secrets a revogar** (já não são usados por nada): `GOOGLE_SA_KEY`, `GH_PAT`, `CHANNEL_TOKEN`,
-`SETUP_TOKEN` — no Supabase, nos GitHub Actions secrets, e a chave da service account
-`squadrats-drive-sa@garmin-calendar-sync-488923` na Google Cloud. Localmente, `.secrets/` (ignorado
-pelo git) só tem ficheiros deste caminho.
+**Secrets to revoke** (no longer used by anything): `GOOGLE_SA_KEY`, `GH_PAT`,
+`CHANNEL_TOKEN`, `SETUP_TOKEN` — in Supabase, in the GitHub Actions secrets,
+and the service account key `squadrats-drive-sa@garmin-calendar-sync-488923`
+in Google Cloud. Locally, `.secrets/` (git-ignored) only has files from this
+path.
 
-## Debugar: "o mapa parou de atualizar"
+## Debugging: "the map stopped updating"
 
-1. **`fetch-map-data.yml` corre mas falha.** A causa mais provável é a auto-validação a apanhar um
-   varrimento incompleto — ver logs do run, a mensagem diz qual camada/UID não bateu com o `size`
-   do servidor. Se for um atleta com capturas nalgum sítio muito remoto que os níveis de cascata
-   (`DISCOVERY_LEVELS = (4, 7, 10)` em `tiles_fetch.py`) não apanharam, ajustar os níveis ou correr
-   manualmente com um `bbox=` mais específico primeiro para confirmar onde está a cobertura em falta.
-2. **UID devolve 500.** `SquadratsHttpError` — o UID mudou ou ficou inválido. Confirmar em
-   `squadrats.com/map/{uid}/17` que o mapa do atleta ainda abre.
-3. **O endpoint de vector tiles mudou ou está bloqueado.** Não é documentado, pode mudar sem aviso
-   (ver "Regras de uso" acima). Já não há fallback automático — o caminho por KML/Drive foi removido
-   em 2026-08-18 (ver secção da arquitetura). Recuperar significa reconstruí-lo a partir do
-   histórico, ou reescrever o `tiles_fetch.py` para a fonte nova que houver.
-4. **O schedule do GitHub foi desativado por inatividade (60 dias sem commits).** Corre
-   `workflow_dispatch` no `fetch-map-data.yml` uma vez — reativa o schedule. O passo de heartbeat
-   desse workflow existe para isto nunca chegar a acontecer.
+1. **`fetch-map-data.yml` runs but fails.** The most likely cause is the
+   self-validation catching an incomplete scan — check the run logs, the
+   message says which layer/UID did not match the server's `size`. If it is an
+   athlete with captures somewhere very remote that the cascade levels
+   (`DISCOVERY_LEVELS = (4, 7, 10)` in `tiles_fetch.py`) did not reach, adjust
+   the levels or run manually with a more specific `bbox=` first to confirm
+   where the missing coverage is.
+2. **UID returns 500.** `SquadratsHttpError` — the UID changed or became
+   invalid. Confirm at `squadrats.com/map/{uid}/17` that the athlete's map
+   still opens.
+3. **The vector-tile endpoint changed or is blocked.** It is not documented,
+   it can change without warning (see "Usage rules" above). There is no
+   automatic fallback anymore — the KML/Drive path was removed on 2026-08-18
+   (see the architecture section). Recovering means rebuilding it from
+   history, or rewriting `tiles_fetch.py` for whatever new source there is.
+4. **GitHub disabled the `schedule` due to inactivity (60 days without
+   commits).** Run `workflow_dispatch` on `fetch-map-data.yml` once — it
+   reactivates the schedule. That workflow's heartbeat step exists so this
+   never gets to happen.
 
-## Ver também
+## See also
 
-`squadrats-pipeline-plano.md` — plano original com o histórico de decisões e resultados de cada
-spike (T1-T9).
+`squadrats-pipeline-plano.md` — the original plan with the decision history
+and results of each spike (T1-T9).
