@@ -96,17 +96,17 @@
 // distinguíveis, por isso a escala dos partilhados é deliberadamente neutra
 // — o *quem* de cada square continua no tooltip (hover/click) e no Detalhe.
 //
-// Matizes escolhidas o mais afastadas possível umas das outras: 0 (vermelho),
-// 48 (amarelo), 142 (verde), 199 (azul), 271 (roxo). A ordem tem de acompanhar
-// a lista ATLETAS do pipeline/fetch_club_squares.py, que é quem fixa os bits.
-// uma cor por atleta, na ordem de ATLETAS (pipeline/fetch_club_squares.py) —
-// nomes vêm dos dados (data/club.json), não daqui
-const COR_ATLETA = [
-  '#ef4444', // vermelho
-  '#a855f7', // roxo
-  '#facc15', // amarelo
-  '#22c55e', // verde
-  '#38bdf8', // azul
+// Uma cor por atleta, na ordem de ATLETAS (pipeline/fetch_club_squares.py),
+// que é quem fixa os bits. As cores em si vêm da fonte única
+// data/membros_cores.json (partilhada com o club-koms) — carregada no arranque
+// e remapeada por nome (ver mais abaixo). Esta lista é só o fallback offline,
+// na mesma ordem de ATLETAS: Zé, Xeira, Carolina, Inês S., Pedro.
+let COR_ATLETA = [
+  '#e03131', // vermelho  (Zé)
+  '#9c46d8', // roxo      (Xeira)
+  '#c99a00', // dourado   (Carolina)
+  '#e8710a', // laranja   (Inês S.)
+  '#2f5fd0', // azul      (Pedro)
 ];
 
 // bandeiras do shared.js (as mesmas do index.html) — aqui em 13x10, um pouco
@@ -567,6 +567,19 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
   dados = await r.json();
   dados.squares.forEach(([x, y, m]) => porCoord.set(x + ',' + y, m));
   activos = (1 << dados.atletas.length) - 1;
+
+  // Cores dos membros: fonte única em data/membros_cores.json (branch main,
+  // partilhada com o club-koms). Remapeia COR_ATLETA por nome; se a fetch
+  // falhar ou faltar um nome, fica o fallback offline definido em cima.
+  try {
+    const rc = await fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/main/data/membros_cores.json', { cache: 'no-cache' });
+    if (rc.ok) {
+      const { cores } = await rc.json();
+      COR_ATLETA = dados.atletas.map((a, i) => cores[a.nome] || COR_ATLETA[i]);
+    }
+  } catch (e) {
+    console.warn('membros_cores.json indisponível, a usar fallback:', e);
+  }
 
   camadaSquares = new CamadaSquares().addTo(map);
   renderAtletas();

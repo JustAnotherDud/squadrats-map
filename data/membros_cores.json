@@ -1,0 +1,13 @@
+{
+  "_nota": "Fonte única das cores de identidade dos membros do clube. Lida em runtime por squadrats-map/club.html e club-koms/index.html via raw.githubusercontent (branch main). Nem toda a gente tem Squadrats e nem toda a gente tem KOMs, por isso cada projeto só usa as entradas que lhe dizem respeito. Cores pensadas para fundo escuro; a chave tem de bater EXACTAMENTE com o nome usado na fonte de cada projeto (club.json / data.json), acentos incluidos. Mudar uma cor = mudar aqui so; os dois sites apanham dentro da janela de cache do raw (~5 min).",
+  "cores": {
+    "Zé": "#e03131",
+    "Xeira": "#9c46d8",
+    "Carolina": "#c99a00",
+    "Inês S.": "#e8710a",
+    "Inês": "#e8710a",
+    "Ana": "#12889c",
+    "Pedro": "#2f5fd0"
+  },
+  "_aliases": "O club.json (mapa) usa 'Inês S.', o data.json (KOMs) usa 'Inês' — mesma pessoa, mesma cor. Se aparecer outra grafia, acrescentar aqui."
+}
