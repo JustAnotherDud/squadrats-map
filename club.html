@@ -15,6 +15,7 @@
 
   #topbar { position:absolute; top:0; left:0; right:0; z-index:1000; padding:8px 10px; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
   #topbar h1 { font-size:14px; margin:0; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.8); }
+  #topbar h1 a { pointer-events:auto; font-weight:400; font-size:12px; color:#7ab8ff; }
   .seg { display:flex; gap:4px; pointer-events:auto; flex-wrap:wrap; }
   .seg button { background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 9px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:5px; }
   .seg button.off { opacity:.45; }
@@ -74,7 +75,7 @@
 <div id="map"></div>
 
 <div id="topbar">
-  <h1>Squadrats — Club</h1>
+  <h1>Squadrats — Club · <a href="atletas/">perfis dos atletas →</a></h1>
   <div class="seg" id="seg-atletas"></div>
 </div>
 
@@ -87,8 +88,12 @@
 <script>
 // Página do club: só squadratinhos, só os três que têm conta Squadrats.
 // Sem classificação por concelho nem troféus — o assunto aqui é quem
-// partilha o quê. Deliberadamente sem link para o mapa pessoal individual:
-// são dois sítios separados, e quem recebe este link não deve cair no outro.
+// partilha o quê. Deliberadamente sem link para o `index.html` (o mapa
+// pessoal detalhado do dono): são dois sítios separados, e quem recebe este
+// link não deve cair no outro.
+// Liga sim para /atletas/<slug>.html — os perfis são info do clube (as mesmas
+// contagens/ranking que este painel mostra, reunidas por atleta), não o mapa
+// pessoal. O slug vem do club.json (pipeline/fetch_club_squares.py).
 
 // Só o modo "quantos" (2026-08-15, tirei o "quem" — cor da pessoa nos
 // exclusivos, escala neutra cinzento-a-branco nos partilhados, sem riscas).
@@ -433,7 +438,12 @@ function renderDetalheGeo() {
       <span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}
     </button>`).join('') + '</div>');
 
-  const nomeSel = dados.atletas[geoAtletaSel].nome;
+  const atletaSel = dados.atletas[geoAtletaSel];
+  const nomeSel = atletaSel.nome;
+  const hrefPerfil = atletaSel.slug ? `atletas/${atletaSel.slug}.html` : 'atletas/';
+  linhas.push(`<div class="detalhe-toggle" style="margin:0 0 8px">
+    <a href="${hrefPerfil}" class="seta">ver perfil completo de ${nomeSel} →</a></div>`);
+
   const geo = dadosGeo.atletas[nomeSel];
   if (!geo) {
     linhas.push(`<div class="nota">Sem dados geográficos para ${nomeSel}.</div>`);
@@ -533,10 +543,12 @@ function renderLeaderboard() {
       : totalDe(bucketDe(leaderboardNivel, r.cc), r.nome);
     const linhasAtletas = r.entradas.map((e, pos) => {
       const pct = total ? ` <span class="fraco">${(100 * e.captured / total).toFixed(1)}%</span>` : '';
+      const slug = dados.atletas[e.i] && dados.atletas[e.i].slug;
+      const nome = slug ? `<a href="atletas/${slug}.html" style="color:inherit">${e.atleta}</a>` : e.atleta;
       return `<div class="linha-stat" style="padding-left:16px">
         <span class="esq"><span class="txt">${pos + 1}º</span>
         <span class="dot" style="background:${COR_ATLETA[e.i]}"></span>
-        <span class="txt">${e.atleta}</span></span>
+        <span class="txt">${nome}</span></span>
         <b>${e.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
     }).join('');
     linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
