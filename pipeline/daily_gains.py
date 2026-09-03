@@ -27,7 +27,7 @@ import os
 from datetime import datetime, timezone
 
 CAMPOS = ["squadrats", "squadratinhos", "yard", "yardinho",
-          "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos"]
+          "ubersquadrat", "ubersquadratinho"]
 
 
 def calcular_delta(antes, agora):

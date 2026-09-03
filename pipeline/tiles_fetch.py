@@ -38,13 +38,15 @@ REQUEST_TIMEOUT = 15
 # camadas com geometria útil para classificação por concelho/distrito —
 # reconstruídas em squares individuais (mesmo formato do parse de KML)
 GEOMETRY_LAYERS = {"squadrats": 14, "squadratinhos": 17}
-# camadas de "troféu". O `size` NÃO significa o mesmo em todas (ver README):
+# camadas de "troféu". O `size` NÃO significa o mesmo nas duas (ver README):
 # yard/yardinho = nº de squares do maior cluster fechado;
-# ubersquadrat/-inho = o N do quadrado NxN;
-# backyards/-inhos = nº de CLUSTERS fechados, incluindo o próprio yard.
+# ubersquadrat/-inho = o N do quadrado NxN.
 # A geometria delas só é descodificada com `with_trophy_geometry=True`.
+# (backyards/backyardinhos foram removidos em 2026-09-04 — contavam clusters,
+# não squares, e a geometria continha a do próprio yard: mais confusão que
+# valor. O servidor ainda manda a camada; deixamos de a ler.)
 TROPHY_LAYERS = [
-    "yard", "yardinho", "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos",
+    "yard", "yardinho", "ubersquadrat", "ubersquadratinho",
 ]
 
 # Descoberta em cascata (zoom baixo -> cada vez mais fino): começa muito

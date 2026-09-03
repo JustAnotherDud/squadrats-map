@@ -60,10 +60,10 @@ a:hover { text-decoration: underline; }
   color: var(--suave); margin: 0 0 10px; font-weight: 600;
 }
 
-/* --- 8 contagens --- */
+/* --- 6 contagens, 3 por linha --- */
 .perfil-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 .perfil-num {
@@ -73,9 +73,29 @@ a:hover { text-decoration: underline; }
 .perfil-num .v { font-size: 19px; font-weight: 700; }
 .perfil-num .k {
   font-size: 10.5px; color: var(--suave); margin-top: 2px;
-  display: flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 4px;
 }
-.perfil-num .k[data-tip] { cursor: help; border-bottom: 1px dotted var(--fraco); align-self: flex-start; }
+/* tooltip real (o `title` nativo era lento e às vezes não aparecia de todo) */
+.perfil-num .k[data-tip] {
+  position: relative; cursor: help;
+  border-bottom: 1px dotted var(--fraco);
+}
+.perfil-num .k[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; left: 0; bottom: calc(100% + 6px);
+  width: max-content; max-width: 220px;
+  background: var(--cartao-alto); border: 1px solid var(--borda);
+  color: var(--texto); font-size: 11px; line-height: 1.4; font-weight: 400;
+  text-transform: none; letter-spacing: 0;
+  padding: 6px 8px; border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  opacity: 0; pointer-events: none; transition: opacity .12s;
+  z-index: 5;
+}
+.perfil-num .k[data-tip]:hover::after,
+.perfil-num .k[data-tip]:focus-visible::after { opacity: 1; }
+/* colunas 2 e 3 abrem o tooltip para a esquerda, senão sai do ecrã */
+.perfil-num:nth-child(3n) .k[data-tip]::after { left: auto; right: 0; }
 
 /* --- barras (sobreposição) --- */
 .perfil-barra {

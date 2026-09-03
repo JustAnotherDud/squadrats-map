@@ -27,7 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 
 CAMPOS = ["squadrats", "squadratinhos", "yard", "yardinho",
-          "ubersquadrat", "ubersquadratinho", "backyards", "backyardinhos"]
+          "ubersquadrat", "ubersquadratinho"]
 
 # nivel do perfil -> par de buckets de stats.json (PT / estrangeiro), a mesma
 # correspondência que o club.html usa em bucketDe()/linhasGeo()
@@ -181,11 +181,14 @@ def main(out_dir):
         slug = slugs[nome]
         totais = {c: (squadrats.get("atletas", {}).get(nome, {}).get(c, 0)) for c in CAMPOS}
 
-        dias_atleta = [
-            {"data": d["data"], **d["atletas"][nome]}
-            for d in ganhos.get("dias", [])
-            if nome in d.get("atletas", {})
-        ]
+        # só os CAMPOS actuais — dias antigos podem trazer métricas já removidas
+        # (ex. backyardinhos, tirado em 2026-09-04); um dia que só tivesse
+        # dessas deixa de contar como ganho.
+        dias_atleta = []
+        for d in ganhos.get("dias", []):
+            g = {c: v for c, v in d.get("atletas", {}).get(nome, {}).items() if c in CAMPOS}
+            if g:
+                dias_atleta.append({"data": d["data"], **g})
 
         s = sobrep.get(nome)
         sobreposicao = None

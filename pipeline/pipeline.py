@@ -56,21 +56,14 @@ def run_from_tiles(uid, out_dir, bbox=None):
 
 # grelha a que cada troféu pertence — o mapa mostra os do zoom activo
 TROPHY_GRID = {
-    "squadrats": ["yard", "backyards", "ubersquadrat"],
-    "squadratinhos": ["yardinho", "backyardinhos", "ubersquadratinho"],
+    "squadrats": ["yard", "ubersquadrat"],
+    "squadratinhos": ["yardinho", "ubersquadratinho"],
 }
 
 
 def write_trophies(trophies, counts, out_dir):
-    """data/trophies.json — geometria das formas de troféu, para o mapa as
-    poder desenhar como camadas opcionais.
-
-    Nota sobre `backyards`: a geometria que a Squadrats manda INCLUI o yard
-    principal (confirmado em spikes/backyards_probe.py). Aqui subtrai-se o
-    yard, para as duas camadas poderem ser desenhadas ao mesmo tempo sem se
-    taparem — o `size` publicado continua a ser o do servidor (nº de
-    clusters, yard incluído), só a geometria é que é a dos secundários.
-    """
+    """data/trophies.json — geometria das formas de troféu (yard/über), para o
+    mapa as poder desenhar como camadas opcionais."""
     from shapely.geometry import MultiPolygon, mapping
 
     def simplificar(geom):
@@ -93,16 +86,10 @@ def write_trophies(trophies, counts, out_dir):
     out = {}
     for grelha, camadas in TROPHY_GRID.items():
         bloco = {}
-        yard_name = camadas[0]
         for nome in camadas:
             if nome not in trophies:
                 continue
-            geom = trophies[nome]
-            if nome.startswith("backyard") and yard_name in trophies:
-                geom = geom.difference(trophies[yard_name])
-                if geom.is_empty:
-                    continue
-            bloco[nome] = {"size": counts.get(nome), "geometry": simplificar(geom)}
+            bloco[nome] = {"size": counts.get(nome), "geometry": simplificar(trophies[nome])}
         if bloco:
             out[grelha] = bloco
 
