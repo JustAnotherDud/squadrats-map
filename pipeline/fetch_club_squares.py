@@ -20,6 +20,7 @@ import os
 
 from athletes import ATLETAS, known_squadratinhos
 from kml_parse import reconstruct_squares
+from slugs import slugify
 from tiles_fetch import scan_athlete
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -88,6 +89,7 @@ def main(out_dir):
         exclusivos = sum(1 for m in mascaras.values() if m == bit)
         atletas_out.append({
             "nome": nome,
+            "slug": slugify(nome),  # liga o club.html a /atletas/<slug>.html
             "total": len(por_atleta[nome]),
             "exclusivos": exclusivos,
             "partilhados": len(por_atleta[nome]) - exclusivos,

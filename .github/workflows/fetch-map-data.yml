@@ -74,6 +74,10 @@ env:
   # resto de data/ (geojsons de fronteiras, adjacency.json) é estático,
   # fica só no main, nunca precisa de ir para a branch `data`.
   FILES: "data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/club_regioes.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
+  # pasta (não lista fixa): um <slug>.json por atleta + index.json, gerados por
+  # pipeline/build_profiles.py a partir dos $FILES acima. Mesma regra — vive só
+  # na branch `data`, lido por atletas/perfil.js via raw.
+  PROFILES_DIR: "data/atletas"
 
 jobs:
   fetch:
@@ -101,6 +105,9 @@ jobs:
           # daily_gains.json.
           git fetch origin data
           git checkout origin/data -- $FILES
+          # a pasta dos perfis pode ainda não existir na branch `data` (primeira
+          # corrida com esta feature) — não falhar o job por causa disso.
+          git checkout origin/data -- "$PROFILES_DIR" 2>/dev/null || true
 
       # Um passo só, de propósito: os três consumidores partilham o varrimento
       # (ver pipeline/run_all.py). Em passos separados, cada um varria os
@@ -120,7 +127,7 @@ jobs:
           # apontar para o último estado publicado na branch `data` — isto
           # detecta corretamente "o pipeline não mudou nada desde a última
           # publicação", mesmo o main nunca mais sendo tocado depois disto.
-          if git diff --quiet -- $FILES; then
+          if git diff --quiet -- $FILES "$PROFILES_DIR"; then
             echo "sem alterações reais — nada a publicar."
             exit 0
           fi
@@ -137,13 +144,48 @@ jobs:
             mkdir -p "/tmp/data-branch/$(dirname "$f")"
             cp "$f" "/tmp/data-branch/$f"
           done
+          # perfis: mirror da pasta (rm antes de copiar) para um atleta removido
+          # de ATHLETES_JSON também desaparecer da branch `data`, não só ficar
+          # órfão. build_profiles.py escreve sempre a pasta inteira.
+          rm -rf "/tmp/data-branch/$PROFILES_DIR"
+          if [ -d "$PROFILES_DIR" ]; then
+            mkdir -p "/tmp/data-branch/$PROFILES_DIR"
+            cp "$PROFILES_DIR"/*.json "/tmp/data-branch/$PROFILES_DIR/"
+          fi
 
           cd /tmp/data-branch
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
           git add $FILES
+          git add -A "$PROFILES_DIR"
           git commit -m "chore(data): atualizar squares via vector tiles [skip ci]"
           git push origin data
+
+      # Stubs dos perfis (atletas/<slug>.html) — dependem SÓ de ATHLETES_JSON,
+      # não dos dados. Vivem no `main` (GitHub Pages serve de lá) e mudam
+      # ~nunca (só quando entra/sai um atleta), por isso o commit é
+      # condicional, mesmo padrão do heartbeat. O perfil.js/perfil.css são
+      # fixos, não são regenerados aqui.
+      - name: Regenerar stubs dos perfis (só commita se o conjunto de atletas mudou)
+        if: always()
+        continue-on-error: true
+        env:
+          ATHLETES_JSON: ${{ secrets.ATHLETES_JSON }}
+        run: |
+          python3 pipeline/gen_profile_stubs.py
+
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          git add atletas/
+          # --only atletas/ pelo mesmo motivo do heartbeat: o passo "carregar o
+          # estado" deixou os $FILES da branch `data` staged no índice do main.
+          if git diff --cached --quiet -- atletas/; then
+            echo "stubs dos perfis sem alterações — nada a commitar."
+            exit 0
+          fi
+          git commit --only atletas/ -m "chore: regenerar stubs dos perfis [skip ci]"
+          git push origin HEAD:main
 
       # GitHub desativa `schedule` em repos sem atividade há 60 dias — se isso
       # acontecer, o cron morre em silêncio e o mapa fica congelado. Este passo

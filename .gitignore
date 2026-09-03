@@ -25,3 +25,6 @@ data/club_regioes.json
 data/daily_gains.json
 data/scan_cache.json
 data/classification_fallbacks.json
+# perfis por atleta (build_profiles.py): um <slug>.json + index.json, mesma
+# regra — só na branch `data`, lidos por atletas/perfil.js via raw.
+data/atletas/

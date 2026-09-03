@@ -16,6 +16,7 @@ import os
 import sys
 import time
 
+import build_profiles
 import classify_club
 import fetch_club_koms
 import fetch_club_squares
@@ -35,6 +36,9 @@ def main(out_dir):
         # depende do club.json escrito no passo anterior (mesma corrida) —
         # não volta a varrer o Squadrats, só classifica os squares já ali
         ("regiões do club", lambda: classify_club.main(out_dir)),
+        # junta squadrats.json + club.json + club_regioes.json + daily_gains.json
+        # + stats.json num perfil por atleta (data/atletas/<slug>.json) — sem rede
+        ("perfis por atleta", lambda: build_profiles.main(out_dir)),
     ]
     for nome, fn in passos:
         t = time.time()
