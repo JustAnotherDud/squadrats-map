@@ -45,7 +45,6 @@
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
   const paisNome = cc => PAIS_NOME[cc] || cc;
   const flag = cc => BANDEIRA[cc] || '';
-  function pctTxt(p) { return p == null ? '' : ` <span class="pct">${p.toFixed(1)}%</span>`; }
 
   async function carregarCores() {
     try {
@@ -102,63 +101,82 @@
     </div>`;
   }
 
-  // lista geográfica com "mostrar todas" quando é longa
+  // Tabela geográfica de squadratinhos: uma coluna por dado, todas ordenáveis.
+  // acima = capturado de quem está uma posição à FRENTE (falta para subir);
+  // abaixo = capturado de quem está uma posição ATRÁS (folga que se tem).
   const LIMITE = 12;
-  function tabelaGeo(id, linhas) {
-    if (!linhas.length) return '<p class="perfil-vazio">Sem squares nesta divisão.</p>';
-    const linha = r => {
-      const nome = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
-      return `<tr>
-        <td><span class="nome">${flag(r.cc)}<span>${nome}</span></span></td>
-        <td class="n">${nfmt(r.captured)}${pctTxt(r.pct)}</td>
-      </tr>`;
-    };
-    const visiveis = linhas.slice(0, LIMITE).map(linha).join('');
-    const resto = linhas.slice(LIMITE).map(linha).join('');
-    const maisBtn = resto
-      ? `<button class="perfil-toggle" data-mais="${id}">mostrar todas (${linhas.length})</button>`
+
+  const COLS = [
+    { k: 'divisao', label: 'Divisão', num: false, val: r => r.cc === r.nome ? paisNome(r.cc) : r.nome },
+    { k: 'captured', label: 'Capturados', num: true, val: r => r.captured },
+    { k: 'total', label: 'Total', num: true, val: r => r.total },
+    { k: 'pct', label: '%', num: true, val: r => r.pct },
+    { k: 'posicao', label: 'Posição', num: true, val: r => r.posicao },
+    // "distância para subir" — 1º lugar (acima=null) fica a 0
+    { k: 'margem', label: 'Margem', num: true, val: r => r.acima != null ? r.acima - r.captured : 0 },
+  ];
+
+  function ordenar(linhas, sort) {
+    const col = COLS.find(c => c.k === sort.k) || COLS[1];
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...linhas].sort((a, b) => {
+      let va = col.val(a), vb = col.val(b);
+      if (col.num) {
+        va = va == null ? -Infinity : va;
+        vb = vb == null ? -Infinity : vb;
+        return (va - vb) * dir;
+      }
+      return String(va).localeCompare(String(vb), 'pt') * dir;
+    });
+  }
+
+  function celMargem(r) {
+    const p = [];
+    if (r.acima != null) p.push(`<span class="mg-neg">−${nfmt(r.acima - r.captured)}</span>`);
+    if (r.abaixo != null) p.push(`<span class="mg-pos">+${nfmt(r.captured - r.abaixo)}</span>`);
+    return p.length ? p.join(' ') : '<span class="fraco">—</span>';
+  }
+
+  function linhaGeo(r) {
+    const nome = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
+    const cls = r.posicao <= 3 && r.de > 1 ? ` p${r.posicao}` : '';
+    return `<tr>
+      <td><span class="nome">${flag(r.cc)}<span>${nome}</span></span></td>
+      <td class="n"><b>${nfmt(r.captured)}</b></td>
+      <td class="n fraco">${r.total != null ? nfmt(r.total) : '—'}</td>
+      <td class="n">${r.pct != null ? r.pct.toFixed(1) + '%' : '<span class="fraco">—</span>'}</td>
+      <td class="n"><span class="perfil-pos${cls}">${r.posicao}º</span><span class="fraco"> / ${r.de}</span></td>
+      <td class="n margem">${celMargem(r)}</td>
+    </tr>`;
+  }
+
+  function tabelaGeo(id, linhas, sort) {
+    if (!linhas.length) return '<p class="perfil-vazio">Sem squares neste nível.</p>';
+    const ord = ordenar(linhas, sort);
+    const cabecas = COLS.map(c => {
+      const activa = c.k === sort.k;
+      const seta = activa ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+      return `<th data-sort="${c.k}"${activa ? ' class="ord"' : ''}>${c.label}${seta}</th>`;
+    }).join('');
+    const linha = ord.map(linhaGeo);
+    const mais = ord.length > LIMITE
+      ? `<button class="perfil-toggle" data-mais="${id}">mostrar todas (${ord.length})</button>`
       : '';
-    return `${maisBtn}<div class="perfil-scroll"><table class="perfil-tabela">
-      <thead><tr><th>Divisão</th><th>Squares</th></tr></thead>
-      <tbody>${visiveis}</tbody>
-      <tbody hidden id="geo-${id}-resto">${resto}</tbody>
+    return `${mais}<div class="perfil-scroll"><table class="perfil-tabela geo">
+      <thead><tr>${cabecas}</tr></thead>
+      <tbody>${linha.slice(0, LIMITE).join('')}</tbody>
+      <tbody hidden id="geo-${id}-resto">${linha.slice(LIMITE).join('')}</tbody>
     </table></div>`;
   }
 
-  function blocoGeo(geo) {
-    return NIVEL_ORDEM.map(nivel => `
-      <div class="perfil-sub">${esc(NIVEL_NOME[nivel])}</div>
-      ${tabelaGeo(nivel, geo[nivel] || [])}
-    `).join('');
-  }
-
-  function blocoRanking(ranking, soDisputadas) {
-    let linhas = ranking || [];
-    if (soDisputadas) linhas = linhas.filter(r => r.disputada);
-    if (!linhas.length) {
-      return `<button class="perfil-toggle${soDisputadas ? ' on' : ''}" data-rank-filtro>Só disputadas (2+)</button>
-        <p class="perfil-vazio">Nenhuma região ${soDisputadas ? 'disputada' : 'registada'}.</p>`;
-    }
-    const porNivel = {};
-    linhas.forEach(r => { (porNivel[r.nivel] = porNivel[r.nivel] || []).push(r); });
-    const corpo = NIVEL_ORDEM.filter(n => porNivel[n]).map(nivel => {
-      const rows = porNivel[nivel].map(r => {
-        const cls = r.posicao <= 3 ? ` p${r.posicao}` : '';
-        const nome = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
-        return `<tr>
-          <td><span class="nome">${flag(r.cc)}<span>${nome}</span></span></td>
-          <td class="n"><span class="perfil-pos${cls}">${r.posicao}º</span>
-            <span class="perfil-pos"> de ${r.de}</span></td>
-          <td class="n">${nfmt(r.captured)}</td>
-        </tr>`;
-      }).join('');
-      return `<div class="perfil-sub">${esc(NIVEL_NOME[nivel])}</div>
-        <div class="perfil-scroll"><table class="perfil-tabela">
-          <thead><tr><th>Região</th><th>Posição</th><th>Squares</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>`;
+  function blocoGeo(geo, soDisputadas, sort) {
+    const btn = `<button class="perfil-toggle${soDisputadas ? ' on' : ''}" data-geo-filtro>Só disputadas (2+)</button>`;
+    const corpo = NIVEL_ORDEM.map(nivel => {
+      let linhas = geo[nivel] || [];
+      if (soDisputadas) linhas = linhas.filter(r => r.disputada);
+      return `<h3 class="perfil-nivel">${esc(NIVEL_NOME[nivel])}</h3>${tabelaGeo(nivel, linhas, sort)}`;
     }).join('');
-    return `<button class="perfil-toggle${soDisputadas ? ' on' : ''}" data-rank-filtro>Só disputadas (2+)</button>${corpo}`;
+    return btn + corpo;
   }
 
   function blocoSpark(dias) {
@@ -200,7 +218,7 @@
   function pintar(d, cor) {
     const mapaUrl = `https://squadrats.com/map/${encodeURIComponent(d.uid)}/17`;
     const quando = (d.atualizado || '').replace('T', ' ').replace('Z', ' UTC');
-    let estado = { rankSoDisputadas: true };
+    let estado = { soDisputadas: false, sort: { k: 'captured', dir: 'desc' } };
 
     function desenhar() {
       alvo.innerHTML = `
@@ -215,16 +233,16 @@
         ${seccao('Contagens', blocoTotais(d.totais || {}))}
         ${seccao('Sobreposição de squadratinhos', blocoSobreposicao(d.sobreposicao, cor))}
         ${seccao('Ganhos diários', blocoGanhos(d.ganhos_diarios))}
-        ${seccao('Onde anda (squadratinhos)', blocoGeo(d.geo || {}))}
-        ${seccao('Posição por região', blocoRanking(d.ranking, estado.rankSoDisputadas))}
+        ${seccao('Squadratinhos', blocoGeo(d.geo || {}, estado.soDisputadas, estado.sort))}
 
         <p class="perfil-nota">
-          O detalhe geográfico e a sobreposição são só de <b>squadratinhos</b> (zoom 17, ~201 m):
-          na grelha dos squadrats os quadrados são grandes demais para a comparação dizer
-          alguma coisa. As percentagens usam o total da divisão (o mesmo para toda a gente,
-          partilhado com o <a href="../index.html">mapa detalhado</a>). A "posição por região"
-          é o ranking por squares capturados dentro de cada divisão, não por percentagem.
-          Dados actualizados 6×/dia pelo mesmo processo que gera o mapa.
+          Só <b>squadratinhos</b> (zoom 17, ~201 m): na grelha dos squadrats os quadrados
+          são grandes demais para a comparação dizer alguma coisa. <b>Capturados</b> pelo atleta,
+          <b>Total</b> da divisão (o mesmo para toda a gente, partilhado com o
+          <a href="../index.html">mapa detalhado</a>). <b>Posição</b> = ranking por squares
+          capturados dentro da divisão; a <b>Margem</b> mostra o que falta para subir
+          (<span class="mg-neg">−</span>) e a folga para a posição de baixo (<span class="mg-pos">+</span>).
+          Clica num cabeçalho para ordenar. Dados actualizados 6×/dia.
         </p>`;
 
       alvo.querySelectorAll('[data-mais]').forEach(b => {
@@ -233,9 +251,21 @@
           if (resto) { resto.hidden = false; b.remove(); }
         };
       });
-      const filtro = alvo.querySelector('[data-rank-filtro]');
+      alvo.querySelectorAll('.perfil-tabela.geo th[data-sort]').forEach(th => {
+        th.onclick = () => {
+          const k = th.dataset.sort;
+          if (estado.sort.k === k) {
+            estado.sort.dir = estado.sort.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            // "mais é melhor" arranca em desc; nome/posição/margem em asc
+            estado.sort = { k, dir: ['captured', 'total', 'pct'].includes(k) ? 'desc' : 'asc' };
+          }
+          desenhar();
+        };
+      });
+      const filtro = alvo.querySelector('[data-geo-filtro]');
       if (filtro) filtro.onclick = () => {
-        estado.rankSoDisputadas = !estado.rankSoDisputadas;
+        estado.soDisputadas = !estado.soDisputadas;
         desenhar();
       };
     }

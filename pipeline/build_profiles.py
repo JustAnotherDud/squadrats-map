@@ -135,29 +135,34 @@ def _pivot_ranking(regioes_atletas):
     return saida
 
 
-def _ranking_atleta(nome, pivot):
-    """Posição do atleta em cada região onde tem pelo menos 1 square.
-    disputada = 2+ pessoas com squares lá."""
-    linhas = []
-    for nivel, regioes in pivot.items():
-        for reg in regioes.values():
-            nomes = [n for n, _ in reg["e"]]
-            if nome not in nomes:
-                continue
-            pos = nomes.index(nome) + 1
-            linhas.append({
-                "nivel": nivel,
-                "cc": reg["cc"],
-                "nome": reg["nome"],
-                "posicao": pos,
-                "de": len(reg["e"]),
-                "captured": dict(reg["e"])[nome],
-                "lider": reg["e"][0][1],
-                "disputada": len(reg["e"]) >= 2,
-            })
-    # mais disputadas primeiro, depois onde o atleta lidera, depois por captured
-    linhas.sort(key=lambda r: (-r["de"], r["posicao"], -r["captured"]))
-    return linhas
+def _merge_geo(nome, geo_nome, stats, pivot):
+    """Uma tabela por nível (país/região/zona) que junta, para cada divisão
+    onde o atleta tem squares: capturado + total + % (de `_geo_atleta`) com a
+    posição dele e a folga para as posições adjacentes (do pivot).
+
+    `acima` = capturado de quem está uma posição à frente (None se o atleta é
+    1º); `abaixo` = capturado de quem está uma posição atrás (None se é
+    último). O frontend transforma isto em "−N para subir" / "+N de folga".
+    """
+    base = _geo_atleta(geo_nome, stats)
+    saida = {}
+    for nivel, linhas in base.items():
+        merged = []
+        for r in linhas:
+            chave = r["cc"] if nivel == "pais" else f"{r['cc']}|{r['nome']}"
+            reg = pivot.get(nivel, {}).get(chave)
+            pos, de, acima, abaixo = 1, 1, None, None
+            if reg:
+                nomes = [n for n, _ in reg["e"]]
+                if nome in nomes:
+                    i = nomes.index(nome)
+                    pos, de = i + 1, len(reg["e"])
+                    acima = reg["e"][i - 1][1] if i > 0 else None
+                    abaixo = reg["e"][i + 1][1] if i + 1 < de else None
+            merged.append({**r, "posicao": pos, "de": de,
+                           "acima": acima, "abaixo": abaixo, "disputada": de >= 2})
+        saida[nivel] = merged
+    return saida
 
 
 def main(out_dir):
@@ -208,8 +213,7 @@ def main(out_dir):
             "totais": totais,
             "sobreposicao": sobreposicao,
             "ganhos_diarios": dias_atleta,
-            "geo": _geo_atleta(regioes.get("atletas", {}).get(nome), stats),
-            "ranking": _ranking_atleta(nome, pivot),
+            "geo": _merge_geo(nome, regioes.get("atletas", {}).get(nome), stats, pivot),
         }
 
         caminho = os.path.join(destino, f"{slug}.json")
