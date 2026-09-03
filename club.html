@@ -12,6 +12,10 @@
 <style>
   html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
   #map { position:absolute; inset:0; }
+  /* O basemap Esri "Dark Gray" tem pouco contraste — escurecer + puxar o
+     contraste só das tiles raster (o `img`; a camada de squares é um
+     <canvas>, não é afectada) para os squares saltarem. (2026-09-04) */
+  img.leaflet-tile { filter: brightness(.55) contrast(1.4) saturate(.8); }
 
   #topbar { position:absolute; top:0; left:0; right:0; z-index:1000; padding:8px 10px; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
   #topbar h1 { font-size:14px; margin:0; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.8); }
