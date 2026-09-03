@@ -67,7 +67,6 @@ def verificar(nome, esperado_yard, esperado_uber):
     print(f"\n=== {nome} ({len(visitados)} squares visitados) ===")
     print(f"  fechados         : {len(f)} em {len(cs)} clusters")
     print(f"  maior cluster    : {maior:>5}   servidor diz yard = {esperado_yard}   {'OK' if maior == esperado_yard else 'DIVERGE'}")
-    print(f"  nº de clusters   : {len(cs):>5}   servidor diz backyards = ?")
     print(f"  maior NxN        : {uber:>5}   servidor diz uber = {esperado_uber}   {'OK' if uber == esperado_uber else 'DIVERGE'}")
     return maior == esperado_yard and uber == esperado_uber
 

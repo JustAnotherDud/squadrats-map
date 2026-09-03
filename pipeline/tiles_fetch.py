@@ -1,10 +1,9 @@
 """Busca e descodifica os vector tiles da Squadrats para um atleta (UID Firebase),
-substituindo o export manual de KML. Ver pipeline/spikes/notes_vector_tiles.md
-para a investigação original que motivou isto.
+substituindo o export manual de KML.
 
-Endpoint não documentado, sem API pública — ver README para as regras de uso
-(cron semanal, User-Agent identificável, concorrência baixa, nunca publicar
-tiles em bruto).
+Endpoint não documentado, sem API pública — ver a secção "Vector-tile endpoint
+usage rules" do README para o que se descobriu do formato e para as regras de
+uso: User-Agent identificável, concorrência baixa, nunca publicar tiles em bruto.
 """
 import gzip
 import json

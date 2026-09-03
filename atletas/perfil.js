@@ -23,12 +23,15 @@
   };
   const NIVEL_ORDEM = ['pais', 'regiao', 'zona'];
 
+  // linha de cima = grelha squadrats (1609 m); linha de baixo = squadratinhos
+  // (201 m). A grelha do CSS é 3 por linha, por isso a ordem aqui é a ordem
+  // visual: os 3 "grandes" primeiro, os 3 "-inhos" a seguir.
   const METRICAS = [
     ['squadrats', 'Squadrats', 'Nº de squares de 1609 m visitados.'],
-    ['squadratinhos', 'Squadratinhos', 'Nº de squares de 201 m visitados.'],
     ['yard', 'Yard', 'Nº de squares do maior cluster fechado — cada square com os 4 vizinhos também visitados.'],
-    ['yardinho', 'Yardinho', 'Igual ao Yard, na grelha fina dos squadratinhos.'],
     ['ubersquadrat', 'Übersquadrat', 'Lado do maior quadrado NxN totalmente preenchido, em squadrats.'],
+    ['squadratinhos', 'Squadratinhos', 'Nº de squares de 201 m visitados.'],
+    ['yardinho', 'Yardinho', 'Igual ao Yard, na grelha fina dos squadratinhos.'],
     ['ubersquadratinho', 'Übersquadratinho', 'Lado do maior quadrado NxN totalmente preenchido, em squadratinhos.'],
   ];
 

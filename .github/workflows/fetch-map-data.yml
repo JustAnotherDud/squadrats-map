@@ -1,7 +1,8 @@
 name: fetch-map-data
 
-# Caminho principal (substitui o process-kml.yml/Drive, mantido como
-# fallback): fetch directo aos vector tiles da Squadrats, sem export manual.
+# Único caminho: fetch directo aos vector tiles da Squadrats, sem export
+# manual. (O antigo process-kml.yml/Drive foi removido em 2026-08-18 — ver
+# secção "KML/Drive path" no README se algum dia for preciso reconstruir.)
 # 2x/dia (2026-08-08, subiu de 1x): com a cache de cobertura (tiles_fetch.py)
 # uma corrida normal já só custa ~2032 pedidos, não os ~6274 de antes — 2x/dia
 # fica em ~4064/dia, ainda abaixo do regime antigo de 1x/dia sem cache.

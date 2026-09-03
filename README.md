@@ -159,7 +159,7 @@ its 4 neighbours (N/E/S/W) visited.
 included) were dropped on 2026-09-04: they counted clusters rather than
 squares and their geometry contained the yard's, so the number was more
 confusing than useful. The server still sends the layer; the pipeline no
-longer reads it. The investigation lives on in `pipeline/spikes/backyards_probe.py`.
+longer reads it. The reverse-engineering is in git history up to that commit.
 
 **On the map:** the yard/über shapes are in `data/trophies.json` and can be
 toggled in the chips at the top (off by default), following the active grid —
