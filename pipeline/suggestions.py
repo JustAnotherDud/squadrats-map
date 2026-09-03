@@ -131,8 +131,8 @@ def _candidatos_ligacao(visitados, tam, comp_id):
 def melhor_ligacao(visitados, top=8):
     """Que square, capturado sozinho, faz o yard crescer mais?
 
-    É isto que explica os backyards órfãos: muitos estão a um ou dois squares
-    de colar ao yard principal.
+    Muitos clusters fechados secundários estão a um ou dois squares de colar
+    ao yard principal — é isso que estas ligações procuram.
     """
     comps = clusters_fechados(visitados)
     comp_id = {s: i for i, c in enumerate(comps) for s in c}

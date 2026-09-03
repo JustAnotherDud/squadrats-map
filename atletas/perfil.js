@@ -30,8 +30,6 @@
     ['yardinho', 'Yardinho', 'Igual ao Yard, na grelha fina dos squadratinhos.'],
     ['ubersquadrat', 'Übersquadrat', 'Lado do maior quadrado NxN totalmente preenchido, em squadrats.'],
     ['ubersquadratinho', 'Übersquadratinho', 'Lado do maior quadrado NxN totalmente preenchido, em squadratinhos.'],
-    ['backyards', 'Backyards', 'Nº de clusters fechados (não de squares), incluindo o próprio Yard.'],
-    ['backyardinhos', 'Backyardinhos', 'Igual aos Backyards, na grelha dos squadratinhos.'],
   ];
 
   const CACHE_BUST = { cache: 'no-cache' };
@@ -75,7 +73,7 @@
     const cards = METRICAS.map(([k, rotulo, tip]) => `
       <div class="perfil-num">
         <div class="v">${nfmt(totais[k])}</div>
-        <div class="k" data-tip="${esc(tip)}" title="${esc(tip)}">${esc(rotulo)}</div>
+        <div class="k" data-tip="${esc(tip)}" tabindex="0">${esc(rotulo)}</div>
       </div>`).join('');
     return `<div class="perfil-grid">${cards}</div>`;
   }

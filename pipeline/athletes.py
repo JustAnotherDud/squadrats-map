@@ -50,12 +50,12 @@ def known_squadratinhos(out_dir):
     do probe barato de tiles_fetch.scan_athlete (2026-08-14).
 
     Squadratinhos (201m) é a grelha mais fina: capturar qualquer square novo
-    nas outras 7 camadas (squadrats, yard/yardinho, übersquadrat/-inho,
-    backyards/-inhos) implica sempre passar por um squadratinho ainda não
-    visitado nesse mesmo sítio — nunca o contrário, porque estar dentro de um
-    squadrat ainda não capturado significa estar também dentro de um
-    squadratinho ainda não capturado (é a mesma presença física). Por isso
-    esta única contagem chega para confirmar "nada mudou" nas 8 camadas.
+    nas outras camadas (squadrats, yard/yardinho, übersquadrat/-inho) implica
+    sempre passar por um squadratinho ainda não visitado nesse mesmo sítio —
+    nunca o contrário, porque estar dentro de um squadrat ainda não capturado
+    significa estar também dentro de um squadratinho ainda não capturado (é a
+    mesma presença física). Por isso esta única contagem chega para confirmar
+    "nada mudou" em todas elas.
 
     Ficheiro ausente/ilegível ou atleta sem entrada -> não entra no dict, e
     scan_athlete faz sempre o caminho completo para esse UID (comportamento

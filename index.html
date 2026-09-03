@@ -1150,20 +1150,17 @@ document.getElementById('sheet-list').addEventListener('click', e => {
   if (paisRow) selecionarPais(paisRow.dataset.paisNome);
 });
 
-// --- troféus (yard / backyards / übersquadrat) ---
+// --- troféus (yard / übersquadrat) ---
 // camadas opcionais, desligadas por defeito. Seguem a grelha activa: em
-// Squadrats mostram yard/backyards/ubersquadrat, em Squadratinhos as
-// versões "-inho". Ver README para o que cada `size` conta — não é o mesmo
-// em todas (yard = squares, backyards = clusters, über = o N do NxN).
+// Squadrats mostram yard/ubersquadrat, em Squadratinhos as versões "-inho".
+// Ver README para o que cada `size` conta — yard = squares, über = o N do NxN.
 const TROFEUS = {
   squadrats: [
     { k: 'yard', label: 'Yard', cor: '#ffd400', fmt: v => `${v} squares` },
-    { k: 'backyards', label: 'Backyards', cor: '#ff8c42', fmt: v => `${v} clusters (inclui o yard)` },
     { k: 'ubersquadrat', label: 'Über', cor: '#e6194b', fmt: v => `${v}×${v}` },
   ],
   squadratinhos: [
     { k: 'yardinho', label: 'Yardinho', cor: '#ffd400', fmt: v => `${v} squares` },
-    { k: 'backyardinhos', label: 'Backyardinhos', cor: '#ff8c42', fmt: v => `${v} clusters (inclui o yardinho)` },
     { k: 'ubersquadratinho', label: 'Über', cor: '#e6194b', fmt: v => `${v}×${v}` },
   ],
 };

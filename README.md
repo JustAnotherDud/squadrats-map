@@ -55,7 +55,7 @@ git checkout origin/data -- data/
   branch via raw, like `club.html` does with `club.json`.
 - `data/` — files consumed by `index.html` (simplified geometry, square
   classification) + `squadrats.json` (club totals) + `trophies.json`
-  (yard/backyards/übersquadrat shapes, for the map's optional layers) +
+  (yard/übersquadrat shapes, for the map's optional layers) +
   `atletas/<slug>.json` (per-athlete profile bundle, one file each +
   `index.json`; built by `pipeline/build_profiles.py` from the files above —
   no extra network)
@@ -144,7 +144,6 @@ git checkout origin/data -- data/
 
 ## What each layer's `size` means
 
-Empirically confirmed (`pipeline/spikes/backyards_probe.py`, 25 Jul 2026) —
 `size` **does not mean the same thing in every layer**:
 
 | Layer | `size` is… | Verified (map owner) |
@@ -152,26 +151,19 @@ Empirically confirmed (`pipeline/spikes/backyards_probe.py`, 25 Jul 2026) —
 | `squadrats` / `squadratinhos` | number of **squares** visited | 392 squares / 5050 squares |
 | `yard` / `yardinho` | number of **squares** in the largest closed cluster | 90 squares in 1 cluster / 480 in 1 |
 | `ubersquadrat` / `ubersquadratinho` | the **N** of the largest full NxN square | 6 → 6x6 |
-| `backyards` / `backyardinhos` | number of **closed clusters**, **including the main one** | 10 clusters (101 squares) / 144 clusters (1264 squares) |
 
 "Closed cluster" = contiguous set of visited squares where each one also has
 its 4 neighbours (N/E/S/W) visited.
 
-**The `backyards` gotcha:** it counts clusters, not squares — and its geometry
-**contains** that of the `yard` (verified: `backyards.contains(yard) == True`,
-intersection area identical to the yard's). So `yard + backyards` is **not**
-additive: of the map owner's 10 backyards, 1 is the main yard (90 squares) and
-the other 9 sum to 11 squares between them all — almost all a single isolated
-closed square, invisible on the map and not rendered by the app. This closes
-the question that was open in the investigation brief (§10.1).
+`backyards` / `backyardinhos` (number of closed clusters, the main one
+included) were dropped on 2026-09-04: they counted clusters rather than
+squares and their geometry contained the yard's, so the number was more
+confusing than useful. The server still sends the layer; the pipeline no
+longer reads it. The investigation lives on in `pipeline/spikes/backyards_probe.py`.
 
-**On the map:** these shapes are in `data/trophies.json` and can be toggled in
-the chips at the top (off by default), following the active grid — in
-Squadrats they show yard/backyards/über, in Squadratinhos the "-inho"
-versions. The `backyards` geometry published there is that of the
-**secondary** clusters (the yard is subtracted, so both layers can be on at
-the same time without covering each other); `size` is still the server's, with
-the yard included.
+**On the map:** the yard/über shapes are in `data/trophies.json` and can be
+toggled in the chips at the top (off by default), following the active grid —
+in Squadrats they show yard/über, in Squadratinhos the "-inho" versions.
 
 ## Vector-tile endpoint usage rules
 
