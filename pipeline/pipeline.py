@@ -111,7 +111,7 @@ def write_suggestions(visitados_por_grelha, counts, out_dir):
 
     out = {}
     for grelha, (visitados, zoom) in visitados_por_grelha.items():
-        yard_name, _, uber_name = TROPHY_GRID[grelha]
+        yard_name, uber_name = TROPHY_GRID[grelha]
         esperado_yard, esperado_uber = counts.get(yard_name), counts.get(uber_name)
         if esperado_yard is None or esperado_uber is None:
             continue
