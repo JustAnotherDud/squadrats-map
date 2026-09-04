@@ -112,8 +112,10 @@
     { k: 'total', label: 'Total', num: true, val: r => r.total },
     { k: 'pct', label: '%', num: true, val: r => r.pct },
     { k: 'posicao', label: 'Posição', num: true, val: r => r.posicao },
-    // "distância para subir" — 1º lugar (acima=null) fica a 0
-    { k: 'margem', label: 'Margem', num: true, val: r => r.acima != null ? r.acima - r.captured : 0 },
+    // squares que faltam para passar a posição de cima (null = já é 1º)
+    { k: 'subir', label: 'Subir', num: true, val: r => r.acima != null ? r.acima - r.captured : null },
+    // quanto está à frente da posição de baixo (null = já é último)
+    { k: 'folga', label: 'Folga', num: true, val: r => r.abaixo != null ? r.captured - r.abaixo : null },
   ];
 
   function ordenar(linhas, sort) {
@@ -130,23 +132,21 @@
     });
   }
 
-  function celMargem(r) {
-    const p = [];
-    if (r.acima != null) p.push(`<span class="mg-neg">−${nfmt(r.acima - r.captured)}</span>`);
-    if (r.abaixo != null) p.push(`<span class="mg-pos">+${nfmt(r.captured - r.abaixo)}</span>`);
-    return p.length ? p.join(' ') : '<span class="fraco">—</span>';
-  }
+  const traco = '<span class="fraco">—</span>';
 
   function linhaGeo(r) {
     const nome = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
     const cls = r.posicao <= 3 && r.de > 1 ? ` p${r.posicao}` : '';
+    const subir = r.acima != null ? `<span class="mg-neg">${nfmt(r.acima - r.captured)}</span>` : traco;
+    const folga = r.abaixo != null ? `<span class="mg-pos">${nfmt(r.captured - r.abaixo)}</span>` : traco;
     return `<tr>
       <td><span class="nome">${flag(r.cc)}<span>${nome}</span></span></td>
       <td class="n"><b>${nfmt(r.captured)}</b></td>
       <td class="n fraco">${r.total != null ? nfmt(r.total) : '—'}</td>
-      <td class="n">${r.pct != null ? r.pct.toFixed(1) + '%' : '<span class="fraco">—</span>'}</td>
+      <td class="n">${r.pct != null ? r.pct.toFixed(1) + '%' : traco}</td>
       <td class="n"><span class="perfil-pos${cls}">${r.posicao}º</span><span class="fraco"> / ${r.de}</span></td>
-      <td class="n margem">${celMargem(r)}</td>
+      <td class="n mg">${subir}</td>
+      <td class="n mg">${folga}</td>
     </tr>`;
   }
 
@@ -240,9 +240,10 @@
           são grandes demais para a comparação dizer alguma coisa. <b>Capturados</b> pelo atleta,
           <b>Total</b> da divisão (o mesmo para toda a gente, partilhado com o
           <a href="../index.html">mapa detalhado</a>). <b>Posição</b> = ranking por squares
-          capturados dentro da divisão; a <b>Margem</b> mostra o que falta para subir
-          (<span class="mg-neg">−</span>) e a folga para a posição de baixo (<span class="mg-pos">+</span>).
-          Clica num cabeçalho para ordenar. Dados actualizados 6×/dia.
+          capturados dentro da divisão. <b class="mg-neg">Subir</b> = squares que
+          faltam para passar a posição de cima; <b class="mg-pos">Folga</b> = quanto
+          está à frente da posição de baixo. Clica num cabeçalho para ordenar.
+          Dados actualizados 6×/dia.
         </p>`;
 
       alvo.querySelectorAll('[data-mais]').forEach(b => {
@@ -257,8 +258,8 @@
           if (estado.sort.k === k) {
             estado.sort.dir = estado.sort.dir === 'asc' ? 'desc' : 'asc';
           } else {
-            // "mais é melhor" arranca em desc; nome/posição/margem em asc
-            estado.sort = { k, dir: ['captured', 'total', 'pct'].includes(k) ? 'desc' : 'asc' };
+            // "mais é melhor" arranca em desc; divisão/posição/subir em asc
+            estado.sort = { k, dir: ['captured', 'total', 'pct', 'folga'].includes(k) ? 'desc' : 'asc' };
           }
           desenhar();
         };

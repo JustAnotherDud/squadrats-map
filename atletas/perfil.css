@@ -124,7 +124,7 @@ a:hover { text-decoration: underline; }
 .perfil-scroll { overflow-x: auto; max-width: 100%; }
 .perfil-tabela { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .perfil-scroll .perfil-tabela { min-width: 320px; }
-.perfil-scroll .perfil-tabela.geo { min-width: 440px; }
+.perfil-scroll .perfil-tabela.geo { min-width: 500px; }
 .perfil-tabela th {
   text-align: right; font-weight: 600; color: var(--suave);
   font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
@@ -152,8 +152,8 @@ a:hover { text-decoration: underline; }
 .perfil-pos.p1 { color: var(--ouro); }
 .perfil-pos.p2 { color: var(--prata); }
 .perfil-pos.p3 { color: var(--bronze); }
-/* folga (+) para a posição de baixo / falta (−) para subir */
-.perfil-tabela td.margem { font-size: 11.5px; }
+/* colunas Subir (falta p/ passar a posição de cima) e Folga (vantagem sobre a de baixo) */
+.perfil-tabela td.mg { font-size: 11.5px; }
 .mg-pos { color: #57ad76; }
 .mg-neg { color: #d98a6a; }
 
