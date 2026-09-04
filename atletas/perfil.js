@@ -198,8 +198,10 @@
     if (!dias || !dias.length) {
       return '<p class="perfil-vazio">Sem ganhos registados desde que o registo diário começou.</p>';
     }
-    const campos = METRICAS.map(m => m[0]).filter(c => dias.some(d => d[c]));
-    const cab = campos.map(c => `<th>${esc(METRICAS.find(m => m[0] === c)[1])}</th>`).join('');
+    // sempre as 6 métricas, na mesma ordem das Contagens — uma sem ganhos
+    // fica só com "·", como acontece quase sempre com Yard/Über
+    const cab = METRICAS.map(m => `<th>${esc(m[1])}</th>`).join('');
+    const campos = METRICAS.map(m => m[0]);
     const linhas = [...dias].reverse().slice(0, 30).map(d => `
       <tr><td>${esc(d.data)}</td>${campos.map(c => {
         const v = d[c] || 0;
