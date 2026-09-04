@@ -101,11 +101,10 @@
     </div>`;
   }
 
-  // Tabela geográfica de squadratinhos: uma coluna por dado, todas ordenáveis.
+  // Tabela geográfica de squadratinhos: uma coluna por dado, todas ordenáveis,
+  // todas as divisões de uma vez (sem "mostrar mais" — o scroll da página trata).
   // acima = capturado de quem está uma posição à FRENTE (falta para subir);
   // abaixo = capturado de quem está uma posição ATRÁS (folga que se tem).
-  const LIMITE = 12;
-
   const COLS = [
     { k: 'divisao', label: 'Divisão', num: false, val: r => r.cc === r.nome ? paisNome(r.cc) : r.nome },
     { k: 'captured', label: 'Capturados', num: true, val: r => r.captured },
@@ -158,14 +157,9 @@
       const seta = activa ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
       return `<th data-sort="${c.k}"${activa ? ' class="ord"' : ''}>${c.label}${seta}</th>`;
     }).join('');
-    const linha = ord.map(linhaGeo);
-    const mais = ord.length > LIMITE
-      ? `<button class="perfil-toggle" data-mais="${id}">mostrar todas (${ord.length})</button>`
-      : '';
-    return `${mais}<div class="perfil-scroll"><table class="perfil-tabela geo">
+    return `<div class="perfil-scroll"><table class="perfil-tabela geo">
       <thead><tr>${cabecas}</tr></thead>
-      <tbody>${linha.slice(0, LIMITE).join('')}</tbody>
-      <tbody hidden id="geo-${id}-resto">${linha.slice(LIMITE).join('')}</tbody>
+      <tbody>${ord.map(linhaGeo).join('')}</tbody>
     </table></div>`;
   }
 
@@ -246,12 +240,6 @@
           Dados actualizados 6×/dia.
         </p>`;
 
-      alvo.querySelectorAll('[data-mais]').forEach(b => {
-        b.onclick = () => {
-          const resto = document.getElementById('geo-' + b.dataset.mais + '-resto');
-          if (resto) { resto.hidden = false; b.remove(); }
-        };
-      });
       alvo.querySelectorAll('.perfil-tabela.geo th[data-sort]').forEach(th => {
         th.onclick = () => {
           const k = th.dataset.sort;
