@@ -16,6 +16,7 @@ import os
 import sys
 import time
 
+import append_events
 import build_profiles
 import classify_club
 import fetch_club_koms
@@ -36,6 +37,9 @@ def main(out_dir):
         # depende do club.json escrito no passo anterior (mesma corrida) —
         # não volta a varrer o Squadrats, só classifica os squares já ali
         ("regiões do club", lambda: classify_club.main(out_dir)),
+        # compara o club_regioes.json anterior (origin/data) com o novo e faz
+        # append dos eventos novos a events.json — idempotente entre runs do dia
+        ("eventos do club", lambda: append_events.main(out_dir)),
         # junta squadrats.json + club.json + club_regioes.json + daily_gains.json
         # + stats.json num perfil por atleta (data/atletas/<slug>.json) — sem rede
         ("perfis por atleta", lambda: build_profiles.main(out_dir)),

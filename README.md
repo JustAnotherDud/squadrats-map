@@ -53,12 +53,21 @@ git checkout origin/data -- data/
   to `main` only when the athlete set changes — same pattern as the
   heartbeat). Each page fetches `data/atletas/<slug>.json` from the `data`
   branch via raw, like `club.html` does with `club.json`.
+- `historico.html` — club event feed: ranking changes per region (concelho +
+  distrito, PT only) — overtakes, new leaders, first square in a region,
+  squadratinho milestones. Reverse-chronological, filters by athlete/region,
+  distrito hidden by default. Reads `data/events.json` + `data/club_regioes.json`
+  from the `data` branch via raw. History starts **2026-08-15** (when
+  `club_regioes.json` began), not 26 Jul.
 - `data/` — files consumed by `index.html` (simplified geometry, square
   classification) + `squadrats.json` (club totals) + `trophies.json`
   (yard/übersquadrat shapes, for the map's optional layers) +
   `atletas/<slug>.json` (per-athlete profile bundle, one file each +
   `index.json`; built by `pipeline/build_profiles.py` from the files above —
-  no extra network)
+  no extra network) + `events.json` (club event feed, append-only; seeded once
+  by `pipeline/backfill_events.py`, kept current by `pipeline/append_events.py`
+  as a `run_all.py` step — compares the previous `club_regioes.json` day by day,
+  appends new events, idempotent across the 6 runs/day)
 - `pipeline/` — fetches the map owner's squares and produces the files in
   `data/`
   - `tiles_fetch.py` — **main source**: direct fetch from Squadrats' vector
