@@ -13,7 +13,7 @@ totals (no geographic breakdown) for the club athletes, consumed by
 full list is in `env.FILES` of `fetch-map-data.yml`) live on the `data`
 branch, not `main` — committing on main made Pages (classic mode) rebuild
 on every run, and a code push of ours at the same time as the cron running
-collided with the bot's commit. The 3 consumers (`index.html`, `club.html`,
+collided with the bot's commit. The consumers (`mapa.html`, `club.html`,
 `folha-do-clube`) read those files from
 `raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/...`, not the
 Pages URL — faster (no rebuild) and without that collision risk. The border
@@ -32,8 +32,17 @@ git checkout origin/data -- data/
 
 ## Structure
 
-- `index.html` — the map owner's detailed map (GitHub Pages serves this at the
-  root)
+- `index.html` — the landing/hub: cards for the club map, profiles and history.
+  GitHub Pages serves it at the root.
+- `nav.js` — the shared top nav bar (hub · Clube · Perfis · Histórico),
+  self-injecting, marks the current page. Loaded by every page **except**
+  `mapa.html`. Full-screen map pages set `<body data-nav="overlay">` so the bar
+  is `position:fixed` and they offset their own layout by 38px.
+- `mapa.html` — the map owner's personal detailed map (was `index.html`).
+  Deliberately **not** in `nav.js` or the hub — it is personal analysis, more
+  detailed and a different kind of thing from the club pages. Still lives at its
+  own URL and is kept current by the pipeline. Public repo: this is "not in the
+  navigation", not "private".
 - `club.html` — the club page: squadratinhos of the athletes with a Squadrats
   account. One colour per person, and two modes for the shared ones: **How
   many** (grey scale by number of owners — legible from afar, it is the
@@ -59,7 +68,7 @@ git checkout origin/data -- data/
   distrito hidden by default. Reads `data/events.json` + `data/club_regioes.json`
   from the `data` branch via raw. History starts **2026-08-15** (when
   `club_regioes.json` began), not 26 Jul.
-- `data/` — files consumed by `index.html` (simplified geometry, square
+- `data/` — files consumed by `mapa.html` (simplified geometry, square
   classification) + `squadrats.json` (club totals) + `trophies.json`
   (yard/übersquadrat shapes, for the map's optional layers) +
   `atletas/<slug>.json` (per-athlete profile bundle, one file each +
@@ -132,7 +141,7 @@ git checkout origin/data -- data/
     the totals never diverge from the criterion used on the captured ones.
   - `compute_adjacency.py` — **one-off**: adjacency between
     municipalities/districts/ES provinces (`geom.buffer(eps).intersects()`) +
-    greedy coloring over `index.html`'s categorical palette, so neighbours
+    greedy coloring over `mapa.html`'s categorical palette, so neighbours
     never share a colour in the "Colours: region" mode. Output committed to
     `data/adjacency.json`. Recompute only if the borders change.
   - `refdata/` — municipality/district borders **not simplified** (for

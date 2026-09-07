@@ -29,6 +29,7 @@ STUB = """<!DOCTYPE html>
 <main id="perfil" data-slug="{slug}">
   <p class="perfil-estado">A carregar o perfil de {nome}…</p>
 </main>
+<script src="../nav.js"></script>
 <script src="../shared.js"></script>
 <script src="perfil.js"></script>
 </body>
@@ -53,6 +54,7 @@ INDICE = """<!DOCTYPE html>
   sobreposição de squadratinhos e posição por região. Dados actualizados 6×/dia
   pelo mesmo processo que gera o <a href="../club.html">mapa do clube</a>.</p>
 </main>
+<script src="../nav.js"></script>
 <script src="../shared.js"></script>
 <script src="perfil.js"></script>
 </body>

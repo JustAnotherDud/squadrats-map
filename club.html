@@ -11,15 +11,15 @@
 <script src="shared.js"></script>
 <style>
   html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
-  #map { position:absolute; inset:0; }
+  /* a barra de navegação (nav.js, position:fixed) ocupa 38px no topo */
+  #map { position:absolute; inset:38px 0 0 0; }
   /* O basemap Esri "Dark Gray" tem pouco contraste — escurecer + puxar o
      contraste só das tiles raster (o `img`; a camada de squares é um
      <canvas>, não é afectada) para os squares saltarem. (2026-09-04) */
   img.leaflet-tile { filter: brightness(.82) contrast(1.22) saturate(.9); }
 
-  #topbar { position:absolute; top:0; left:0; right:0; z-index:1000; padding:8px 10px; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
+  #topbar { position:absolute; top:38px; left:0; right:0; z-index:1000; padding:8px 10px; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
   #topbar h1 { font-size:14px; margin:0; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.8); }
-  #topbar h1 a { pointer-events:auto; font-weight:400; font-size:12px; color:#7ab8ff; }
   .seg { display:flex; gap:4px; pointer-events:auto; flex-wrap:wrap; }
   .seg button { background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 9px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:5px; }
   .seg button.off { opacity:.45; }
@@ -33,6 +33,8 @@
   #painel.aberto #painel-corpo { display:block; }
   .linha-stat { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; }
   .linha-stat b { color:#fff; white-space:nowrap; }
+  a.lnome { color:inherit; text-decoration:none; }
+  a.lnome:hover { text-decoration:underline; }
   .esq { display:flex; align-items:center; gap:7px; overflow:hidden; }
   .esq span.txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .titulo-seccao { margin-top:12px; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
@@ -74,12 +76,12 @@
   #hover .coord { color:#6b7285; font-size:10.5px; margin-top:2px; }
 </style>
 </head>
-<body>
+<body data-nav="overlay">
 
 <div id="map"></div>
 
 <div id="topbar">
-  <h1>Squadrats — Club · <a href="atletas/">perfis</a> · <a href="historico.html">histórico →</a></h1>
+  <h1>Mapa do clube</h1>
   <div class="seg" id="seg-atletas"></div>
 </div>
 
@@ -161,6 +163,13 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_D
 
 function nomes(mask) {
   return dados.atletas.filter((_, i) => mask & (1 << i)).map(a => a.nome);
+}
+
+// nome do atleta como link para o perfil (slug vem do club.json). Cor herdada,
+// só sublinha no hover — para não parecer um link azul no meio da lista.
+function linkNome(i, texto) {
+  const s = dados.atletas[i] && dados.atletas[i].slug;
+  return s ? `<a class="lnome" href="atletas/${s}.html">${texto}</a>` : texto;
 }
 
 function rotulo(mask) {
@@ -303,7 +312,7 @@ function renderPainel() {
       const ligado = activos & (1 << i);
       return `<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
         <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-        <span class="txt">${a.nome}</span></span>
+        <span class="txt">${linkNome(i, a.nome)}</span></span>
         <b>${a.total.toLocaleString('pt-PT')}</b></div>`;
     }).join('');
     linhas.push(`<div class="grupo"><div class="titulo-seccao">Por atleta</div>${porAtleta}</div>`);
@@ -312,7 +321,7 @@ function renderPainel() {
       if (!soDe.has(i)) return '';
       return `<div class="linha-stat">
         <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-        <span class="txt">Só ${a.nome}</span></span>
+        <span class="txt">Só ${linkNome(i, a.nome)}</span></span>
         <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`;
     }).join('');
     const partLinhas = [...partilhados.keys()].sort((a, b) => a - b).map(c => `
@@ -333,7 +342,7 @@ function renderPainel() {
         const pct = a.total ? Math.round(100 * so / a.total) : 0;
         linhas.push(`<div class="linha-stat">
           <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-          <span class="txt">${a.nome} — único</span></span>
+          <span class="txt">${linkNome(i, a.nome)} — único</span></span>
           <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
       });
 
@@ -618,5 +627,6 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
   renderPainel();
 })();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

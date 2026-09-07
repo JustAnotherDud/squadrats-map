@@ -20,7 +20,6 @@
 
   .wrap { max-width: 1000px; margin: 0 auto; padding: 16px 16px 60px; }
   h1 { font-size: 18px; margin: 0; }
-  .topo { font-size: 12px; color: var(--suave); margin-bottom: 3px; }
   .meta { font-size: 11px; color: var(--fraco); margin: 3px 0 14px; }
   #aviso-stale {
     display: none; background: #3a2a12; border: 1px solid #6b4a1e; color: #f0c088;
@@ -68,6 +67,10 @@
   .ev .ico { flex: 0 0 18px; text-align: center; align-self: center; font-size: 13px; }
   .ev .corpo { flex: 1 1 auto; min-width: 0; }
   .ev b { color: #fff; }
+  .atl { color: var(--texto); font-weight: 700; text-decoration: none; }
+  .atl:hover { text-decoration: underline; }
+  .ev .atl { color: #fff; }
+  .reg { }  /* regiões: hook para quando tiverem página própria */
   .ev .num { color: var(--fraco); font-size: 11.5px; white-space: nowrap;
     margin-left: 3px; font-variant-numeric: tabular-nums; }
   .ev .dot { width: 8px; height: 8px; margin-right: 6px; }
@@ -90,7 +93,6 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="topo"><a href="club.html">← mapa do clube</a> · <a href="atletas/">perfis</a></p>
   <h1>Histórico do Club</h1>
   <p class="meta" id="meta"></p>
 
@@ -138,6 +140,17 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
 
+  const SLUG = { 'Zé': 'ze', 'Xeira': 'xeira', 'Carolina': 'carolina', 'Inês S.': 'ines-s', 'Pedro': 'pedro' };
+  // nome do atleta com bolinha de cor, ligado ao perfil
+  const atletaHtml = n => `<a class="atl" href="atletas/${SLUG[n] || ''}.html">${dot(n)}${esc(n)}</a>`;
+  // regiões ainda não têm página — devolve null. Quando tiverem, é o único
+  // sítio a mexer: passa a `regioes/<slug>.html` e regiaoHtml passa a link.
+  const regiaoHref = () => null;
+  function regiaoHtml(nome) {
+    const h = regiaoHref(nome);
+    return h ? `<a class="reg" href="${h}">${esc(nome)}</a>` : `<span class="reg">${esc(nome)}</span>`;
+  }
+
   const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   function dataLonga(iso) {
     const [y, m, d] = iso.split('-').map(Number);
@@ -166,21 +179,21 @@
   }
 
   function frase(e) {
-    const r = esc(e.regiao), v = e.valores;
+    const r = regiaoHtml(e.regiao), v = e.valores, quem = atletaHtml(e.quem);
     if (e.tipo === 'ultrapassagem') {
-      const alvos = e.sobre.map(s => `<b>${dot(s)}${esc(s)}</b>`).join(' e ');
-      return `<b>${dot(e.quem)}${esc(e.quem)}</b> passou ${alvos} em ${r}
+      const alvos = e.sobre.map(atletaHtml).join(' e ');
+      return `${quem} passou ${alvos} em ${r}
         <span class="num">· ${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
     }
     if (e.tipo === 'novo_lider') {
-      return `<b>${dot(e.quem)}${esc(e.quem)}</b> assumiu a liderança de ${r}, passou
-        <b>${dot(e.sobre)}${esc(e.sobre)}</b> <span class="num">· ${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
+      return `${quem} assumiu a liderança de ${r}, passou ${atletaHtml(e.sobre)}
+        <span class="num">· ${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
     }
     if (e.tipo === 'primeira_presenca') {
-      return `<b>${dot(e.quem)}${esc(e.quem)}</b> estreou-se em ${r}
+      return `${quem} estreou-se em ${r}
         <span class="num">· ${nfmt(v[0])} squadratinho${v[0] === 1 ? '' : 's'}</span>`;
     }
-    return `<b>${dot(e.quem)}${esc(e.quem)}</b> passou os <b>${nfmt(v[0])}</b> squadratinhos em ${r}
+    return `${quem} passou os <b>${nfmt(v[0])}</b> squadratinhos em ${r}
       <span class="num">· agora ${nfmt(v[1])}</span>`;
   }
 
@@ -256,9 +269,9 @@
     document.getElementById('rank-count').textContent = `(${linhas.length})`;
     box.innerHTML = linhas.map(({ reg, lvl, arr }) => `
       <div class="rank-reg">
-        <div class="nome">${esc(reg)}<span class="lvl">${lvl}</span></div>
+        <div class="nome">${regiaoHtml(reg)}<span class="lvl">${lvl}</span></div>
         ${arr.slice(0, 4).map(([n, c], i) => `
-          <div class="linha"><span class="pos">${i + 1}º</span>${dot(n)}<b>${esc(n)}</b>
+          <div class="linha"><span class="pos">${i + 1}º</span>${atletaHtml(n)}
             <span class="c">${nfmt(c)}</span></div>`).join('')}
       </div>`).join('') || '<p class="vazio">Nenhuma região disputada.</p>';
   }
@@ -305,5 +318,6 @@
   })();
 })();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

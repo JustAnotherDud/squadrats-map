@@ -218,7 +218,7 @@
 
     function desenhar() {
       alvo.innerHTML = `
-        <p class="perfil-topo"><a href="index.html">← perfis</a> · <a href="../club.html">mapa do clube</a></p>
+        <p class="perfil-topo"><a href="index.html">← todos os perfis</a></p>
         <div class="perfil-cabeca">
           <span class="perfil-cor" style="background:${cor || 'var(--suave)'}"></span>
           <h1>${esc(d.nome)}</h1>
@@ -234,8 +234,7 @@
         <p class="perfil-nota">
           Só <b>squadratinhos</b> (zoom 17, ~201 m): na grelha dos squadrats os quadrados
           são grandes demais para a comparação dizer alguma coisa. <b>Capturados</b> pelo atleta,
-          <b>Total</b> da divisão (o mesmo para toda a gente, partilhado com o
-          <a href="../index.html">mapa detalhado</a>). <b>Posição</b> = ranking por squares
+          <b>Total</b> da divisão (o mesmo para toda a gente). <b>Posição</b> = ranking por squares
           capturados dentro da divisão. <b class="mg-neg">Subir</b> = squares que
           faltam para passar a posição de cima; <b class="mg-pos">Folga</b> = quanto
           está à frente da posição de baixo. Clica num cabeçalho para ordenar.
