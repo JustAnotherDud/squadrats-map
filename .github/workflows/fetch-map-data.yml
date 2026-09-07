@@ -79,6 +79,9 @@ env:
   # pipeline/build_profiles.py a partir dos $FILES acima. Mesma regra — vive só
   # na branch `data`, lido por atletas/perfil.js via raw.
   PROFILES_DIR: "data/atletas"
+  # idem — um <key>.json por região com actividade (append_regioes.py), lido
+  # por regioes/regiao.js via raw.
+  REGIOES_DIR: "data/regioes"
 
 jobs:
   fetch:
@@ -110,9 +113,10 @@ jobs:
           # ~500 commits cobre bem mais de um ano do bot.
           git fetch origin data --depth=500
           git checkout origin/data -- $FILES
-          # a pasta dos perfis pode ainda não existir na branch `data` (primeira
-          # corrida com esta feature) — não falhar o job por causa disso.
+          # as pastas dos perfis / regiões podem ainda não existir na branch
+          # `data` (primeira corrida com a feature) — não falhar o job por isso.
           git checkout origin/data -- "$PROFILES_DIR" 2>/dev/null || true
+          git checkout origin/data -- "$REGIOES_DIR" 2>/dev/null || true
 
       # Um passo só, de propósito: os três consumidores partilham o varrimento
       # (ver pipeline/run_all.py). Em passos separados, cada um varria os
@@ -132,7 +136,7 @@ jobs:
           # apontar para o último estado publicado na branch `data` — isto
           # detecta corretamente "o pipeline não mudou nada desde a última
           # publicação", mesmo o main nunca mais sendo tocado depois disto.
-          if git diff --quiet -- $FILES "$PROFILES_DIR"; then
+          if git diff --quiet -- $FILES "$PROFILES_DIR" "$REGIOES_DIR"; then
             echo "sem alterações reais — nada a publicar."
             exit 0
           fi
@@ -152,17 +156,19 @@ jobs:
           # perfis: mirror da pasta (rm antes de copiar) para um atleta removido
           # de ATHLETES_JSON também desaparecer da branch `data`, não só ficar
           # órfão. build_profiles.py escreve sempre a pasta inteira.
-          rm -rf "/tmp/data-branch/$PROFILES_DIR"
-          if [ -d "$PROFILES_DIR" ]; then
-            mkdir -p "/tmp/data-branch/$PROFILES_DIR"
-            cp "$PROFILES_DIR"/*.json "/tmp/data-branch/$PROFILES_DIR/"
-          fi
+          for D in "$PROFILES_DIR" "$REGIOES_DIR"; do
+            rm -rf "/tmp/data-branch/$D"
+            if [ -d "$D" ]; then
+              mkdir -p "/tmp/data-branch/$D"
+              cp "$D"/*.json "/tmp/data-branch/$D/"
+            fi
+          done
 
           cd /tmp/data-branch
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
           git add $FILES
-          git add -A "$PROFILES_DIR"
+          git add -A "$PROFILES_DIR" "$REGIOES_DIR"
           git commit -m "chore(data): atualizar squares via vector tiles [skip ci]"
           git push origin data
 
@@ -190,6 +196,26 @@ jobs:
             exit 0
           fi
           git commit --only atletas/ -m "chore: regenerar stubs dos perfis [skip ci]"
+          git push origin HEAD:main
+
+      # Stubs das páginas de região (regioes/<key>.html) — dependem da lista de
+      # regiões com actividade (data/regioes/, produzido no passo "Varrer").
+      # Nova região explorada -> novo stub -> commit ao main -> rebuild Pages.
+      # Mesmo padrão condicional dos stubs dos perfis.
+      - name: Regenerar stubs das regiões (só commita se a lista mudou)
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 pipeline/gen_regiao_stubs.py
+
+          git config user.name "squadrats-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add regioes/
+          if git diff --cached --quiet -- regioes/; then
+            echo "stubs das regiões sem alterações — nada a commitar."
+            exit 0
+          fi
+          git commit --only regioes/ -m "chore: regenerar stubs das regiões [skip ci]"
           git push origin HEAD:main
 
       # GitHub desativa `schedule` em repos sem atividade há 60 dias — se isso

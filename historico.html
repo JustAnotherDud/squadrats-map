@@ -67,10 +67,15 @@
   .ev .ico { flex: 0 0 18px; text-align: center; align-self: center; font-size: 13px; }
   .ev .corpo { flex: 1 1 auto; min-width: 0; }
   .ev b { color: #fff; }
-  .atl { color: var(--texto); font-weight: 700; text-decoration: none; }
-  .atl:hover { text-decoration: underline; }
+  .atl, .reg { color: inherit; text-decoration: none; }
+  .atl { font-weight: 700; }
+  .atl:hover, .reg:hover { text-decoration: underline; }
   .ev .atl { color: #fff; }
-  .reg { }  /* regiões: hook para quando tiverem página própria */
+
+  .legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 12px;
+    font-size: 11px; color: var(--fraco); }
+  .legenda span { white-space: nowrap; }
+  .legenda b { color: var(--suave); font-weight: 400; }
   .ev .num { color: var(--fraco); font-size: 11.5px; white-space: nowrap;
     margin-left: 3px; font-variant-numeric: tabular-nums; }
   .ev .dot { width: 8px; height: 8px; margin-right: 6px; }
@@ -102,6 +107,13 @@
   </div>
 
   <div class="filtros" id="filtros"></div>
+
+  <p class="legenda">
+    <span>👑 <b>nova liderança da região</b></span>
+    <span>⇅ <b>ultrapassagem</b> (troca de posição sem ser no topo)</span>
+    <span>📍 <b>primeira presença</b> numa região</span>
+    <span>🚩 <b>marco</b> de squadratinhos (25/50/100/…)</span>
+  </p>
 
   <div class="cols">
     <div class="feed-col"><div id="feed"></div></div>
@@ -143,13 +155,14 @@
   const SLUG = { 'Zé': 'ze', 'Xeira': 'xeira', 'Carolina': 'carolina', 'Inês S.': 'ines-s', 'Pedro': 'pedro' };
   // nome do atleta com bolinha de cor, ligado ao perfil
   const atletaHtml = n => `<a class="atl" href="atletas/${SLUG[n] || ''}.html">${dot(n)}${esc(n)}</a>`;
-  // regiões ainda não têm página — devolve null. Quando tiverem, é o único
-  // sítio a mexer: passa a `regioes/<slug>.html` e regiaoHtml passa a link.
-  const regiaoHref = () => null;
-  function regiaoHtml(nome) {
-    const h = regiaoHref(nome);
-    return h ? `<a class="reg" href="${h}">${esc(nome)}</a>` : `<span class="reg">${esc(nome)}</span>`;
-  }
+  // slug igual ao pipeline.slugs.slugify (sem acentos, minúsculas, "-")
+  const slugify = s => s.normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  // regiões PT (concelho/distrito) têm página: regioes/c-<slug>.html / d-<slug>.html
+  const regiaoHref = (nivel, nome) =>
+    `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+  const regiaoHtml = (nivel, nome) =>
+    `<a class="reg" href="${regiaoHref(nivel, nome)}">${esc(nome)}</a>`;
 
   const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
   function dataLonga(iso) {
@@ -179,7 +192,7 @@
   }
 
   function frase(e) {
-    const r = regiaoHtml(e.regiao), v = e.valores, quem = atletaHtml(e.quem);
+    const r = regiaoHtml(e.nivel, e.regiao), v = e.valores, quem = atletaHtml(e.quem);
     if (e.tipo === 'ultrapassagem') {
       const alvos = e.sobre.map(atletaHtml).join(' e ');
       return `${quem} passou ${alvos} em ${r}
@@ -269,7 +282,7 @@
     document.getElementById('rank-count').textContent = `(${linhas.length})`;
     box.innerHTML = linhas.map(({ reg, lvl, arr }) => `
       <div class="rank-reg">
-        <div class="nome">${regiaoHtml(reg)}<span class="lvl">${lvl}</span></div>
+        <div class="nome">${regiaoHtml(lvl, reg)}<span class="lvl">${lvl}</span></div>
         ${arr.slice(0, 4).map(([n, c], i) => `
           <div class="linha"><span class="pos">${i + 1}º</span>${atletaHtml(n)}
             <span class="c">${nfmt(c)}</span></div>`).join('')}

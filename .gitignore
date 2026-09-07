@@ -30,3 +30,5 @@ data/classification_fallbacks.json
 data/atletas/
 # feed de eventos do club (append_events.py / backfill_events.py) — mesma regra
 data/events.json
+# páginas por região (append_regioes.py / backfill_regioes.py) — mesma regra
+data/regioes/
