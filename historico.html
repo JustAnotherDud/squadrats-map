@@ -37,36 +37,40 @@
   .rank-col { flex: 0 0 320px; }
   @media (max-width: 820px) { .cols { flex-direction: column; } .rank-col { flex: none; width: 100%; } }
 
+  /* quadrado de cor do atleta — espaço consistente até ao nome em todo o lado */
+  .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block;
+    background: var(--suave); margin-right: 6px; vertical-align: middle; flex: 0 0 auto; }
+
   /* --- filtros --- */
   .filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
   .filtros .grupo { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .filtros .rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin-right: 2px; }
   .chip {
     background: var(--cartao-alto); color: var(--texto); border: 1px solid var(--borda);
-    border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center;
   }
   .chip.on { background: var(--azul); border-color: var(--azul); color: #fff; }
-  .chip .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; background: var(--suave); }
   select.chip { padding-right: 6px; }
 
   /* --- feed --- */
-  .dia-grupo { margin-bottom: 4px; }
   .dia-cab { font-size: 12px; font-weight: 700; color: var(--suave); margin: 16px 0 6px; }
   .ev {
-    display: flex; gap: 10px; align-items: baseline;
-    padding: 7px 0 7px 9px; border-bottom: 1px solid var(--linha);
+    display: flex; gap: 10px; align-items: flex-start; line-height: 1.5;
+    padding: 8px 0 8px 9px; border-bottom: 1px solid var(--linha);
     border-left: 2px solid var(--borda); font-size: 13px;
   }
   .ev .tag {
-    flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
-    color: var(--fraco); border: 1px solid var(--borda); border-radius: 4px; padding: 1px 5px; align-self: center;
+    flex: 0 0 66px; text-align: center; align-self: center;
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--fraco); border: 1px solid var(--borda); border-radius: 4px; padding: 1px 4px;
   }
   .ev .tag.distrito { color: var(--azul-claro); border-color: #2f4a6b; }
-  .ev .corpo { flex: 1 1 auto; }
+  .ev .ico { flex: 0 0 18px; text-align: center; align-self: center; font-size: 13px; }
+  .ev .corpo { flex: 1 1 auto; min-width: 0; }
   .ev b { color: #fff; }
-  .ev .num { color: var(--fraco); font-size: 11.5px; }
-  .ev .ico { font-size: 13px; }
-  .ev .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: var(--suave); vertical-align: baseline; }
+  .ev .num { color: var(--fraco); font-size: 11.5px; white-space: nowrap;
+    margin-left: 3px; font-variant-numeric: tabular-nums; }
+  .ev .dot { width: 8px; height: 8px; margin-right: 6px; }
   .vazio { color: var(--fraco); padding: 20px 0; text-align: center; }
 
   /* --- rankings actuais --- */
@@ -74,13 +78,14 @@
   .rank-box { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 4px 12px 10px; max-height: 70vh; overflow-y: auto; }
   .rank-reg { padding: 8px 0; border-bottom: 1px solid var(--linha); }
   .rank-reg:last-child { border-bottom: 0; }
-  .rank-reg .nome { font-weight: 700; font-size: 12.5px; }
+  .rank-reg .nome { font-weight: 700; font-size: 12.5px; margin-bottom: 2px; }
   .rank-reg .nome .lvl { color: var(--fraco); font-weight: 400; font-size: 10.5px; text-transform: uppercase; margin-left: 4px; }
-  .rank-reg .linha { font-size: 12px; color: var(--suave); display: flex; gap: 6px; align-items: center; }
-  .rank-reg .linha .pos { color: var(--fraco); width: 16px; }
-  .rank-reg .linha .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .rank-reg .linha { font-size: 12px; color: var(--suave); display: flex; align-items: center; padding: 1px 0; }
+  .rank-reg .linha .pos { color: var(--fraco); flex: 0 0 18px; }
+  .rank-reg .linha .dot { width: 8px; height: 8px; }
   .rank-reg .linha b { color: var(--texto); }
-  .rank-reg .linha .c { margin-left: auto; color: var(--fraco); }
+  .rank-reg .linha .c { margin-left: auto; padding-left: 8px; color: var(--fraco);
+    text-align: right; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
