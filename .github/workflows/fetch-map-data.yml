@@ -74,7 +74,7 @@ env:
   # os únicos ficheiros que o cron regenera (ver pipeline/run_all.py) — o
   # resto de data/ (geojsons de fronteiras, adjacency.json) é estático,
   # fica só no main, nunca precisa de ir para a branch `data`.
-  FILES: "data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/club_regioes.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json"
+  FILES: "data/tile_info_squadrats.json data/tile_info_squadratinhos.json data/stats.json data/squadrats.json data/trophies.json data/suggestions.json data/club.json data/club_regioes.json data/daily_gains.json data/scan_cache.json data/classification_fallbacks.json data/events.json"
   # pasta (não lista fixa): um <slug>.json por atleta + index.json, gerados por
   # pipeline/build_profiles.py a partir dos $FILES acima. Mesma regra — vive só
   # na branch `data`, lido por atletas/perfil.js via raw.
@@ -104,7 +104,11 @@ jobs:
           # cache de cobertura que faz a corrida custar ~2032 pedidos em vez
           # de ~6274, ver comentário do tiles_fetch.py) e o baseline do
           # daily_gains.json.
-          git fetch origin data
+          # --depth=500: o append_events.py (passo do run_all) anda dia-a-dia
+          # pelo histórico de club_regioes.json para atribuir cada evento ao
+          # dia certo mesmo depois de um gap; sem profundidade só via o topo.
+          # ~500 commits cobre bem mais de um ano do bot.
+          git fetch origin data --depth=500
           git checkout origin/data -- $FILES
           # a pasta dos perfis pode ainda não existir na branch `data` (primeira
           # corrida com esta feature) — não falhar o job por causa disso.

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Squadrats — Histórico do Club</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --fundo: #0f1115; --cartao: #151821; --cartao-alto: #1b1f2b;
+    --borda: #262b38; --linha: #1e2230;
+    --texto: #e7e9ee; --suave: #7d8598; --fraco: #6b7285;
+    --azul: #3d7bf5; --azul-claro: #7ab8ff;
+    --ouro: #d9a441; --prata: #b7bec9; --bronze: #c1824a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fundo); color: var(--texto);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }
+  a { color: var(--azul-claro); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 18px 16px 60px; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .topo { font-size: 12.5px; color: var(--suave); margin-bottom: 4px; }
+  .meta { font-size: 11.5px; color: var(--fraco); margin: 2px 0 16px; }
+  .meta .aviso { color: #e0a45a; font-weight: 600; }
+  #aviso-stale {
+    display: none; background: #3a2a12; border: 1px solid #6b4a1e; color: #f0c088;
+    border-radius: 9px; padding: 10px 12px; font-size: 12.5px; margin: 0 0 16px;
+  }
+  #aviso-stale.on { display: block; }
+
+  .cols { display: flex; gap: 26px; align-items: flex-start; }
+  .feed-col { flex: 1 1 auto; min-width: 0; }
+  .rank-col { flex: 0 0 320px; }
+  @media (max-width: 820px) { .cols { flex-direction: column; } .rank-col { flex: none; width: 100%; } }
+
+  /* --- filtros --- */
+  .filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .filtros .grupo { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .filtros .rot { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin-right: 2px; }
+  .chip {
+    background: var(--cartao-alto); color: var(--texto); border: 1px solid var(--borda);
+    border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .chip.on { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .chip .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; background: var(--suave); }
+  select.chip { padding-right: 6px; }
+
+  /* --- feed --- */
+  .dia-grupo { margin-bottom: 4px; }
+  .dia-cab { font-size: 12px; font-weight: 700; color: var(--suave); margin: 16px 0 6px; }
+  .ev {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 7px 0; border-bottom: 1px solid var(--linha); font-size: 13px;
+  }
+  .ev .tag {
+    flex: 0 0 auto; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--fraco); border: 1px solid var(--borda); border-radius: 4px; padding: 1px 5px; align-self: center;
+  }
+  .ev .tag.distrito { color: var(--azul-claro); border-color: #2f4a6b; }
+  .ev .corpo { flex: 1 1 auto; }
+  .ev b { color: #fff; }
+  .ev .num { color: var(--fraco); font-size: 11.5px; }
+  .ev .ico { font-size: 13px; }
+  .ev .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; background: var(--suave); vertical-align: baseline; }
+  .vazio { color: var(--fraco); padding: 20px 0; text-align: center; }
+
+  /* --- rankings actuais --- */
+  .rank-col h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin: 0 0 8px; }
+  .rank-box { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 4px 12px 10px; max-height: 70vh; overflow-y: auto; }
+  .rank-reg { padding: 8px 0; border-bottom: 1px solid var(--linha); }
+  .rank-reg:last-child { border-bottom: 0; }
+  .rank-reg .nome { font-weight: 700; font-size: 12.5px; }
+  .rank-reg .nome .lvl { color: var(--fraco); font-weight: 400; font-size: 10.5px; text-transform: uppercase; margin-left: 4px; }
+  .rank-reg .linha { font-size: 12px; color: var(--suave); display: flex; gap: 6px; align-items: center; }
+  .rank-reg .linha .pos { color: var(--fraco); width: 16px; }
+  .rank-reg .linha .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .rank-reg .linha b { color: var(--texto); }
+  .rank-reg .linha .c { margin-left: auto; color: var(--fraco); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="topo"><a href="club.html">← mapa do clube</a> · <a href="atletas/">perfis</a></p>
+  <h1>Histórico do Club</h1>
+  <p class="meta" id="meta"></p>
+
+  <div id="aviso-stale">
+    ⚠ Os dados têm mais de 6 h — o pipeline pode não ter corrido. O que está aqui pode
+    estar a repetir o dia anterior. <span id="aviso-idade"></span>
+  </div>
+
+  <div class="filtros" id="filtros"></div>
+
+  <div class="cols">
+    <div class="feed-col"><div id="feed"></div></div>
+    <div class="rank-col">
+      <h2>Quem manda onde <span id="rank-count" style="color:var(--fraco);font-weight:400"></span></h2>
+      <div class="rank-box" id="rankings"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
+  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+  const U_EVENTS = LOCAL ? '../data/events.json' : RAW + 'data/data/events.json';
+  const U_REGIOES = LOCAL ? '../data/club_regioes.json' : RAW + 'data/data/club_regioes.json';
+  const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
+  const NC = { cache: 'no-cache' };
+
+  const ATLETAS = ['Zé', 'Xeira', 'Carolina', 'Inês S.', 'Pedro'];
+  const COR_FALLBACK = {
+    'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0',
+  };
+  let CORES = { ...COR_FALLBACK };
+  const cor = n => CORES[n] || 'var(--suave)';
+  const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nfmt = n => (n || 0).toLocaleString('pt-PT');
+
+  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  function dataLonga(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return `${d} ${MES[m - 1]} ${y}`;
+  }
+
+  let eventos = [], regioes = null, gerado = null;
+  const estado = { atleta: null, regiao: null, distrito: false }; // distrito OFF por defeito
+
+  const ICO = { ultrapassagem: '⇅', novo_lider: '👑', primeira_presenca: '📍', marco: '🚩' };
+
+  // agrupa ultrapassagens do mesmo atleta/região/dia numa linha só
+  function agrupar(evs) {
+    const out = [], chave = {};
+    for (const e of evs) {
+      if (e.tipo === 'ultrapassagem') {
+        const k = e.data + '|' + e.nivel + '|' + e.regiao + '|' + e.quem;
+        if (chave[k]) { chave[k].sobre.push(e.sobre); continue; }
+        const c = { ...e, sobre: [e.sobre] };
+        chave[k] = c; out.push(c);
+      } else {
+        out.push(e);
+      }
+    }
+    return out;
+  }
+
+  function frase(e) {
+    const r = esc(e.regiao), v = e.valores;
+    if (e.tipo === 'ultrapassagem') {
+      const alvos = e.sobre.map(s => `<b>${dot(s)}${esc(s)}</b>`).join(' e ');
+      return `<b>${dot(e.quem)}${esc(e.quem)}</b> passou ${alvos} em ${r}
+        <span class="num">· ${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
+    }
+    if (e.tipo === 'novo_lider') {
+      return `<b>${dot(e.quem)}${esc(e.quem)}</b> assumiu a liderança de ${r}, passou
+        <b>${dot(e.sobre)}${esc(e.sobre)}</b> <span class="num">· ${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
+    }
+    if (e.tipo === 'primeira_presenca') {
+      return `<b>${dot(e.quem)}${esc(e.quem)}</b> estreou-se em ${r}
+        <span class="num">· ${nfmt(v[0])} squadratinho${v[0] === 1 ? '' : 's'}</span>`;
+    }
+    return `<b>${dot(e.quem)}${esc(e.quem)}</b> passou os <b>${nfmt(v[0])}</b> squadratinhos em ${r}
+      <span class="num">· agora ${nfmt(v[1])}</span>`;
+  }
+
+  function renderFiltros() {
+    const box = document.getElementById('filtros');
+    const regs = [...new Set(eventos.map(e => e.regiao))].sort((a, b) => a.localeCompare(b, 'pt'));
+    box.innerHTML = `
+      <div class="grupo"><span class="rot">Atleta</span>
+        ${ATLETAS.map(n => `<button class="chip ${estado.atleta === n ? 'on' : ''}" data-atleta="${esc(n)}">${dot(n)}${esc(n)}</button>`).join('')}
+      </div>
+      <div class="grupo"><span class="rot">Região</span>
+        <select class="chip" id="f-regiao">
+          <option value="">todas</option>
+          ${regs.map(r => `<option value="${esc(r)}" ${estado.regiao === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grupo">
+        <button class="chip ${estado.distrito ? 'on' : ''}" id="f-distrito">incluir distrito</button>
+      </div>`;
+    box.querySelectorAll('[data-atleta]').forEach(b => b.onclick = () => {
+      estado.atleta = estado.atleta === b.dataset.atleta ? null : b.dataset.atleta;
+      render();
+    });
+    box.querySelector('#f-regiao').onchange = e => { estado.regiao = e.target.value || null; render(); };
+    box.querySelector('#f-distrito').onclick = () => { estado.distrito = !estado.distrito; render(); };
+  }
+
+  function filtrar(evs) {
+    return evs.filter(e =>
+      (estado.distrito || e.nivel === 'concelho') &&
+      (!estado.atleta || e.quem === estado.atleta ||
+        (e.tipo === 'ultrapassagem' ? e.sobre.includes(estado.atleta) : e.sobre === estado.atleta)) &&
+      (!estado.regiao || e.regiao === estado.regiao));
+  }
+
+  function renderFeed() {
+    const feed = document.getElementById('feed');
+    let evs = agrupar([...eventos].sort((a, b) => b.data.localeCompare(a.data)));
+    evs = filtrar(evs);
+    if (!evs.length) { feed.innerHTML = '<p class="vazio">Sem eventos com estes filtros.</p>'; return; }
+    let html = '', diaActual = null;
+    for (const e of evs) {
+      if (e.data !== diaActual) {
+        diaActual = e.data;
+        html += `<div class="dia-cab">${dataLonga(e.data)}</div>`;
+      }
+      html += `<div class="ev">
+        <span class="tag ${e.nivel}">${e.nivel}</span>
+        <span class="ico">${ICO[e.tipo] || ''}</span>
+        <span class="corpo">${frase(e)}</span>
+      </div>`;
+    }
+    feed.innerHTML = html;
+  }
+
+  function renderRankings() {
+    const box = document.getElementById('rankings');
+    if (!regioes) { box.innerHTML = '<p class="vazio">club_regioes.json indisponível.</p>'; return; }
+    const at = regioes.atletas || {};
+    const niveis = [['by_concelho', 'concelho']];
+    if (estado.distrito) niveis.push(['by_distrito', 'distrito']);
+
+    const linhas = [];
+    for (const [chave, lvl] of niveis) {
+      const porReg = {};
+      for (const nome of Object.keys(at)) {
+        for (const [reg, n] of Object.entries(at[nome][chave] || {})) {
+          if (n > 0) (porReg[reg] = porReg[reg] || []).push([nome, n]);
+        }
+      }
+      for (const [reg, arr] of Object.entries(porReg)) {
+        if (arr.length < 2) continue; // só disputadas
+        if (estado.regiao && reg !== estado.regiao) continue;
+        arr.sort((a, b) => b[1] - a[1] || ATLETAS.indexOf(a[0]) - ATLETAS.indexOf(b[0]));
+        linhas.push({ reg, lvl, arr, top: arr[0][1] });
+      }
+    }
+    linhas.sort((a, b) => b.top - a.top);
+    document.getElementById('rank-count').textContent = `(${linhas.length})`;
+    box.innerHTML = linhas.map(({ reg, lvl, arr }) => `
+      <div class="rank-reg">
+        <div class="nome">${esc(reg)}<span class="lvl">${lvl}</span></div>
+        ${arr.slice(0, 4).map(([n, c], i) => `
+          <div class="linha"><span class="pos">${i + 1}º</span>${dot(n)}<b>${esc(n)}</b>
+            <span class="c">${nfmt(c)}</span></div>`).join('')}
+      </div>`).join('') || '<p class="vazio">Nenhuma região disputada.</p>';
+  }
+
+  function renderMeta() {
+    const m = document.getElementById('meta');
+    const q = gerado ? gerado.replace('T', ' ').replace('Z', ' UTC') : '?';
+    m.innerHTML = `Eventos de ranking por região desde <b>15 ago 2026</b>
+      (foi quando o breakdown por região começou; o mapa é mais antigo).
+      Dados actualizados: ${esc(q)}.`;
+    // aviso de dados velhos
+    if (gerado) {
+      const idadeH = (Date.now() - Date.parse(gerado)) / 3.6e6;
+      const av = document.getElementById('aviso-stale');
+      if (idadeH > 6) {
+        av.classList.add('on');
+        document.getElementById('aviso-idade').textContent =
+          `Última actualização há ~${idadeH.toFixed(0)} h.`;
+      } else {
+        av.classList.remove('on');
+      }
+    }
+  }
+
+  function render() {
+    renderMeta();
+    renderFiltros();
+    renderFeed();
+    renderRankings();
+  }
+
+  (async function () {
+    try {
+      const rc = await fetch(U_CORES, NC);
+      if (rc.ok) { const j = await rc.json(); CORES = { ...COR_FALLBACK, ...(j.cores || {}) }; }
+    } catch (e) { /* fallback */ }
+    try {
+      const [re, rr] = await Promise.all([fetch(U_EVENTS, NC), fetch(U_REGIOES, NC)]);
+      if (re.ok) { const j = await re.json(); eventos = j.eventos || []; gerado = j.gerado; }
+      if (rr.ok) { regioes = await rr.json(); if (!gerado) gerado = regioes.gerado; }
+    } catch (e) {
+      document.getElementById('feed').innerHTML =
+        '<p class="vazio">Não consegui carregar events.json.</p>';
+    }
+    render();
+  })();
+})();
+</script>
+</body>
+</html>

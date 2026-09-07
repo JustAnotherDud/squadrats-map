@@ -28,3 +28,5 @@ data/classification_fallbacks.json
 # perfis por atleta (build_profiles.py): um <slug>.json + index.json, mesma
 # regra — só na branch `data`, lidos por atletas/perfil.js via raw.
 data/atletas/
+# feed de eventos do club (append_events.py / backfill_events.py) — mesma regra
+data/events.json
