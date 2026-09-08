@@ -75,6 +75,27 @@ function regiaoHref(nivel, nome) {
   return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
 }
 
+// --- datas ---
+// Formato único do site: "6 set 2026" (dia sem zero, mês abreviado em
+// minúsculas, ano). A linha "Actualizado" mantém a hora: "8 set 2026, 00:11 UTC"
+// (sem segundos — não acrescentam nada). Tudo UTC, como os campos `gerado`/
+// `atualizado` dos JSON. Fonte única — antes havia `dataLonga` no historico.html
+// e `dLonga`/`dCurta` no regiao.js, cada um com o seu array de meses.
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function fmtData(iso) {
+  const p = String(iso || '').slice(0, 10).split('-');
+  if (p.length !== 3) return String(iso || '');
+  return `${+p[2]} ${MESES[+p[1] - 1]} ${p[0]}`;
+}
+
+// "AAAA-MM-DDTHH:MM:SSZ" -> "8 set 2026, 00:11 UTC"
+function fmtDataHora(ts) {
+  const m = String(ts || '').match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  if (!m) return String(ts || '').replace('T', ' ').replace('Z', ' UTC');
+  return `${fmtData(m[1])}, ${m[2]}:${m[3]} UTC`;
+}
+
 // lat/lng -> tile x/y da grelha XYZ, para um dado zoom. Mesma convenção do
 // pipeline (pipeline/kml_parse.py lonlat_to_tile) — se um dia divergirem, os
 // squares desenhados deixam de bater com os capturados.

@@ -362,7 +362,7 @@ function renderPainel() {
       de cada square, ou aqui em baixo em Detalhe).
       Os totais por atleta são sempre os reais; as linhas de baixo contam o que
       está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
-      Actualizado: ${dados.atualizado.replace('T', ' ').replace('Z', ' UTC')}</div>`);
+      Actualizado: ${fmtDataHora(dados.atualizado)}</div>`);
   } else if (painelTab === 'atleta') {
     linhas.push(renderDetalheGeo());
   } else {
@@ -476,7 +476,7 @@ function renderDetalheGeo() {
 
   linhas.push(`<div class="nota">Squadratinhos (zoom 17). Totais partilhados com o mapa pessoal
     (mesma grelha para toda a gente) — só a contagem capturada muda por atleta.
-    ${dadosGeo.atualizado ? `Actualizado: ${dadosGeo.atualizado.replace('T', ' ').replace('Z', ' UTC')}` : ''}</div>`);
+    ${dadosGeo.atualizado ? `Actualizado: ${fmtDataHora(dadosGeo.atualizado)}` : ''}</div>`);
 
   return linhas.join('');
 }

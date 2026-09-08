@@ -143,6 +143,7 @@
   </p>
 </div>
 
+<script src="shared.js"></script>
 <script>
 (function () {
   'use strict';
@@ -166,20 +167,9 @@
   const SLUG = { 'Zé': 'ze', 'Xeira': 'xeira', 'Carolina': 'carolina', 'Inês S.': 'ines-s', 'Pedro': 'pedro' };
   // nome do atleta com bolinha de cor, ligado ao perfil
   const atletaHtml = n => `<a class="atl" href="atletas/${SLUG[n] || ''}.html">${dot(n)}${esc(n)}</a>`;
-  // slug igual ao pipeline.slugs.slugify (sem acentos, minúsculas, "-")
-  const slugify = s => s.normalize('NFKD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  // regiões PT (concelho/distrito) têm página: regioes/c-<slug>.html / d-<slug>.html
-  const regiaoHref = (nivel, nome) =>
-    `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+  // regiaoHref / fmtData vêm do shared.js (carregado antes deste script)
   const regiaoHtml = (nivel, nome) =>
     `<a class="reg" href="${regiaoHref(nivel, nome)}">${esc(nome)}</a>`;
-
-  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  function dataLonga(iso) {
-    const [y, m, d] = iso.split('-').map(Number);
-    return `${d} ${MES[m - 1]} ${y}`;
-  }
 
   let eventos = [], regioes = null, gerado = null;
   const estado = { atleta: null, regiao: null };
@@ -257,7 +247,7 @@
     for (const e of evs) {
       if (e.data !== diaActual) {
         diaActual = e.data;
-        html += `<div class="dia-cab">${dataLonga(e.data)}</div>`;
+        html += `<div class="dia-cab">${fmtData(e.data)}</div>`;
       }
       html += `<div class="ev">
         <span class="tag ${e.nivel}">${e.nivel}</span>
@@ -322,7 +312,7 @@
 
   function renderMeta() {
     const m = document.getElementById('meta');
-    const q = gerado ? gerado.replace('T', ' ').replace('Z', ' UTC') : '?';
+    const q = gerado ? fmtDataHora(gerado) : '?';
     m.textContent = `Dados actualizados: ${q} · histórico desde 15 ago 2026`;
     // aviso de dados velhos
     if (gerado) {

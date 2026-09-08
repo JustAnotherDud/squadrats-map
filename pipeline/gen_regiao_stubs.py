@@ -1,6 +1,7 @@
 """Gera os stubs HTML das páginas de região: regioes/<key>.html, um por
-ficheiro em data/regioes/. Cada stub é só casca — carrega ../nav.js e
-../regiao.js, que lê data/regioes/<key>.json da branch `data`.
+ficheiro em data/regioes/. Cada stub é só casca — carrega ../nav.js,
+../shared.js (MESES/fmtData/regiaoHref) e ../regiao.js, que lê
+data/regioes/<key>.json da branch `data`.
 
 Corre no fetch-map-data.yml a seguir ao append_regioes; commita para o `main`
 só se a lista de regiões tiver mudado (padrão do gen_profile_stubs.py).
@@ -29,6 +30,7 @@ STUB = """<!DOCTYPE html>
   <p class="reg-estado">A carregar {nome}…</p>
 </main>
 <script src="../nav.js"></script>
+<script src="../shared.js"></script>
 <script src="regiao.js"></script>
 </body>
 </html>

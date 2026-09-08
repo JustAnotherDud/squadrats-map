@@ -189,9 +189,9 @@
       const x = pad + i * bw;
       return `<rect x="${x.toFixed(1)}" y="${(h - pad - bh).toFixed(1)}"
         width="${Math.max(bw - 1.5, 1).toFixed(1)}" height="${bh.toFixed(1)}">
-        <title>${d.data}: +${d.v} squadratinhos</title></rect>`;
+        <title>${fmtData(d.data)}: +${d.v} squadratinhos</title></rect>`;
     }).join('');
-    const primeiro = vals[0].data, ultimo = vals[vals.length - 1].data;
+    const primeiro = fmtData(vals[0].data), ultimo = fmtData(vals[vals.length - 1].data);
     return `<svg class="perfil-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
       ${barras}
       <text x="${pad}" y="${h - 2}">${primeiro}</text>
@@ -241,7 +241,7 @@
       const detalhe = aberto && temDetalhe
         ? `<tr class="gan-det"><td colspan="${ncols}">${ganhoDetalhe(d.regioes, d.squadratinhos)}</td></tr>`
         : '';
-      return `<tr><td>${esc(d.data)}</td>${celulas}</tr>${detalhe}`;
+      return `<tr><td>${esc(fmtData(d.data))}</td>${celulas}</tr>${detalhe}`;
     }).join('');
     return blocoSpark(dias) + `<div class="perfil-scroll"><table class="perfil-tabela">
       <thead><tr><th>Dia</th>${cab}</tr></thead><tbody>${linhas}</tbody></table></div>`;
@@ -249,7 +249,7 @@
 
   function pintar(d, cor) {
     const mapaUrl = `https://squadrats.com/map/${encodeURIComponent(d.uid)}/17`;
-    const quando = (d.atualizado || '').replace('T', ' ').replace('Z', ' UTC');
+    const quando = fmtDataHora(d.atualizado);
     let estado = { soDisputadas: false, sort: { k: 'captured', dir: 'desc' }, ganhoAberto: null };
 
     function desenhar() {

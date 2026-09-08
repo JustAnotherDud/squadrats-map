@@ -21,9 +21,9 @@
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
   const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
   const atl = n => `<a class="atl" href="../atletas/${SLUG[n] || ''}.html">${esc(n)}</a>`;
-  const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  const dLonga = iso => { const [y, m, d] = iso.split('-').map(Number); return `${d} ${MES[m - 1]} ${y}`; };
-  const dCurta = iso => { const [, m, d] = iso.split('-').map(Number); return `${d} ${MES[m - 1]}`; };
+  // eixo do gráfico: forma curta sem ano ("6 set"), cabe melhor. MESES e
+  // fmtData/fmtDataHora vêm do shared.js (carregado antes deste script).
+  const dCurta = iso => { const [, m, d] = iso.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
 
   const ICO = { ultrapassagem: '⇅', novo_lider: '👑', primeira_presenca: '📍', marco: '🚩' };
   function frase(e) {
@@ -120,7 +120,7 @@
   }
 
   function pintar(d, eventos) {
-    const q = (d.gerado || '').replace('T', ' ').replace('Z', ' UTC');
+    const q = fmtDataHora(d.gerado);
     const sub = d.nivel === 'concelho'
       ? `concelho${d.distrito_pai ? ` · distrito de <a href="${d.distrito_pai_key}.html">${esc(d.distrito_pai)}</a>` : ''}`
       : 'distrito';
