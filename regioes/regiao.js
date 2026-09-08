@@ -43,9 +43,13 @@
 
   function pintar(d, eventos, filhos) {
     const q = fmtDataHora(d.gerado);
+    // hierarquia acima: concelho -> distrito -> país; distrito -> país.
+    // Todas as regiões com página são PT por agora (uma região estrangeira
+    // usaria pais-<cc>.html e o nome do país respectivo).
+    const pais = '<a href="pais-pt.html">Portugal</a>';
     const sub = d.nivel === 'concelho'
-      ? `concelho${d.distrito_pai ? ` · distrito de <a href="${d.distrito_pai_key}.html">${esc(d.distrito_pai)}</a>` : ''}`
-      : 'distrito';
+      ? `concelho${d.distrito_pai ? ` · distrito de <a href="${d.distrito_pai_key}.html">${esc(d.distrito_pai)}</a>` : ''} · ${pais}`
+      : `distrito · ${pais}`;
 
     const temExc = d.ranking.some(r => r.exclusivos != null);
     const rankRows = d.ranking.map((r, i) => `

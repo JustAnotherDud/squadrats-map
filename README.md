@@ -299,10 +299,29 @@ France, today), the square stays generic, `country`/`region` `null` in
 `tile_info_*.json`, counted in `stats.foreign[zkey].unclassified`, without
 breaking anything.
 
-Only the **count** of captured per province is computed (`stats.json` →
-`foreign`), there is no "grid total" or `%` for foreign regions (it would be
-speculative work without data volume; see `grid_totals.json`, which already has
-the schema prepared but computes nothing for ES).
+Foreign regions now have totals (`stats.json` → `by_region_es` / `by_region_de`
+/ `by_region_ma` / `by_region_ad`, and `by_municipio_*`), a club union per
+region (`classify_club.classify_uniao` → `club_regioes.json` `uniao.by_region`,
+plus `exclusivos.by_region`), and adjacency (`adjacency.json` →
+`provincias_es`, `laender_de`, `regioes_ma`, `paroquias_ad`). The **`pais-es`**
+country page uses all of it: a "Por região" table with the club union, `%` and
+leader per province, each row expandable to the per-athlete ranking and the
+province's neighbours.
+
+**Standalone province pages** (`regioes/es-p-<slug>.html`, one per active ES
+province) are deliberately *not* generated. The data, the union, the adjacency
+and the sub-region table component all exist now, but each page would carry a
+ranking + union + neighbours and nothing else (no events, since `eventos.py`
+only tracks PT buckets; no dispute history), for ~10 provinces nobody
+contests. The
+country-page expansion covers the same ground without 10 thin pages or a URL
+per province. If the club starts riding Spain enough that provinces get
+contested, what a real page would take: generalise `regioes.py` from
+`(nivel, nome)` to `(cc, nivel, nome)` with a key scheme (`es-p-…`, `es-m-…`),
+teach `gen_regiao_stubs.py` + `regiao.js` the foreign level, add the foreign
+regions to the `append_regioes.py` loop, and extend `eventos.py` to foreign
+buckets (or accept no events feed). Foreign **municipality** pages stay out
+regardless: no municipal adjacency, and the pages would be trivially thin.
 
 ## Running the pipeline manually
 

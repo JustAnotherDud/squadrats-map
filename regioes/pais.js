@@ -10,18 +10,21 @@
   const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   const U_CR = LOCAL ? '../data/club_regioes.json' : RAW + 'data/data/club_regioes.json';
   const U_STATS = LOCAL ? '../data/stats.json' : RAW + 'data/data/stats.json';
+  const U_ADJ = LOCAL ? '../data/adjacency.json' : RAW + 'main/data/adjacency.json';
   const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
   const NC = { cache: 'no-cache' };
 
   const alvo = document.getElementById('pais');
   const CC = (alvo.dataset.cc || '').toUpperCase();
 
-  // cor / esc / nfmt / pctfmt / dot / atl / carregarCores / tabelaSubRegioes: comum.js
+  // cor / esc / nfmt / pctfmt / dot / atl / carregarCores / tabelaSubRegioes
+  // / ligarExpansao: comum.js
   const PCT_PAIS = { casas: 2, piso: true };  // % contra um país inteiro é minúscula
 
-  // chave do bloco de totais do país em stats.json
+  // chaves em stats.json / adjacency.json por país
   const statKeyPais = cc => (cc === 'PT' ? 'country_pt' : 'country_' + cc.toLowerCase());
   const statKeyRegioes = cc => (cc === 'PT' ? 'by_distrito' : 'by_region_' + cc.toLowerCase());
+  const adjKeyRegioes = { ES: 'provincias_es', DE: 'laender_de', MA: 'regioes_ma', AD: 'paroquias_ad' };
 
   function rankingPais(cr, cc) {
     const uni = cr.uniao || {};
@@ -54,11 +57,31 @@
       const uni = uniReg[reg] || 0;
       const tot = ((totais[reg] || {}).z17 || {}).total || null;
       return { nome: reg, uniao: uni, n: ord.length, lider: ord[0][0],
-               pct: tot ? 100 * uni / tot : null };
+               pares: ord, tot, pct: tot ? 100 * uni / tot : null };
     }).sort((a, b) => (b.uniao - a.uniao) || a.nome.localeCompare(b.nome, 'pt'));
   }
 
-  function pintar(cr, stats) {
+  // Expansão de uma província: ranking por atleta (capturado, únicos, %) e
+  // os vizinhos (adjacency.json). Sem página própria, os vizinhos são texto;
+  // a cheio os que também têm actividade do clube.
+  function detalheProvincia(x, cr, cc, adjReg, comAtividade) {
+    const ccl = cc.toLowerCase();
+    const excR = ((((cr.uniao || {}).exclusivos || {}).by_region || {})[ccl] || {})[x.nome] || {};
+    const linhas = x.pares.map(([n, cap], i) => `<tr>
+      <td class="pos${i === 0 ? ' p1' : ''}">${i + 1}º</td>
+      <td><span class="nome">${dot(n)}${atl(n)}</span></td>
+      <td class="num">${nfmt(cap)}</td>
+      <td class="uni">${excR[n] ? nfmt(excR[n]) : '·'}</td>
+      <td class="pct">${pctfmt(x.tot ? 100 * cap / x.tot : null, PCT_PAIS)}</td>
+    </tr>`).join('');
+    const vz = ((adjReg[x.nome] || {}).neighbors || []);
+    const vizTxt = vz.map(v => comAtividade.has(v) ? `<b>${esc(v)}</b>` : esc(v)).join(', ');
+    return `<table class="reg-rank"><thead><tr><th></th><th class="h-nome">atleta</th>
+      <th>total</th><th>únicos</th><th>%</th></tr></thead><tbody>${linhas}</tbody></table>
+      ${vizTxt ? `<p class="reg-viz-nota">Faz fronteira com: ${vizTxt}.</p>` : ''}`;
+  }
+
+  function pintar(cr, stats, adj) {
     const nome = PAIS_NOME[CC] || CC;
     document.title = `${nome} · Squadrats Club`;
 
@@ -96,13 +119,19 @@
       </section>`;
     } else {
       const linhas = subRegioesPais(cr, stats, CC);
+      const adjReg = (adj || {})[adjKeyRegioes[CC]] || {};
+      const comAtividade = new Set(linhas.map(l => l.nome));
       const tab = linhas.length
-        ? tabelaSubRegioes(linhas, { rotulo: 'cobre', pctOpts: PCT_PAIS })
+        ? tabelaSubRegioes(linhas, {
+            rotulo: 'cobre', pctOpts: PCT_PAIS,
+            detalheHtml: x => detalheProvincia(x, cr, CC, adjReg, comAtividade),
+          })
         : '<p class="reg-vazio">Sem regiões com actividade.</p>';
       extra = `<section class="reg-sec"><h2>Por região</h2>
         ${tab}
-        <p class="reg-viz-nota">Regiões estrangeiras não têm página própria (sem
-          ranking nem eventos). "+N" = outros membros também presentes.</p>
+        <p class="reg-viz-nota">Sem página própria: carrega numa linha para o
+          ranking e os vizinhos. "+N" = outros membros também presentes;
+          a <b>cheio</b>, vizinhos onde o clube também tem actividade.</p>
       </section>`;
     }
 
@@ -127,23 +156,28 @@
         ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); <b>únicos</b> =
         sem mais nenhum membro do clube. Dados actualizados 6×/dia pelo mesmo
         processo que gera o <a href="../club.html">mapa do clube</a>.</p>`;
+
+    ligarExpansao(alvo.querySelector('.sr-exp'));
   }
 
   async function carregar() {
     await carregarCores(U_CORES, NC);
-    let cr, stats;
+    let cr, stats, adj = {};
     try {
-      const [r1, r2] = await Promise.all([fetch(U_CR, NC), fetch(U_STATS, NC)]);
+      const pedidos = [fetch(U_CR, NC), fetch(U_STATS, NC)];
+      if (CC !== 'PT') pedidos.push(fetch(U_ADJ, NC));
+      const [r1, r2, r3] = await Promise.all(pedidos);
       if (!r1.ok) throw new Error('club_regioes ' + r1.status);
       if (!r2.ok) throw new Error('stats ' + r2.status);
       cr = await r1.json();
       stats = await r2.json();
+      if (r3 && r3.ok) adj = await r3.json();
     } catch (e) {
       alvo.innerHTML = `<p class="reg-estado reg-erro">Não consegui carregar
         ${esc(PAIS_NOME[CC] || CC)} (${esc(e.message)}).</p>`;
       return;
     }
-    pintar(cr, stats);
+    pintar(cr, stats, adj);
   }
   carregar();
 })();

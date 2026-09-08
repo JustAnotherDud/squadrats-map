@@ -40,15 +40,16 @@ def classify_uniao(classifier, squares, atletas):
     contrário do total da região (só tamanho) ou do capturado pelo líder (um
     atleta só).
 
-    `exclusivos`: por região (e por país), quantos squadratinhos cada atleta
-    tem que mais nenhum membro do clube tem (bitmask com um único bit).
-    `by_pais`: união por país (PT, ES, ...). `by_region`: união por região
-    estrangeira (província ES, land DE, região MA), cc -> nome -> n; o
-    equivalente ao by_distrito mas fora de PT, para as páginas pais-*.
-    `atletas` = nomes por ordem de bit."""
+    `exclusivos`: por concelho/distrito/país/região, quantos squadratinhos
+    cada atleta tem que mais nenhum membro do clube tem (bitmask com um único
+    bit). `by_pais`: união por país (PT, ES, ...). `by_region`: união por
+    região estrangeira (província ES, land DE, região MA), cc minúsculo ->
+    nome -> n; o equivalente ao by_distrito fora de PT, para as páginas
+    pais-*. `atletas` = nomes por ordem de bit."""
     by_distrito, by_concelho, by_pais = {}, {}, {}
     by_region = {}  # cc -> {regiao: n}, estrangeiro
     exc_distrito, exc_concelho, exc_pais = {}, {}, {}  # regiao/cc -> {atleta: n}
+    exc_region = {}  # cc -> {regiao: {atleta: n}}, estrangeiro
     for x, y, mask in squares:
         if not mask:
             continue
@@ -72,6 +73,9 @@ def classify_uniao(classifier, squares, atletas):
                 # cc minúsculo, como o by_region por atleta (classify_athlete)
                 mr = by_region.setdefault(cc.lower(), {})
                 mr[reg] = mr.get(reg, 0) + 1
+                if solo:
+                    er = exc_region.setdefault(cc.lower(), {}).setdefault(reg, {})
+                    er[solo] = er.get(solo, 0) + 1
             continue
         d, c = info["district"], info["concelho"]
         if d:
@@ -89,7 +93,7 @@ def classify_uniao(classifier, squares, atletas):
         "by_distrito": by_distrito, "by_concelho": by_concelho,
         "by_pais": by_pais, "by_region": by_region,
         "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho,
-                       "by_pais": exc_pais},
+                       "by_pais": exc_pais, "by_region": exc_region},
     }
 
 

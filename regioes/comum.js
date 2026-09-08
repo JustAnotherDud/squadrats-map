@@ -42,28 +42,49 @@ async function carregarCores(url, nc) {
 // É o mesmo componente nos concelhos de uma página de distrito e nas
 // províncias de uma página de país.
 //   linhas: [{nome, key?, uniao, pct, lider, n?, disp?}], já ordenada
-//   opts.rotulo   cabeçalho da coluna da união (default "cobre")
-//   opts.linkKey  se true e a linha tem `key`, o nome liga a <key>.html
-//   opts.pctOpts  passado a pctfmt (ex. {casas:2, piso:true} nas províncias)
+//   opts.rotulo      cabeçalho da coluna da união (default "cobre")
+//   opts.linkKey     se true e a linha tem `key`, o nome liga a <key>.html
+//   opts.pctOpts     passado a pctfmt (ex. {casas:2, piso:true} nas províncias)
+//   opts.detalheHtml fn(linha) -> html: torna cada linha expansível (▸),
+//                    com esse html numa linha por baixo. Ligar com
+//                    ligarExpansao() depois de inserir no DOM.
 function tabelaSubRegioes(linhas, opts) {
   opts = opts || {};
   const rot = opts.rotulo || 'cobre';
-  const corpo = linhas.map(x => {
+  const exp = typeof opts.detalheHtml === 'function';
+  const corpo = linhas.map((x, i) => {
     const nomeCel = (opts.linkKey && x.key)
       ? `<a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.nome)}</a>`
-      : `<span class="nome">${esc(x.nome)}</span>`;
+      : `<span class="sr-nome">${esc(x.nome)}</span>`;
     const lid = x.lider
       ? `${dot(x.lider)}${esc(x.lider)}${x.n > 1 ? ` <span class="pct">+${x.n - 1}</span>` : ''}`
       : '·';
-    return `<tr>
-      <td>${nomeCel}</td>
+    const linha = `<tr class="sr-row${exp ? ' exp' : ''}"${exp ? ` data-i="${i}"` : ''}>
+      <td>${exp ? '<span class="sr-tri">▸</span>' : ''}${nomeCel}</td>
       <td class="num">${nfmt(x.uniao)}</td>
       <td class="uni">${lid}</td>
       <td class="pct">${pctfmt(x.pct, opts.pctOpts)}</td>
     </tr>`;
+    const det = exp
+      ? `<tr class="sr-det" data-i="${i}" hidden><td colspan="4">${opts.detalheHtml(x)}</td></tr>`
+      : '';
+    return linha + det;
   }).join('');
-  return `<table class="reg-rank">
+  return `<table class="reg-rank${exp ? ' sr-exp' : ''}">
     <thead><tr><th class="h-nome">região</th><th>${esc(rot)}</th>
       <th>líder</th><th>%</th></tr></thead>
     <tbody>${corpo}</tbody></table>`;
+}
+
+// Liga o clique de expansão numa tabela do tabelaSubRegioes({detalheHtml}).
+function ligarExpansao(tabela) {
+  if (!tabela) return;
+  tabela.addEventListener('click', e => {
+    const row = e.target.closest('.sr-row.exp');
+    if (!row || !tabela.contains(row)) return;
+    const det = tabela.querySelector(`.sr-det[data-i="${row.dataset.i}"]`);
+    if (!det) return;
+    det.hidden = !det.hidden;
+    row.classList.toggle('aberto', !det.hidden);
+  });
 }

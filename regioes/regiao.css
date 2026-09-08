@@ -12,7 +12,7 @@ html, body { margin: 0; background: var(--fundo); color: var(--texto);
 a { color: var(--azul-claro); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-#regiao { max-width: 760px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: clip; }
+#regiao, #pais { max-width: 760px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: clip; }
 .reg-estado { color: var(--suave); padding: 40px 0; text-align: center; }
 .reg-erro { color: #e08a6a; }
 
@@ -49,6 +49,18 @@ a:hover { text-decoration: underline; }
 
 .reg-totais { font-size: 12.5px; color: var(--suave); }
 .reg-totais b { color: var(--texto); font-variant-numeric: tabular-nums; }
+
+/* tabela de sub-regiões (concelhos de um distrito, províncias de um país) */
+.reg-rank .sr-nome { color: var(--texto); }
+.reg-rank.sr-exp .sr-row.exp { cursor: pointer; }
+.reg-rank.sr-exp .sr-row.exp:hover td { background: var(--cartao-alto); }
+.sr-tri { display: inline-block; width: 12px; color: var(--fraco); font-size: 10px;
+  transition: transform .12s; }
+.sr-row.aberto .sr-tri { transform: rotate(90deg); }
+.sr-det > td { padding: 4px 4px 12px 18px; border-bottom: 1px solid var(--linha);
+  background: var(--cartao); }
+.sr-det .reg-rank { margin: 0; }
+.sr-det .reg-viz-nota { margin: 8px 0 0; }
 
 /* eventos (mesmo look do historico) */
 .reg-ev { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0 7px 9px;
