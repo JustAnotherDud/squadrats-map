@@ -26,10 +26,16 @@ a:hover { text-decoration: underline; }
 
 /* ranking */
 .reg-rank { width: 100%; border-collapse: collapse; font-size: 13px; }
+.reg-rank th { padding: 0 4px 5px; text-align: right; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--fraco); font-weight: 600; }
+.reg-rank th.h-nome { text-align: left; }
 .reg-rank td { padding: 6px 4px; border-bottom: 1px solid var(--linha); }
-.reg-rank td.n { text-align: right; white-space: nowrap; font-weight: 600;
+.reg-rank td.num { text-align: right; white-space: nowrap; font-weight: 600;
   font-variant-numeric: tabular-nums; }
-.reg-rank td.n .pct { color: var(--fraco); font-weight: 400; margin-left: 6px; }
+.reg-rank td.uni { text-align: right; white-space: nowrap; color: var(--suave);
+  font-variant-numeric: tabular-nums; }
+.reg-rank td.pct { text-align: right; white-space: nowrap; color: var(--fraco);
+  font-variant-numeric: tabular-nums; width: 46px; }
 .reg-rank .pos { color: var(--fraco); width: 22px; }
 .reg-rank .pos.p1 { color: var(--ouro); font-weight: 700; }
 .reg-rank .nome { display: flex; align-items: center; }
@@ -43,14 +49,6 @@ a:hover { text-decoration: underline; }
 
 .reg-totais { font-size: 12.5px; color: var(--suave); }
 .reg-totais b { color: var(--texto); font-variant-numeric: tabular-nums; }
-
-/* timeline do ranking */
-.reg-tl { display: block; width: 100%; height: 120px; margin: 2px 0 4px; }
-.reg-tl text { fill: var(--fraco); font-size: 9px; font-family: inherit; }
-.reg-tl .lbl { font-weight: 700; }
-.reg-tl .grid { stroke: var(--linha); stroke-width: 1; }
-.reg-tl-nota { font-size: 10.5px; color: var(--fraco); }
-.reg-tl-so { font-size: 12.5px; color: var(--suave); margin: 4px 0 0; }
 
 /* eventos (mesmo look do historico) */
 .reg-ev { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0 7px 9px;

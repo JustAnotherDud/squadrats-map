@@ -32,24 +32,44 @@ REFDATA_DIR = os.path.join(HERE, "refdata")
 ZOOM = 17  # club.json só tem squadratinhos (ver fetch_club_squares.py)
 
 
-def classify_uniao(classifier, squares):
+def classify_uniao(classifier, squares, atletas):
     """União do clube: cada squadratinho de club.json vale 1, sem repetir os
     partilhados (club.json já traz cada (x,y) uma só vez, com o bitmask de
     quem o tem). Ignora mask 0 por segurança, embora fetch_club_squares nunca
     escreva nenhum. É o número que diz "actividade do clube nesta região", ao
     contrário do total da região (só tamanho) ou do capturado pelo líder (um
-    atleta só)."""
+    atleta só).
+
+    `exclusivos`: por região, quantos squadratinhos cada atleta tem que mais
+    nenhum membro do clube tem (bitmask com um único bit). `atletas` = nomes
+    por ordem de bit."""
     by_distrito, by_concelho = {}, {}
+    exc_distrito, exc_concelho = {}, {}  # nome_regiao -> {atleta: n}
     for x, y, mask in squares:
         if not mask:
             continue
         info = classifier.classify(tile_bounds(x, y, ZOOM))
-        if info["in_portugal"]:
-            if info["district"]:
-                by_distrito[info["district"]] = by_distrito.get(info["district"], 0) + 1
-            if info["concelho"]:
-                by_concelho[info["concelho"]] = by_concelho.get(info["concelho"], 0) + 1
-    return {"by_distrito": by_distrito, "by_concelho": by_concelho}
+        if not info["in_portugal"]:
+            continue
+        d, c = info["district"], info["concelho"]
+        if d:
+            by_distrito[d] = by_distrito.get(d, 0) + 1
+        if c:
+            by_concelho[c] = by_concelho.get(c, 0) + 1
+        if mask & (mask - 1) == 0:  # potência de 2 -> um só dono
+            i = mask.bit_length() - 1
+            if 0 <= i < len(atletas):
+                nome = atletas[i]
+                if d:
+                    md = exc_distrito.setdefault(d, {})
+                    md[nome] = md.get(nome, 0) + 1
+                if c:
+                    mc = exc_concelho.setdefault(c, {})
+                    mc[nome] = mc.get(nome, 0) + 1
+    return {
+        "by_distrito": by_distrito, "by_concelho": by_concelho,
+        "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho},
+    }
 
 
 def classify_athlete(classifier, squares):
@@ -109,7 +129,7 @@ def main(out_dir):
         atletas_out[nome] = classify_athlete(classifier, squares)
         print(f"{nome}: {len(squares)} squares classificados")
 
-    uniao = classify_uniao(classifier, club["squares"])
+    uniao = classify_uniao(classifier, club["squares"], [nome for nome, _uid in ATLETAS])
     print(f"união: {len(club['squares'])} squares distintos classificados")
 
     resultado = {

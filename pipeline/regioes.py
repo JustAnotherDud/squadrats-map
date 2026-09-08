@@ -111,12 +111,16 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
     # união do clube: squadratinhos cobertos por qualquer membro, sem duplicar
     # partilhados (classify_club.classify_uniao). É a métrica de "actividade"
     # do índice de regiões, o total da região (z17) só diz o tamanho.
-    uni = ((snapshot_atual.get("uniao") or {}).get(CHAVE_BUCKET[nivel]) or {}).get(nome, 0)
+    uni_b = snapshot_atual.get("uniao") or {}
+    uni = (uni_b.get(CHAVE_BUCKET[nivel]) or {}).get(nome, 0)
     uni_pct = round(100 * uni / z17, 2) if z17 else None
+    # exclusivos por atleta: squadratinhos que mais nenhum membro tem aqui.
+    exc = ((uni_b.get("exclusivos") or {}).get(CHAVE_BUCKET[nivel]) or {}).get(nome, {})
 
     rank = ranking_de(snapshot_atual, nivel, nome)
     ranking = [
-        {"nome": a, "captured": n, "pct": round(100 * n / z17, 2) if z17 else None}
+        {"nome": a, "captured": n, "exclusivos": exc.get(a, 0),
+         "pct": round(100 * n / z17, 2) if z17 else None}
         for a, n in rank
     ]
 

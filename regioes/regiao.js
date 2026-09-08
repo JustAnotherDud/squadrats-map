@@ -21,9 +21,6 @@
   const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
   // slugify vem do shared.js (= pipeline/slugs.py), sem mapa nome->slug à mão
   const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
-  // eixo do gráfico: forma curta sem ano ("6 set"), cabe melhor. MESES e
-  // fmtData/fmtDataHora vêm do shared.js (carregado antes deste script).
-  const dCurta = iso => { const [, m, d] = iso.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
 
   const ICO = { ultrapassagem: '⇅', novo_lider: '👑', primeira_presenca: '📍', marco: '🚩' };
   function frase(e) {
@@ -41,82 +38,13 @@
       <span class="num">· agora ${nfmt(v[1])}</span>`;
   }
 
-  // --- timeline do ranking ---
-  // O eixo Y é a POSIÇÃO (1º no topo), não o valor absoluto. Com valores como
-  // 3916 vs 376 vs 327 nenhuma escala (linear ou log) separa a sub-corrida, e a
-  // magnitude já está na tabela por cima. Aqui só interessa quem passou quem.
-  // Só se desenha onde há um evento de troca (ultrapassagem / novo líder),
-  // mesma definição da fila "Regiões disputadas" do historico.html. Uma estreia
-  // (📍) mexe na ordem mas não é passar ninguém, por isso não conta.
-
+  // vizinho "disputado" = com evento de troca (ultrapassagem / novo líder),
+  // mesma definição da fila "Regiões disputadas" do historico.html. Uma
+  // estreia (📍) mexe na ordem mas não é passar ninguém, não conta.
   function temEventoTroca(eventos, d) {
     return eventos.some(e =>
       (e.tipo === 'ultrapassagem' || e.tipo === 'novo_lider') &&
       e.nivel === d.nivel && e.regiao === d.regiao);
-  }
-
-  // Maior subida em squadratinhos entre o 1.º e o último ponto (regiões que
-  // mexeram em valor mas sem trocar ninguém de lugar).
-  function maiorGanho(tl) {
-    if (!tl || tl.length < 2) return null;
-    const ini = Object.fromEntries(tl[0].ranking);
-    const fim = Object.fromEntries(tl[tl.length - 1].ranking);
-    let best = null;
-    for (const n of Object.keys(fim)) {
-      const delta = (fim[n] || 0) - (ini[n] || 0);
-      if (delta > 0 && (!best || delta > best.delta)) best = { nome: n, delta };
-    }
-    return best;
-  }
-
-  function timelineRankSvg(tl, gerado) {
-    const fimIso = (gerado || '').slice(0, 10) || tl[tl.length - 1].data;
-    const nomes = [];
-    tl.forEach(p => p.ranking.forEach(([n]) => { if (!nomes.includes(n)) nomes.push(n); }));
-    const NR = Math.max(nomes.length, 2);
-
-    // série de posições por atleta: [[dataISO, rank], ...]. Ausente nesse dia =
-    // uma linha abaixo do último classificado (entrou de fora).
-    const serie = {};
-    for (const n of nomes) serie[n] = [];
-    for (const p of tl) {
-      const idx = {};
-      p.ranking.forEach(([n], i) => { idx[n] = i + 1; });
-      for (const n of nomes) serie[n].push([p.data, idx[n] || Math.min(p.ranking.length + 1, NR)]);
-    }
-
-    const datas = [...new Set(tl.map(p => p.data)).add(fimIso)].sort();
-    const t0 = Date.parse(datas[0]);
-    const t1 = Date.parse(fimIso) || Date.parse(datas[datas.length - 1]);
-    const W = 620, H = 120, pl = 18, pr = 74, pt = 12, pb = 16;
-    const x = iso => pl + (t1 === t0 ? 0.5 : (Date.parse(iso) - t0) / (t1 - t0)) * (W - pl - pr);
-    const y = r => pt + (NR === 1 ? 0.5 : (r - 1) / (NR - 1)) * (H - pt - pb);
-
-    let grid = '';
-    for (let r = 1; r <= NR; r++)
-      grid += `<line class="grid" x1="${pl}" y1="${y(r).toFixed(1)}" x2="${W - pr}" y2="${y(r).toFixed(1)}"/>`;
-
-    let paths = '', labels = '';
-    for (const n of nomes) {
-      const pts = serie[n].concat([[fimIso, serie[n][serie[n].length - 1][1]]]);
-      let d = '';
-      pts.forEach(([iso, r], i) => {
-        const px = x(iso).toFixed(1), py = y(r).toFixed(1);
-        if (i === 0) d += `M${px} ${py}`;
-        else { const prevY = y(pts[i - 1][1]).toFixed(1); d += `L${px} ${prevY}L${px} ${py}`; }
-      });
-      paths += `<path d="${d}" fill="none" stroke="${cor(n)}" stroke-width="1.8" opacity="0.9"/>`;
-      const ly = y(pts[pts.length - 1][1]).toFixed(1);
-      labels += `<text class="lbl" x="${W - pr + 5}" y="${ly}" dominant-baseline="middle" fill="${cor(n)}">${esc(n)}</text>`;
-    }
-
-    return `<svg class="reg-tl" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-      ${grid}${paths}${labels}
-      <text x="${pl - 13}" y="${y(1).toFixed(1)}" dominant-baseline="middle">1º</text>
-      <text x="${pl - 13}" y="${y(NR).toFixed(1)}" dominant-baseline="middle">${NR}º</text>
-      <text x="${pl}" y="${H - 3}">${dCurta(datas[0])}</text>
-      <text x="${W - pr}" y="${H - 3}" text-anchor="end">${dCurta(fimIso)}</text>
-    </svg>`;
   }
 
   function pintar(d, eventos) {
@@ -125,12 +53,20 @@
       ? `concelho${d.distrito_pai ? ` · distrito de <a href="${d.distrito_pai_key}.html">${esc(d.distrito_pai)}</a>` : ''}`
       : 'distrito';
 
+    const temExc = d.ranking.some(r => r.exclusivos != null);
     const rankRows = d.ranking.map((r, i) => `
       <tr>
         <td class="pos${i === 0 ? ' p1' : ''}">${i + 1}º</td>
         <td><span class="nome">${dot(r.nome)}${atl(r.nome)}</span></td>
-        <td class="n">${nfmt(r.captured)}${r.pct != null ? `<span class="pct">${r.pct.toFixed(1)}%</span>` : ''}</td>
+        <td class="num">${nfmt(r.captured)}</td>
+        ${temExc ? `<td class="uni">${r.exclusivos ? nfmt(r.exclusivos) : '·'}</td>` : ''}
+        <td class="pct">${r.pct != null ? r.pct.toFixed(1) + '%' : ''}</td>
       </tr>`).join('');
+    const rankHead = `<thead><tr>
+      <th></th><th class="h-nome">atleta</th>
+      <th title="squadratinhos do atleta na região, partilhados incluídos">total</th>
+      ${temExc ? '<th title="squadratinhos que mais nenhum membro do clube tem aqui">únicos</th>' : ''}
+      <th>%</th></tr></thead>`;
 
     const evReg = eventos.filter(e => e.nivel === d.nivel && e.regiao === d.regiao)
       .sort((a, b) => b.data.localeCompare(a.data));
@@ -151,36 +87,21 @@
     }).join('') : '<p class="reg-vazio">·</p>';
     const algumVizDisp = d.vizinhos.some(vizDisp);
 
-    const tlData = (d.timeline && d.timeline.length) ? d.timeline : [];
-    let evolSec;
-    if (temEventoTroca(eventos, d) && tlData.length >= 2) {
-      evolSec = `<section class="reg-sec"><h2>Evolução</h2>
-        ${timelineRankSvg(tlData, d.gerado)}
-        <p class="reg-tl-nota">Posição no ranking ao longo do tempo, as linhas a cruzar-se são trocas de lugar. Os totais estão na tabela em cima.</p>
-      </section>`;
-    } else {
-      const g = maiorGanho(tlData);
-      const linha = g
-        ? `${atl(g.nome)} somou <b>${nfmt(g.delta)}</b> squadratinho${g.delta === 1 ? '' : 's'} no período, sem trocar de posição.`
-        : 'Sem trocas de posição no ranking desde 26 jul 2026.';
-      evolSec = `<section class="reg-sec"><p class="reg-tl-so">${linha}</p></section>`;
-    }
+    const uni = d.uniao && d.uniao.z17 != null ? d.uniao : null;
 
     alvo.innerHTML = `
       <div class="reg-cab">
         <h1>${esc(d.regiao)}</h1>
         <p class="sub">${sub}</p>
       </div>
-      <p class="reg-meta">Actualizado ${esc(q)} · evolução e eventos desde 26 jul 2026</p>
+      <p class="reg-meta">Actualizado ${esc(q)} · eventos desde 26 jul 2026</p>
 
       <section class="reg-sec"><h2>Ranking</h2>
-        <table class="reg-rank"><tbody>${rankRows}</tbody></table>
+        <table class="reg-rank">${rankHead}<tbody>${rankRows}</tbody></table>
         <p class="reg-totais" style="margin-top:8px">Região com
-          <b>${nfmt(d.totais.z17)}</b> squadratinhos${d.totais.z14 != null ? ` · <b>${nfmt(d.totais.z14)}</b> squadrats` : ''}
-          no total.</p>
+          <b>${nfmt(d.totais.z17)}</b> squadratinhos.${uni ? ` O clube cobre
+          <b>${nfmt(uni.z17)}</b>${uni.pct != null ? ` (${uni.pct.toFixed(1)}%)` : ''}.` : ''}</p>
       </section>
-
-      ${evolSec}
 
       <section class="reg-sec"><h2>Eventos nesta região</h2>${evHtml}</section>
 
@@ -190,9 +111,9 @@
       </section>
 
       <p class="reg-rodape"><a href="index.html">← todas as regiões</a> ·
-        ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); o total inclui o
-        de squadrats (1609 m). Dados actualizados 6×/dia pelo mesmo processo que
-        gera o <a href="../club.html">mapa do clube</a>. O
+        ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); <b>únicos</b> =
+        sem mais nenhum membro do clube. Dados actualizados 6×/dia pelo mesmo
+        processo que gera o <a href="../club.html">mapa do clube</a>. O
         <a href="../historico.html">histórico</a> tem o feed completo do clube.</p>`;
   }
 
