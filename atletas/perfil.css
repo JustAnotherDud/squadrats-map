@@ -137,6 +137,9 @@ a:hover { text-decoration: underline; }
 .perfil-tabela td { padding: 5px 6px; border-bottom: 1px solid var(--linha); }
 .perfil-tabela td.n { text-align: right; white-space: nowrap; font-weight: 600; }
 .perfil-tabela td.n.fraco { color: var(--fraco); font-weight: 400; }
+/* coluna Dia: nº do dia à direita numa caixa fixa; "set 2026" fica alinhado */
+.perfil-tabela td.gan-dia { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.perfil-tabela td.gan-dia .d-num { display: inline-block; min-width: 1.35em; text-align: right; }
 
 /* drill-down do "+N" de Squadratinhos (afordância SÓ nesta coluna) */
 .perfil-tabela td.gan-z { padding: 0; }
