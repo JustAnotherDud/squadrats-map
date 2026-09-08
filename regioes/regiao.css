@@ -71,6 +71,9 @@ a:hover { text-decoration: underline; }
 .reg-viz a { color: var(--azul-claro); text-decoration: none; }
 .reg-viz a:hover { border-color: var(--azul); }
 .reg-viz span { color: var(--fraco); }
+.reg-viz a.viz-disp { color: var(--ouro); border-color: #6b5220; }
+.reg-viz a.viz-disp:hover { border-color: var(--ouro); }
+.reg-viz-nota { font-size: 10.5px; color: var(--fraco); margin: 7px 0 0; }
 
 .reg-rodape { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--linha);
   font-size: 11px; color: var(--fraco); line-height: 1.6; }

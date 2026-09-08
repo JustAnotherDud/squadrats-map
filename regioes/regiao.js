@@ -141,9 +141,15 @@
         <span class="corpo">${frase(e)}</span>
       </div>`).join('') : '<p class="reg-vazio">Sem eventos registados nesta região.</p>';
 
-    const viz = d.vizinhos.length ? d.vizinhos.map(v => v.tem_pagina
-      ? `<a href="${v.key}.html">${esc(v.nome)}</a>`
-      : `<span>${esc(v.nome)}</span>`).join('') : '<p class="reg-vazio">—</p>';
+    // vizinho com página e com troca de posição registada -> chip a dourado
+    // (não um 5.º emoji ao lado de 👑 ⇅ 📍 🚩 — cor + nota, para não confundir)
+    const vizDisp = v => v.tem_pagina && temEventoTroca(eventos, { nivel: d.nivel, regiao: v.nome });
+    const viz = d.vizinhos.length ? d.vizinhos.map(v => {
+      if (!v.tem_pagina) return `<span>${esc(v.nome)}</span>`;
+      const dp = vizDisp(v);
+      return `<a class="${dp ? 'viz-disp' : ''}" href="${v.key}.html"${dp ? ' title="troca de posição no ranking desde 15 ago"' : ''}>${esc(v.nome)}</a>`;
+    }).join('') : '<p class="reg-vazio">—</p>';
+    const algumVizDisp = d.vizinhos.some(vizDisp);
 
     const tlData = (d.timeline && d.timeline.length) ? d.timeline : [];
     let evolSec;
@@ -178,7 +184,10 @@
 
       <section class="reg-sec"><h2>Eventos nesta região</h2>${evHtml}</section>
 
-      <section class="reg-sec"><h2>Faz fronteira com</h2><div class="reg-viz">${viz}</div></section>
+      <section class="reg-sec"><h2>Faz fronteira com</h2>
+        <div class="reg-viz">${viz}</div>
+        ${algumVizDisp ? '<p class="reg-viz-nota">A dourado: vizinhos com troca de posição no ranking desde 15 ago.</p>' : ''}
+      </section>
 
       <p class="reg-rodape">Ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); o
         total inclui o de squadrats (1609 m). Dados actualizados 6×/dia pelo mesmo
