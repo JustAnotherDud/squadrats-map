@@ -77,4 +77,14 @@
   }
   if (document.body) montar();
   else document.addEventListener('DOMContentLoaded', montar);
+
+  // PWA: regista o service worker (sw.js na raiz da app). `P` já é o prefixo
+  // relativo certo para qualquer profundidade. Sem SW o Android não instala
+  // como WebAPK. Falha em silêncio (http:, sem suporte, etc.).
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register(P + 'sw.js', { scope: P || './' })
+        .catch(function () { /* sem PWA, o site funciona na mesma */ });
+    });
+  }
 })();
