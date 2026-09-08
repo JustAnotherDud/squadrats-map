@@ -42,8 +42,8 @@ def main(out_dir):
         # compara o club_regioes.json anterior (origin/data) com o novo e faz
         # append dos eventos novos a events.json, idempotente entre runs do dia
         ("eventos do club", lambda: append_events.main(out_dir)),
-        # páginas por região: ranking/totais/vizinhos do snapshot novo +
-        # append dos dias novos à timeline (data/regioes/<key>.json)
+        # páginas por região: reescreve ranking/totais/união/vizinhos de cada
+        # região activa a partir do snapshot novo (data/regioes/<key>.json)
         ("regiões (páginas)", lambda: append_regioes.main(out_dir)),
         # diff club_regioes.json (ontem vs hoje) -> ganhos de squadratinhos
         # por concelho/distrito, por dia (data/gains_regioes.json). Sem

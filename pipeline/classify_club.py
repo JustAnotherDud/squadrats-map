@@ -42,9 +42,12 @@ def classify_uniao(classifier, squares, atletas):
 
     `exclusivos`: por região (e por país), quantos squadratinhos cada atleta
     tem que mais nenhum membro do clube tem (bitmask com um único bit).
-    `by_pais`: união por país (PT, ES, ...), para as páginas regioes/pais-*.
+    `by_pais`: união por país (PT, ES, ...). `by_region`: união por região
+    estrangeira (província ES, land DE, região MA), cc -> nome -> n; o
+    equivalente ao by_distrito mas fora de PT, para as páginas pais-*.
     `atletas` = nomes por ordem de bit."""
     by_distrito, by_concelho, by_pais = {}, {}, {}
+    by_region = {}  # cc -> {regiao: n}, estrangeiro
     exc_distrito, exc_concelho, exc_pais = {}, {}, {}  # regiao/cc -> {atleta: n}
     for x, y, mask in squares:
         if not mask:
@@ -64,6 +67,11 @@ def classify_uniao(classifier, squares, atletas):
                 mp[solo] = mp.get(solo, 0) + 1
 
         if not info["in_portugal"]:
+            reg = info["region"]
+            if cc and reg:
+                # cc minúsculo, como o by_region por atleta (classify_athlete)
+                mr = by_region.setdefault(cc.lower(), {})
+                mr[reg] = mr.get(reg, 0) + 1
             continue
         d, c = info["district"], info["concelho"]
         if d:
@@ -78,7 +86,8 @@ def classify_uniao(classifier, squares, atletas):
                 mc = exc_concelho.setdefault(c, {})
                 mc[solo] = mc.get(solo, 0) + 1
     return {
-        "by_distrito": by_distrito, "by_concelho": by_concelho, "by_pais": by_pais,
+        "by_distrito": by_distrito, "by_concelho": by_concelho,
+        "by_pais": by_pais, "by_region": by_region,
         "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho,
                        "by_pais": exc_pais},
     }

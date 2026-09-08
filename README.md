@@ -91,8 +91,9 @@ git checkout origin/data -- data/
   ("Regiões"), the hub, each region page's footer, and the history sidebar.
   `regioes/pais-pt.html` and `regioes/pais-es.html` are hand-written country
   pages sharing `pais.js`, built in the browser from `club_regioes.json`
-  (`uniao.by_pais` + per-athlete `country`/`by_region`) and `stats.json`
-  (`country_*` totals); no per-country data file, no pipeline step of their own.
+  (`uniao.by_pais`, `uniao.by_region` for foreign provinces, per-athlete
+  `country`/`by_region`) and `stats.json` (`country_*`, `by_region_*` totals);
+  no per-country data file, no pipeline step of their own.
   Linked from the region index. Other countries (AD/DE/MA) are near-empty and
   intentionally skipped.
 - `data/`: files consumed by `mapa.html` (simplified geometry, square
@@ -106,9 +107,9 @@ git checkout origin/data -- data/
   kept current by `pipeline/append_events.py` as a `run_all.py` step that
   compares the previous `club_regioes.json` day by day, appends new events,
   idempotent across the 6 runs/day) + `regioes/<key>.json`
-  (one per active region; `pipeline/backfill_regioes.py` seeds, `append_regioes.py`
-  keeps current, ranking/totals/neighbours recomputed each run, the per-day
-  ranking timeline appended and compressed to change-points only) +
+  (one per active region; `append_regioes.py` rewrites every active region's
+  ranking/totals/union/neighbours from the current `club_regioes.json` each
+  run, idempotent, no history) +
   `gains_regioes.json` (per-day squadratinho gains by concelho/distrito per
   athlete, the drill-down when you click a `+N` in a profile's daily-gains
   table; `pipeline/backfill_gains_regioes.py` seeds it from `club.json` history

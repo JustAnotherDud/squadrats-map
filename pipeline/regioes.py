@@ -1,8 +1,8 @@
 """Lógica partilhada das páginas por região (concelho/distrito, PT).
 
 Consumido por:
-  - backfill_regioes.py  (varre todo o histórico da branch `data`, uma vez)
-  - append_regioes.py    (passo do run_all.py, só os dias novos)
+  - append_regioes.py    (passo do run_all.py: reescreve o estado actual de
+                          cada região activa, idempotente)
   - gen_regiao_stubs.py  (escreve regioes/<key>.html a partir de data/regioes/)
 
 Cada região com actividade (algum atleta com >=1 square lá) tem um ficheiro
@@ -17,8 +17,6 @@ import os
 from eventos import ATLETAS_ORDEM  # ordem canónica (bits/cores); fonte única
 from slugs import slugify
 
-DESDE = "2026-07-26"  # timeline recuada até ao 1.º club.json (< 15 ago é
-                      # reconstruído, ver recon_snapshots.py)
 NIVEIS = ("concelho", "distrito")
 CHAVE_BUCKET = {"concelho": "by_concelho", "distrito": "by_distrito"}
 CHAVE_ADJ = {"concelho": "concelhos", "distrito": "distritos"}
@@ -54,38 +52,6 @@ def ranking_de(club_regioes, nivel, nome):
     return pares
 
 
-def comprimir_timeline(tl):
-    """[(data, ranking), ...] -> só as entradas em que o ranking mudou face à
-    anterior (a primeira fica sempre). O frontend arrasta a última conhecida
-    até `gerado`. Sem isto, uma região parada acumulava uma linha por dia."""
-    fora = []
-    for data, r in sorted(tl, key=lambda t: t[0]):
-        rr = [list(x) for x in r]
-        if not fora or fora[-1][1] != rr:
-            fora.append((data, rr))
-    return fora
-
-
-def timelines(snaps_por_dia, alvo=None):
-    """{(nivel, nome): [(data, [(atleta, n), ...]), ...]}, o ranking de cada
-    região em cada dia UTC em que já tinha actividade. `alvo` opcional:
-    {nivel: set(nomes)} para limitar a essas regiões (as activas hoje)."""
-    fora = {}
-    for dia in sorted(snaps_por_dia):
-        snap = snaps_por_dia[dia]
-        for nivel in NIVEIS:
-            nomes = set()
-            for info in snap.get("atletas", {}).values():
-                nomes |= set(n for n, v in (info.get(CHAVE_BUCKET[nivel]) or {}).items() if v > 0)
-            if alvo is not None:
-                nomes &= alvo[nivel]
-            for nome in nomes:
-                r = ranking_de(snap, nivel, nome)
-                if r:
-                    fora.setdefault((nivel, nome), []).append((dia, r))
-    return fora
-
-
 def _distrito_pai(concelhos_geojson_path, nome):
     """distrito (property `parent`) de um concelho, para o cabeçalho."""
     try:
@@ -99,11 +65,10 @@ def _distrito_pai(concelhos_geojson_path, nome):
     return None
 
 
-def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
+def construir(nivel, nome, snapshot_atual, stats, adjacency,
               ativas, concelhos_geojson_path):
-    """Dict final de uma região. `timeline` = [(data, [(atleta, n), ...]), ...]
-    já acumulado; `ativas` = regioes_ativas(snapshot_atual) para saber que
-    vizinhos têm página."""
+    """Dict final de uma região. `ativas` = regioes_ativas(snapshot_atual)
+    para saber que vizinhos têm página."""
     total = (stats.get(CHAVE_STATS[nivel], {}).get(nome) or {})
     z14 = (total.get("z14") or {}).get("total")
     z17 = (total.get("z17") or {}).get("total")
@@ -144,10 +109,6 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
         "uniao": {"z17": uni, "pct": uni_pct},
         "ranking": ranking,
         "vizinhos": viz,
-        "timeline": [
-            {"data": d, "ranking": [[a, n] for a, n in r]}
-            for d, r in comprimir_timeline(timeline)
-        ],
     }
 
 

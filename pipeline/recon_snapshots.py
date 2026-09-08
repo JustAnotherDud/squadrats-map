@@ -5,11 +5,11 @@ por concelho/distrito de cada dia reconstrói-se do histórico de club.json
 (que vai até 26 jul) + o Classifier de sempre, com uma cache (x,y)->(concelho,
 distrito) para não reclassificar o mesmo square em 44 snapshots.
 
-Consumido pelos one-offs `backfill_events.py` e `backfill_regioes.py`, em vez
-de `eventos.snapshots_por_dia` sozinho, para que eventos e timelines das
-regiões arranquem em 26 jul, não em 15 ago. O `backfill_gains_regioes.py`
-reutiliza daqui `snapshots_club_por_dia`/`reconstruir` (reconstrói tudo, não
-mistura com o real).
+Consumido pelo one-off `backfill_events.py`, em vez de
+`eventos.snapshots_por_dia` sozinho, para que os eventos arranquem em 26 jul,
+não em 15 ago. O `backfill_gains_regioes.py` reutiliza daqui
+`snapshots_club_por_dia`/`reconstruir` (reconstrói tudo, não mistura com o
+real).
 
 Os passos incrementais (append_*) NÃO usam isto, só olham para o presente.
 """

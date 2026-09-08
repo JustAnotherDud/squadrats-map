@@ -49,7 +49,8 @@
   function regioesEstrangeiras(cr, stats, cc) {
     const ccl = cc.toLowerCase();
     const totais = stats[statKeyRegioes(cc)] || {};
-    const porRegiao = {}; // nome -> {atleta: captured}
+    const uniReg = ((cr.uniao || {}).by_region || {})[ccl] || {};
+    const porRegiao = {}; // regiao -> {atleta: captured}
     for (const [nome, info] of Object.entries(cr.atletas || {})) {
       const br = (info.by_region || {})[ccl] || {};
       for (const [reg, n] of Object.entries(br)) {
@@ -58,11 +59,12 @@
     }
     const linhas = Object.entries(porRegiao).map(([reg, porAtl]) => {
       const ord = Object.entries(porAtl).sort((a, b) => b[1] - a[1]);
-      const [lider, cap] = ord[0];
+      const lider = ord[0][0];
+      const uni = uniReg[reg] || 0;
       const tot = ((totais[reg] || {}).z17 || {}).total || null;
-      return { reg, lider, cap, n: ord.length, tot, pct: tot ? 100 * cap / tot : null };
+      return { reg, lider, uni, n: ord.length, tot, pct: tot ? 100 * uni / tot : null };
     });
-    linhas.sort((a, b) => (b.cap - a.cap) || a.reg.localeCompare(b.reg, 'pt'));
+    linhas.sort((a, b) => (b.uni - a.uni) || a.reg.localeCompare(b.reg, 'pt'));
     return linhas;
   }
 
@@ -107,19 +109,19 @@
       const rows = linhas.length ? linhas.map(l => `
         <tr>
           <td><span class="nome">${esc(l.reg)}</span></td>
-          <td class="num">${nfmt(l.cap)}</td>
+          <td class="num">${nfmt(l.uni)}</td>
           <td class="uni">${dot(l.lider)}${esc(l.lider)}${l.n > 1 ? ` <span class="pct">+${l.n - 1}</span>` : ''}</td>
           <td class="pct">${pctfmt(l.pct)}</td>
         </tr>`).join('') : '<tr><td colspan="4" class="reg-vazio">Sem regiões com actividade.</td></tr>';
       extra = `<section class="reg-sec"><h2>Por região</h2>
         <table class="reg-rank">
           <thead><tr><th class="h-nome">região</th>
-            <th title="squadratinhos do líder do clube nessa região">líder tem</th>
+            <th title="squadratinhos que o clube cobre nessa região, união dos membros">cobre</th>
             <th>líder</th><th>%</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        <p class="reg-viz-nota">Sem página própria: o estrangeiro não tem ranking
-          nem eventos por região. O número é o do líder do clube ali, não a união.</p>
+        <p class="reg-viz-nota">Regiões estrangeiras não têm página própria (sem
+          ranking nem eventos). "+N" = outros membros também presentes.</p>
       </section>`;
     }
 
