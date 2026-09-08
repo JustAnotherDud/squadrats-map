@@ -40,15 +40,29 @@ def classify_uniao(classifier, squares, atletas):
     contrário do total da região (só tamanho) ou do capturado pelo líder (um
     atleta só).
 
-    `exclusivos`: por região, quantos squadratinhos cada atleta tem que mais
-    nenhum membro do clube tem (bitmask com um único bit). `atletas` = nomes
-    por ordem de bit."""
-    by_distrito, by_concelho = {}, {}
-    exc_distrito, exc_concelho = {}, {}  # nome_regiao -> {atleta: n}
+    `exclusivos`: por região (e por país), quantos squadratinhos cada atleta
+    tem que mais nenhum membro do clube tem (bitmask com um único bit).
+    `by_pais`: união por país (PT, ES, ...), para as páginas regioes/pais-*.
+    `atletas` = nomes por ordem de bit."""
+    by_distrito, by_concelho, by_pais = {}, {}, {}
+    exc_distrito, exc_concelho, exc_pais = {}, {}, {}  # regiao/cc -> {atleta: n}
     for x, y, mask in squares:
         if not mask:
             continue
         info = classifier.classify(tile_bounds(x, y, ZOOM))
+        solo = None
+        if mask & (mask - 1) == 0:  # potência de 2 -> um só dono
+            i = mask.bit_length() - 1
+            if 0 <= i < len(atletas):
+                solo = atletas[i]
+
+        cc = info["country"]
+        if cc:
+            by_pais[cc] = by_pais.get(cc, 0) + 1
+            if solo:
+                mp = exc_pais.setdefault(cc, {})
+                mp[solo] = mp.get(solo, 0) + 1
+
         if not info["in_portugal"]:
             continue
         d, c = info["district"], info["concelho"]
@@ -56,19 +70,17 @@ def classify_uniao(classifier, squares, atletas):
             by_distrito[d] = by_distrito.get(d, 0) + 1
         if c:
             by_concelho[c] = by_concelho.get(c, 0) + 1
-        if mask & (mask - 1) == 0:  # potência de 2 -> um só dono
-            i = mask.bit_length() - 1
-            if 0 <= i < len(atletas):
-                nome = atletas[i]
-                if d:
-                    md = exc_distrito.setdefault(d, {})
-                    md[nome] = md.get(nome, 0) + 1
-                if c:
-                    mc = exc_concelho.setdefault(c, {})
-                    mc[nome] = mc.get(nome, 0) + 1
+        if solo:
+            if d:
+                md = exc_distrito.setdefault(d, {})
+                md[solo] = md.get(solo, 0) + 1
+            if c:
+                mc = exc_concelho.setdefault(c, {})
+                mc[solo] = mc.get(solo, 0) + 1
     return {
-        "by_distrito": by_distrito, "by_concelho": by_concelho,
-        "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho},
+        "by_distrito": by_distrito, "by_concelho": by_concelho, "by_pais": by_pais,
+        "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho,
+                       "by_pais": exc_pais},
     }
 
 

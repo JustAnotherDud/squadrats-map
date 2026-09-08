@@ -41,8 +41,9 @@ def main(repo_dir, dados_dir):
     destino = os.path.join(repo_dir, "regioes")
     os.makedirs(destino, exist_ok=True)
 
-    # index.html é a página do índice (à mão, não gerada), nunca a apagar
-    escritos = {"index.html"}
+    # index.html (índice) e pais-*.html (páginas por país) são à mão, não
+    # geradas a partir de data/regioes/, nunca as apagar
+    escritos = {"index.html", "pais-pt.html", "pais-es.html"}
     for p in sorted(glob.glob(os.path.join(dados_dir, "regioes", "*.json"))):
         with open(p, encoding="utf-8") as f:
             d = json.load(f)

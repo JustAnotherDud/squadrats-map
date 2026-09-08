@@ -89,6 +89,12 @@ git checkout origin/data -- data/
   coverage percentage shown muted beside it. Data from `data/regioes_index.json`
   (one aggregate file, written by `append_regioes.py`). Linked from the navbar
   ("Regiões"), the hub, each region page's footer, and the history sidebar.
+  `regioes/pais-pt.html` and `regioes/pais-es.html` are hand-written country
+  pages sharing `pais.js`, built in the browser from `club_regioes.json`
+  (`uniao.by_pais` + per-athlete `country`/`by_region`) and `stats.json`
+  (`country_*` totals); no per-country data file, no pipeline step of their own.
+  Linked from the region index. Other countries (AD/DE/MA) are near-empty and
+  intentionally skipped.
 - `data/`: files consumed by `mapa.html` (simplified geometry, square
   classification) + `squadrats.json` (club totals) + `trophies.json`
   (yard/übersquadrat shapes, for the map's optional layers) +
