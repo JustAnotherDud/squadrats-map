@@ -326,7 +326,7 @@
       return;
     }
     const cores = await carregarCores();
-    document.title = `${dados.nome} — Squadrats Club`;
+    document.title = `${dados.nome} · Squadrats Club`;
     pintar(dados, cores[dados.nome]);
   }
 

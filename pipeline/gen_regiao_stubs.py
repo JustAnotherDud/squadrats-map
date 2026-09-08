@@ -21,7 +21,7 @@ STUB = """<!DOCTYPE html>
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>{nome} — Squadrats Club</title>
+<title>{nome} · Squadrats Club</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="regiao.css">
 </head>
@@ -41,7 +41,8 @@ def main(repo_dir, dados_dir):
     destino = os.path.join(repo_dir, "regioes")
     os.makedirs(destino, exist_ok=True)
 
-    escritos = set()
+    # index.html é a página do índice (à mão, não gerada) — nunca a apagar
+    escritos = {"index.html"}
     for p in sorted(glob.glob(os.path.join(dados_dir, "regioes", "*.json"))):
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
@@ -54,7 +55,7 @@ def main(repo_dir, dados_dir):
     for ficheiro in os.listdir(destino):
         if ficheiro.endswith(".html") and ficheiro not in escritos:
             os.remove(os.path.join(destino, ficheiro))
-            print(f"removido (região sem actividade): regioes/{ficheiro}")
+            print(f"removido (regiao sem actividade): regioes/{ficheiro}")
 
 
 if __name__ == "__main__":

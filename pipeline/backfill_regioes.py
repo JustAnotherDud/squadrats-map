@@ -26,8 +26,11 @@ CONCELHOS_GEO = os.path.join(REPO, "data", "concelhos_pt.geojson")
 
 
 def _carrega(path):
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
 
 def main(out_dir, branch):
@@ -40,19 +43,26 @@ def main(out_dir, branch):
     print(f"regiões activas: {len(ativas['concelho'])} concelhos, {len(ativas['distrito'])} distritos")
 
     tls = regioes.timelines(snaps, alvo=ativas)
-    stats = _carrega(os.path.join(out_dir, "stats.json"))
-    adjacency = _carrega(os.path.join(REPO, "data", "adjacency.json"))
+    stats = _carrega(os.path.join(out_dir, "stats.json")) or {}
+    adjacency = _carrega(os.path.join(REPO, "data", "adjacency.json")) or {}
     gerado = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    disputadas = regioes.disputadas_de(
+        (_carrega(os.path.join(out_dir, "events.json")) or {}).get("eventos", []))
+
     n = 0
+    indice = []
     for nivel in regioes.NIVEIS:
         for nome in sorted(ativas[nivel]):
             tl = tls.get((nivel, nome), [])
             d = regioes.construir(nivel, nome, atual, tl, stats, adjacency,
                                   ativas, CONCELHOS_GEO)
             regioes.escrever(out_dir, d, gerado)
+            indice.append(regioes.linha_indice(d, disputadas))
             n += 1
-    print(f"{n} ficheiros -> {os.path.join(out_dir, 'regioes')}/")
+    regioes.escrever_indice(out_dir, indice, gerado)
+    print(f"{n} ficheiros + regioes_index.json ({len(disputadas)} disputadas) "
+          f"-> {os.path.join(out_dir, 'regioes')}/")
 
 
 if __name__ == "__main__":

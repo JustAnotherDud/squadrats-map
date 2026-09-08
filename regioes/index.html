@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Regiões · Squadrats Club</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="regiao.css">
+<style>
+  #regioes-idx { max-width: 760px; margin: 0 auto; padding: 16px 16px 60px; }
+  #regioes-idx h1 { font-size: 20px; margin: 0; }
+  .idx-meta { font-size: 11.5px; color: var(--fraco); margin: 4px 0 18px; line-height: 1.5; }
+  .idx-estado { color: var(--suave); padding: 40px 0; text-align: center; }
+  .idx-erro { color: #e08a6a; }
+
+  .idx-grupo { margin: 0 0 6px; }
+  .idx-row {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 5px 2px; border-bottom: 1px solid var(--linha); font-size: 13px;
+  }
+  .idx-dist {
+    border-bottom: 1px solid var(--borda); margin-top: 14px;
+    font-weight: 700;
+  }
+  .idx-conc { padding-left: 14px; }
+  .idx-nome { color: var(--texto); text-decoration: none; }
+  .idx-nome:hover { text-decoration: underline; }
+  .idx-nome.disp { color: var(--ouro); }        /* tem evento de troca */
+  .idx-z {
+    margin-left: auto; color: var(--fraco); font-size: 12px;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .idx-lider {
+    color: var(--suave); font-size: 11.5px; white-space: nowrap;
+    flex: 0 0 92px; text-align: right;
+  }
+  .idx-lider.solo { color: var(--fraco); }
+  .idx-lider .dot { width: 7px; height: 7px; margin-right: 4px; vertical-align: middle; }
+  .idx-nota { font-size: 10.5px; color: var(--fraco); margin: 20px 0 0; }
+</style>
+</head>
+<body>
+<main id="regioes-idx">
+  <h1>Regiões</h1>
+  <p class="idx-meta" id="meta"></p>
+  <div id="lista"><p class="idx-estado">A carregar…</p></div>
+  <p class="idx-nota">Só as regiões (concelho/distrito, Portugal) onde algum atleta
+    tem pelo menos um squadratinho; as restantes ~200 não têm página. A dourado:
+    regiões com troca de posição no ranking (ver o <a href="../historico.html">histórico</a>).</p>
+</main>
+<script src="../nav.js"></script>
+<script src="../shared.js"></script>
+<script>
+(function () {
+  'use strict';
+  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
+  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+  const U_IDX = LOCAL ? '../data/regioes_index.json' : RAW + 'data/data/regioes_index.json';
+  const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
+  const NC = { cache: 'no-cache' };
+
+  const COR_FB = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
+  let CORES = { ...COR_FB };
+  const cor = n => CORES[n] || 'var(--suave)';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nfmt = n => (n == null ? '·' : n.toLocaleString('pt-PT'));
+
+  function lider(x) {
+    if (!x.lider) return '<span class="idx-lider solo">·</span>';
+    const cls = x.n >= 2 ? 'idx-lider' : 'idx-lider solo';
+    return `<span class="${cls}"><span class="dot" style="background:${cor(x.lider)}"></span>${esc(x.lider)}</span>`;
+  }
+  function row(x, extraCls) {
+    return `<div class="idx-row${extraCls ? ' ' + extraCls : ''}">
+      <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
+      <span class="idx-z">${nfmt(x.z17)}</span>${lider(x)}</div>`;
+  }
+
+  function pintar(d) {
+    const regs = d.regioes || [];
+    const dist = regs.filter(x => x.nivel === 'distrito')
+      .sort((a, b) => a.regiao.localeCompare(b.regiao, 'pt'));
+    const concPorPai = {};
+    for (const x of regs) if (x.nivel === 'concelho') (concPorPai[x.pai_key] = concPorPai[x.pai_key] || []).push(x);
+
+    document.getElementById('meta').textContent =
+      `${regs.length} regiões com actividade · ${dist.length} distritos, `
+      + `${regs.length - dist.length} concelhos · actualizado ${fmtDataHora(d.gerado)}`;
+
+    let html = '';
+    for (const dd of dist) {
+      const filhos = (concPorPai[dd.key] || []).sort((a, b) => b.z17 - a.z17);
+      html += `<div class="idx-grupo">${row(dd, 'idx-dist')}`;
+      if (filhos.length) html += `<div class="idx-conc">${filhos.map(c => row(c)).join('')}</div>`;
+      html += '</div>';
+    }
+    // concelhos cujo distrito-pai não tem página (não devia acontecer em PT)
+    const orfaos = (concPorPai['null'] || []).concat(
+      Object.entries(concPorPai)
+        .filter(([k]) => k !== 'null' && !dist.some(dd => dd.key === k))
+        .flatMap(([, v]) => v));
+    if (orfaos.length) {
+      orfaos.sort((a, b) => b.z17 - a.z17);
+      html += `<div class="idx-grupo"><div class="idx-row idx-dist">
+        <span class="idx-nome">Sem distrito</span></div>
+        <div class="idx-conc">${orfaos.map(c => row(c)).join('')}</div></div>`;
+    }
+    document.getElementById('lista').innerHTML = html;
+  }
+
+  (async function () {
+    try {
+      const rc = await fetch(U_CORES, NC);
+      if (rc.ok) { const j = await rc.json(); CORES = { ...COR_FB, ...(j.cores || {}) }; }
+    } catch (e) { /* fallback */ }
+    try {
+      const r = await fetch(U_IDX, NC);
+      if (!r.ok) throw new Error(r.status);
+      pintar(await r.json());
+    } catch (e) {
+      document.getElementById('lista').innerHTML =
+        `<p class="idx-estado idx-erro">Não consegui carregar o índice (${esc(e.message)}).</p>`;
+    }
+  })();
+})();
+</script>
+</body>
+</html>

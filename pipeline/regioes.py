@@ -148,3 +148,34 @@ def escrever(out_dir, regiao_dict, gerado):
     with open(caminho, "w", encoding="utf-8") as f:
         json.dump(d, f, ensure_ascii=False, separators=(",", ":"))
     return caminho
+
+
+def linha_indice(reg, disputadas):
+    """Resumo de uma região para o regioes_index.json. `reg` é o dict de
+    construir(); `disputadas` = {(nivel, nome)} com evento de troca real."""
+    rk = reg["ranking"]
+    return {
+        "key": reg["key"],
+        "nivel": reg["nivel"],
+        "regiao": reg["regiao"],
+        "pai": reg["distrito_pai"],
+        "pai_key": reg["distrito_pai_key"],
+        "z17": reg["totais"]["z17"],
+        "lider": rk[0]["nome"] if rk else None,
+        "n": len(rk),
+        "disp": (reg["nivel"], reg["regiao"]) in disputadas,
+    }
+
+
+def escrever_indice(out_dir, linhas, gerado):
+    """data/regioes_index.json — a lista completa das regiões com actividade,
+    para a página regioes/index.html (uma passagem, sem buscar 100 ficheiros)."""
+    with open(os.path.join(out_dir, "regioes_index.json"), "w", encoding="utf-8") as f:
+        json.dump({"gerado": gerado, "regioes": linhas},
+                  f, ensure_ascii=False, separators=(",", ":"))
+
+
+def disputadas_de(eventos):
+    """{(nivel, regiao)} das regiões com ultrapassagem ou novo líder."""
+    return {(e["nivel"], e["regiao"]) for e in (eventos or [])
+            if e.get("tipo") in ("ultrapassagem", "novo_lider")}

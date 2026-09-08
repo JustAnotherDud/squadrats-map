@@ -189,9 +189,10 @@
         ${algumVizDisp ? '<p class="reg-viz-nota">A dourado: vizinhos com troca de posição no ranking desde 26 jul.</p>' : ''}
       </section>
 
-      <p class="reg-rodape">Ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); o
-        total inclui o de squadrats (1609 m). Dados actualizados 6×/dia pelo mesmo
-        processo que gera o <a href="../club.html">mapa do clube</a>. O
+      <p class="reg-rodape"><a href="index.html">← todas as regiões</a> ·
+        ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); o total inclui o
+        de squadrats (1609 m). Dados actualizados 6×/dia pelo mesmo processo que
+        gera o <a href="../club.html">mapa do clube</a>. O
         <a href="../historico.html">histórico</a> tem o feed completo do clube.</p>`;
   }
 
@@ -211,7 +212,7 @@
         ${esc(NOME || KEY)} (${esc(e.message)}).</p>`;
       return;
     }
-    document.title = `${d.regiao} — Squadrats Club`;
+    document.title = `${d.regiao} · Squadrats Club`;
     pintar(d, eventos);
   }
   carregar();

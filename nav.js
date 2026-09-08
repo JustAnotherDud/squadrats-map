@@ -22,17 +22,22 @@
     ? (meSrc.match(/\.\.\//g) || []).join('')
     : (/\/(atletas|regioes)\//.test(location.pathname) ? '../' : '');  // fallback
 
+  // regioes/* e atletas/* acendem o seu item (a página está "debaixo" desse
+  // destino), tal como um perfil acende "Perfis". As de subpasta têm de ser
+  // testadas ANTES do file==='index.html' (regioes/index.html não é o hub).
   var file = (location.pathname.split('/').pop() || '').toLowerCase();
   var atual =
     /\/atletas\//.test(location.pathname) ? 'perfis' :
+    /\/regioes\//.test(location.pathname) ? 'regioes' :
     file === 'club.html' ? 'clube' :
     file === 'historico.html' ? 'historico' :
     (file === '' || file === 'index.html') ? 'hub' :
-    null;  // regioes/*, mapa.html, … — nada destacado
+    null;  // mapa.html — nada destacado
 
   var DEST = [
     { id: 'clube', label: 'Clube', href: P + 'club.html' },
     { id: 'perfis', label: 'Perfis', href: P + 'atletas/' },
+    { id: 'regioes', label: 'Regiões', href: P + 'regioes/' },
     { id: 'historico', label: 'Histórico', href: P + 'historico.html' },
   ];
 

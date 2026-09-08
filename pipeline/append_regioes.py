@@ -92,7 +92,14 @@ def main(out_dir):
     adjacency = _carrega(os.path.join(REPO, "data", "adjacency.json")) or {}
     gerado = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    # "disputada" no índice = evento de troca real (ultrapassagem / novo
+    # líder), igual ao historico.html e ao regiao.js. O events.json já está
+    # escrito neste ponto — o append_events corre antes deste passo.
+    disputadas = regioes.disputadas_de(
+        (_carrega(os.path.join(out_dir, "events.json")) or {}).get("eventos", []))
+
     n = novas = 0
+    indice = []
     for nivel in regioes.NIVEIS:
         for nome in sorted(ativas[nivel]):
             chave = (nivel, nome)
@@ -107,8 +114,12 @@ def main(out_dir):
                                     ativas, CONCELHOS_GEO)
             novas += max(0, len(reg["timeline"]) - antes)
             regioes.escrever(out_dir, reg, gerado)
+            indice.append(regioes.linha_indice(reg, disputadas))
             n += 1
-    print(f"append_regioes: {n} regiões, {novas} entrada(s) de timeline nova(s)")
+
+    regioes.escrever_indice(out_dir, indice, gerado)
+    print(f"append_regioes: {n} regiões, {novas} entrada(s) de timeline nova(s), "
+          f"{len(disputadas)} disputadas -> regioes_index.json")
 
 
 if __name__ == "__main__":

@@ -33,5 +33,7 @@ data/atletas/
 data/events.json
 # páginas por região (append_regioes.py / backfill_regioes.py) — mesma regra
 data/regioes/
+# índice de todas as regiões, para regioes/index.html (append_regioes.py)
+data/regioes_index.json
 # ganhos de squadratinhos por região/dia (append_gains_regioes.py) — mesma regra
 data/gains_regioes.json
