@@ -170,7 +170,12 @@ def main(out_dir):
     club = _carregar_opcional(out_dir, "club.json") or {"atletas": []}
     regioes = _carregar_opcional(out_dir, "club_regioes.json") or {"atletas": {}}
     ganhos = _carregar_opcional(out_dir, "daily_gains.json") or {"dias": []}
+    gains_reg = _carregar_opcional(out_dir, "gains_regioes.json") or {"dias": []}
     stats = _carregar_opcional(out_dir, "stats.json")
+
+    # {data: {nome: {"concelho": {...}, "distrito": {...}}}} — drill-down da
+    # coluna Squadratinhos na tabela de ganhos diários (só z17)
+    gr_por_dia = {d["data"]: d.get("atletas", {}) for d in gains_reg.get("dias", [])}
 
     slugs = slug_map(ATHLETES.keys())
     sobrep = {a["nome"]: a for a in club.get("atletas", [])}
@@ -192,8 +197,13 @@ def main(out_dir):
         dias_atleta = []
         for d in ganhos.get("dias", []):
             g = {c: v for c, v in d.get("atletas", {}).get(nome, {}).items() if c in CAMPOS}
-            if g:
-                dias_atleta.append({"data": d["data"], **g})
+            if not g:
+                continue
+            entrada = {"data": d["data"], **g}
+            reg = gr_por_dia.get(d["data"], {}).get(nome)
+            if reg and g.get("squadratinhos", 0) > 0:
+                entrada["regioes"] = reg  # {"concelho": {reg: n}, "distrito": {reg: n}}
+            dias_atleta.append(entrada)
 
         s = sobrep.get(nome)
         sobreposicao = None

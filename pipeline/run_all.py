@@ -17,6 +17,7 @@ import sys
 import time
 
 import append_events
+import append_gains_regioes
 import append_regioes
 import build_profiles
 import classify_club
@@ -44,8 +45,12 @@ def main(out_dir):
         # páginas por região: ranking/totais/vizinhos do snapshot novo +
         # append dos dias novos à timeline (data/regioes/<key>.json)
         ("regiões (páginas)", lambda: append_regioes.main(out_dir)),
+        # diff club_regioes.json (ontem vs hoje) -> ganhos de squadratinhos
+        # por concelho/distrito, por dia (data/gains_regioes.json). Sem
+        # classificação nova — o breakdown já está no club_regioes.json
+        ("ganhos por região", lambda: append_gains_regioes.main(out_dir)),
         # junta squadrats.json + club.json + club_regioes.json + daily_gains.json
-        # + stats.json num perfil por atleta (data/atletas/<slug>.json) — sem rede
+        # + gains_regioes.json + stats.json num perfil por atleta — sem rede
         ("perfis por atleta", lambda: build_profiles.main(out_dir)),
     ]
     for nome, fn in passos:

@@ -199,7 +199,26 @@
     </svg>`;
   }
 
-  function blocoGanhos(dias) {
+  // Detalhe de um "+N" de Squadratinhos: onde caíram, por concelho (chips
+  // ligados à página da região) + linha muda com os distritos. Só z17 — o
+  // club.json é z17, por isso é a única coluna com "onde".
+  function ganhoDetalhe(reg, total) {
+    const conc = Object.entries(reg.concelho || {}).sort((a, b) => b[1] - a[1]);
+    const dist = Object.entries(reg.distrito || {}).sort((a, b) => b[1] - a[1]);
+    const somaC = conc.reduce((s, [, n]) => s + n, 0);
+    const resid = total - somaC;
+    const chip = (nivel, nome, n) =>
+      `<a class="gan-chip" href="../${regiaoHref(nivel, nome)}">${esc(nome)} <b>+${n}</b></a>`;
+    let h = `<div class="gan-linha">${conc.map(([nome, n]) => chip('concelho', nome, n)).join('')}`;
+    if (resid > 0) h += `<span class="gan-resid">+${resid} sem concelho / fora de PT</span>`;
+    h += '</div>';
+    if (dist.length) {
+      h += `<div class="gan-linha gan-dist">distritos: ${dist.map(([nome, n]) => chip('distrito', nome, n)).join('')}</div>`;
+    }
+    return h;
+  }
+
+  function blocoGanhos(dias, estado) {
     if (!dias || !dias.length) {
       return '<p class="perfil-vazio">Sem ganhos registados desde que o registo diário começou.</p>';
     }
@@ -207,11 +226,23 @@
     // fica só com "·", como acontece quase sempre com Yard/Über
     const cab = METRICAS.map(m => `<th>${esc(m[1])}</th>`).join('');
     const campos = METRICAS.map(m => m[0]);
-    const linhas = [...dias].reverse().slice(0, 30).map(d => `
-      <tr><td>${esc(d.data)}</td>${campos.map(c => {
+    const ncols = 1 + METRICAS.length;
+    const linhas = [...dias].reverse().slice(0, 30).map(d => {
+      const aberto = estado.ganhoAberto === d.data;
+      const temDetalhe = d.regioes && (d.squadratinhos || 0) > 0;
+      const celulas = campos.map(c => {
         const v = d[c] || 0;
+        if (c === 'squadratinhos' && temDetalhe) {
+          return `<td class="n gan-z${aberto ? ' aberto' : ''}" data-dia="${esc(d.data)}">
+            <button class="gan-btn" type="button">+${v} <span class="gan-caret">▸</span></button></td>`;
+        }
         return `<td class="n">${v > 0 ? '+' + v : (v < 0 ? v : '·')}</td>`;
-      }).join('')}</tr>`).join('');
+      }).join('');
+      const detalhe = aberto && temDetalhe
+        ? `<tr class="gan-det"><td colspan="${ncols}">${ganhoDetalhe(d.regioes, d.squadratinhos)}</td></tr>`
+        : '';
+      return `<tr><td>${esc(d.data)}</td>${celulas}</tr>${detalhe}`;
+    }).join('');
     return blocoSpark(dias) + `<div class="perfil-scroll"><table class="perfil-tabela">
       <thead><tr><th>Dia</th>${cab}</tr></thead><tbody>${linhas}</tbody></table></div>`;
   }
@@ -219,7 +250,7 @@
   function pintar(d, cor) {
     const mapaUrl = `https://squadrats.com/map/${encodeURIComponent(d.uid)}/17`;
     const quando = (d.atualizado || '').replace('T', ' ').replace('Z', ' UTC');
-    let estado = { soDisputadas: false, sort: { k: 'captured', dir: 'desc' } };
+    let estado = { soDisputadas: false, sort: { k: 'captured', dir: 'desc' }, ganhoAberto: null };
 
     function desenhar() {
       alvo.innerHTML = `
@@ -233,7 +264,7 @@
 
         ${seccao('Contagens', blocoTotais(d.totais || {}))}
         ${seccao('Sobreposição de squadratinhos', blocoSobreposicao(d.sobreposicao, cor))}
-        ${seccao('Ganhos diários', blocoGanhos(d.ganhos_diarios))}
+        ${seccao('Ganhos diários', blocoGanhos(d.ganhos_diarios, estado))}
         ${seccao('Squadratinhos', blocoGeo(d.geo || {}, estado.soDisputadas, estado.sort))}
 
         <p class="perfil-nota">
@@ -263,6 +294,13 @@
         estado.soDisputadas = !estado.soDisputadas;
         desenhar();
       };
+      alvo.querySelectorAll('.gan-z[data-dia] .gan-btn').forEach(btn => {
+        btn.onclick = () => {
+          const dia = btn.closest('.gan-z').dataset.dia;
+          estado.ganhoAberto = estado.ganhoAberto === dia ? null : dia;
+          desenhar();
+        };
+      });
     }
     desenhar();
   }
