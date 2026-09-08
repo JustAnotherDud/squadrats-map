@@ -16,16 +16,8 @@
   const alvo = document.getElementById('pais');
   const CC = (alvo.dataset.cc || '').toUpperCase();
 
-  const COR_FB = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
-  let CORES = { ...COR_FB };
-  const cor = n => CORES[n] || '#7d8598';
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const nfmt = n => (n || 0).toLocaleString('pt-PT');
-  // % contra o total de um país inteiro é sempre minúsima: 2 casas, e um piso
-  // "<0,01%" em vez de "0,00%" que não diz nada.
-  const pctfmt = p => (p == null ? '' : (p > 0 && p < 0.005 ? '<0,01%' : p.toFixed(2) + '%'));
-  const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
-  const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
+  // cor / esc / nfmt / pctfmt / dot / atl / carregarCores / tabelaSubRegioes: comum.js
+  const PCT_PAIS = { casas: 2, piso: true };  // % contra um país inteiro é minúscula
 
   // chave do bloco de totais do país em stats.json
   const statKeyPais = cc => (cc === 'PT' ? 'country_pt' : 'country_' + cc.toLowerCase());
@@ -43,29 +35,27 @@
     return { pares, exc, uniPais: (uni.by_pais || {})[cc] || 0 };
   }
 
-  // ES e outros não-PT: províncias/regiões com actividade. Sem união por
-  // região no estrangeiro (não é calculada), mostra-se o líder do clube em
-  // cada uma e o que ele capturou. Fonte: club_regioes.atletas[*].by_region.
-  function regioesEstrangeiras(cr, stats, cc) {
+  // ES e outros não-PT: províncias/regiões com actividade. União do clube por
+  // província (classify_uniao.by_region), total de stats.by_region_<cc>,
+  // líder de club_regioes.atletas[*].by_region. Mesma forma que os concelhos
+  // de uma página de distrito -> tabelaSubRegioes.
+  function subRegioesPais(cr, stats, cc) {
     const ccl = cc.toLowerCase();
     const totais = stats[statKeyRegioes(cc)] || {};
     const uniReg = ((cr.uniao || {}).by_region || {})[ccl] || {};
     const porRegiao = {}; // regiao -> {atleta: captured}
     for (const [nome, info] of Object.entries(cr.atletas || {})) {
-      const br = (info.by_region || {})[ccl] || {};
-      for (const [reg, n] of Object.entries(br)) {
+      for (const [reg, n] of Object.entries((info.by_region || {})[ccl] || {})) {
         if (n > 0) (porRegiao[reg] = porRegiao[reg] || {})[nome] = n;
       }
     }
-    const linhas = Object.entries(porRegiao).map(([reg, porAtl]) => {
+    return Object.entries(porRegiao).map(([reg, porAtl]) => {
       const ord = Object.entries(porAtl).sort((a, b) => b[1] - a[1]);
-      const lider = ord[0][0];
       const uni = uniReg[reg] || 0;
       const tot = ((totais[reg] || {}).z17 || {}).total || null;
-      return { reg, lider, uni, n: ord.length, tot, pct: tot ? 100 * uni / tot : null };
-    });
-    linhas.sort((a, b) => (b.uni - a.uni) || a.reg.localeCompare(b.reg, 'pt'));
-    return linhas;
+      return { nome: reg, uniao: uni, n: ord.length, lider: ord[0][0],
+               pct: tot ? 100 * uni / tot : null };
+    }).sort((a, b) => (b.uniao - a.uniao) || a.nome.localeCompare(b.nome, 'pt'));
   }
 
   function pintar(cr, stats) {
@@ -85,7 +75,7 @@
         <td><span class="nome">${dot(n)}${atl(n)}</span></td>
         <td class="num">${nfmt(cap)}</td>
         ${temExc ? `<td class="uni">${exc[n] ? nfmt(exc[n]) : '·'}</td>` : ''}
-        <td class="pct">${pctfmt(pct)}</td>
+        <td class="pct">${pctfmt(pct, PCT_PAIS)}</td>
       </tr>`;
     }).join('');
     const rankHead = `<thead><tr>
@@ -105,21 +95,12 @@
           <a href="index.html">índice de regiões</a>.</p>
       </section>`;
     } else {
-      const linhas = regioesEstrangeiras(cr, stats, CC);
-      const rows = linhas.length ? linhas.map(l => `
-        <tr>
-          <td><span class="nome">${esc(l.reg)}</span></td>
-          <td class="num">${nfmt(l.uni)}</td>
-          <td class="uni">${dot(l.lider)}${esc(l.lider)}${l.n > 1 ? ` <span class="pct">+${l.n - 1}</span>` : ''}</td>
-          <td class="pct">${pctfmt(l.pct)}</td>
-        </tr>`).join('') : '<tr><td colspan="4" class="reg-vazio">Sem regiões com actividade.</td></tr>';
+      const linhas = subRegioesPais(cr, stats, CC);
+      const tab = linhas.length
+        ? tabelaSubRegioes(linhas, { rotulo: 'cobre', pctOpts: PCT_PAIS })
+        : '<p class="reg-vazio">Sem regiões com actividade.</p>';
       extra = `<section class="reg-sec"><h2>Por região</h2>
-        <table class="reg-rank">
-          <thead><tr><th class="h-nome">região</th>
-            <th title="squadratinhos que o clube cobre nessa região, união dos membros">cobre</th>
-            <th>líder</th><th>%</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        ${tab}
         <p class="reg-viz-nota">Regiões estrangeiras não têm página própria (sem
           ranking nem eventos). "+N" = outros membros também presentes.</p>
       </section>`;
@@ -149,10 +130,7 @@
   }
 
   async function carregar() {
-    try {
-      const rc = await fetch(U_CORES, NC);
-      if (rc.ok) { const j = await rc.json(); CORES = { ...COR_FB, ...(j.cores || {}) }; }
-    } catch (e) { /* fallback */ }
+    await carregarCores(U_CORES, NC);
     let cr, stats;
     try {
       const [r1, r2] = await Promise.all([fetch(U_CR, NC), fetch(U_STATS, NC)]);

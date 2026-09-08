@@ -59,6 +59,7 @@
 </main>
 <script src="../nav.js"></script>
 <script src="../shared.js"></script>
+<script src="comum.js"></script>
 <script>
 (function () {
   'use strict';
@@ -68,12 +69,10 @@
   const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
   const NC = { cache: 'no-cache' };
 
-  const COR_FB = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
-  let CORES = { ...COR_FB };
-  const cor = n => CORES[n] || 'var(--suave)';
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const nfmt = n => (n == null ? '·' : n.toLocaleString('pt-PT'));
-  const pctfmt = p => (p == null ? '' : (p >= 9.5 ? Math.round(p) : p.toFixed(1)) + '%');
+  // cor / esc / nfmt / pctfmt / carregarCores: comum.js. O índice mantém o seu
+  // render agrupado (distrito = cabeçalho, concelhos por baixo), não a tabela
+  // plana do tabelaSubRegioes.
+  const pct = p => pctfmt(p, { compacto: true });
 
   function lider(x) {
     if (!x.lider) return '<span class="idx-lider solo">·</span>';
@@ -84,7 +83,7 @@
     return `<div class="idx-row${extraCls ? ' ' + extraCls : ''}">
       <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
       <span class="idx-z">${nfmt(x.uniao)}</span>
-      <span class="idx-pct">${pctfmt(x.uniao_pct)}</span>${lider(x)}</div>`;
+      <span class="idx-pct">${pct(x.uniao_pct)}</span>${lider(x)}</div>`;
   }
 
   function pintar(d) {
@@ -121,10 +120,7 @@
   }
 
   (async function () {
-    try {
-      const rc = await fetch(U_CORES, NC);
-      if (rc.ok) { const j = await rc.json(); CORES = { ...COR_FB, ...(j.cores || {}) }; }
-    } catch (e) { /* fallback */ }
+    await carregarCores(U_CORES, NC);
     try {
       const r = await fetch(U_IDX, NC);
       if (!r.ok) throw new Error(r.status);

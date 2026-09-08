@@ -7,20 +7,14 @@
   const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   const U_REG = k => (LOCAL ? '../data/regioes/' : RAW + 'data/data/regioes/') + k + '.json';
   const U_EVENTS = LOCAL ? '../data/events.json' : RAW + 'data/data/events.json';
+  const U_IDX = LOCAL ? '../data/regioes_index.json' : RAW + 'data/data/regioes_index.json';
   const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
   const NC = { cache: 'no-cache' };
 
   const alvo = document.getElementById('regiao');
   const KEY = alvo.dataset.key, NIVEL = alvo.dataset.nivel, NOME = alvo.dataset.nome;
 
-  const COR_FB = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
-  let CORES = { ...COR_FB };
-  const cor = n => CORES[n] || '#7d8598';
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const nfmt = n => (n || 0).toLocaleString('pt-PT');
-  const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
-  // slugify vem do shared.js (= pipeline/slugs.py), sem mapa nome->slug à mão
-  const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
+  // cor / esc / nfmt / dot / atl / carregarCores / tabelaSubRegioes: comum.js
 
   const ICO = { ultrapassagem: '⇅', novo_lider: '👑', primeira_presenca: '📍', marco: '🚩' };
   function frase(e) {
@@ -47,7 +41,7 @@
       e.nivel === d.nivel && e.regiao === d.regiao);
   }
 
-  function pintar(d, eventos) {
+  function pintar(d, eventos, filhos) {
     const q = fmtDataHora(d.gerado);
     const sub = d.nivel === 'concelho'
       ? `concelho${d.distrito_pai ? ` · distrito de <a href="${d.distrito_pai_key}.html">${esc(d.distrito_pai)}</a>` : ''}`
@@ -89,6 +83,18 @@
 
     const uni = d.uniao && d.uniao.z17 != null ? d.uniao : null;
 
+    // distrito: concelhos filhos, mesma tabela que as províncias na página
+    // de país. Dados de regioes_index.json (já tem uniao/pct/lider/n por
+    // região), filtrados pelo distrito-pai.
+    const filhosSec = (filhos && filhos.length)
+      ? `<section class="reg-sec"><h2>Concelhos</h2>
+          ${tabelaSubRegioes(filhos, { rotulo: 'cobre', linkKey: true })}
+          <p class="reg-viz-nota">União do clube em cada concelho e a fracção
+            que representa, ordenados por união. A dourado: concelho com troca
+            de posição no ranking.</p>
+        </section>`
+      : '';
+
     alvo.innerHTML = `
       <div class="reg-cab">
         <h1>${esc(d.regiao)}</h1>
@@ -102,6 +108,8 @@
           <b>${nfmt(d.totais.z17)}</b> squadratinhos.${uni ? ` O clube cobre
           <b>${nfmt(uni.z17)}</b>${uni.pct != null ? ` (${uni.pct.toFixed(1)}%)` : ''}.` : ''}</p>
       </section>
+
+      ${filhosSec}
 
       <section class="reg-sec"><h2>Eventos nesta região</h2>${evHtml}</section>
 
@@ -118,10 +126,7 @@
   }
 
   async function carregar() {
-    try {
-      const rc = await fetch(U_CORES, NC);
-      if (rc.ok) { const j = await rc.json(); CORES = { ...COR_FB, ...(j.cores || {}) }; }
-    } catch (e) { /* fallback */ }
+    await carregarCores(U_CORES, NC);
     let d, eventos = [];
     try {
       const [rr, re] = await Promise.all([fetch(U_REG(KEY), NC), fetch(U_EVENTS, NC)]);
@@ -133,8 +138,24 @@
         ${esc(NOME || KEY)} (${esc(e.message)}).</p>`;
       return;
     }
+
+    // distrito: buscar os concelhos filhos ao índice agregado
+    let filhos = [];
+    if (NIVEL === 'distrito') {
+      try {
+        const ri = await fetch(U_IDX, NC);
+        if (ri.ok) {
+          filhos = ((await ri.json()).regioes || [])
+            .filter(x => x.nivel === 'concelho' && x.pai_key === KEY)
+            .map(x => ({ nome: x.regiao, key: x.key, uniao: x.uniao,
+                         pct: x.uniao_pct, lider: x.lider, n: x.n, disp: x.disp }))
+            .sort((a, b) => (b.uniao - a.uniao) || a.nome.localeCompare(b.nome, 'pt'));
+        }
+      } catch (e) { /* sem concelhos, secção não aparece */ }
+    }
+
     document.title = `${d.regiao} · Squadrats Club`;
-    pintar(d, eventos);
+    pintar(d, eventos, filhos);
   }
   carregar();
 })();

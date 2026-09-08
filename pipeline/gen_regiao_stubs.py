@@ -31,6 +31,7 @@ STUB = """<!DOCTYPE html>
 </main>
 <script src="../nav.js"></script>
 <script src="../shared.js"></script>
+<script src="comum.js"></script>
 <script src="regiao.js"></script>
 </body>
 </html>
