@@ -41,47 +41,79 @@
       <span class="num">· agora ${nfmt(v[1])}</span>`;
   }
 
-  // --- timeline: SVG de degraus, uma linha por atleta ---
-  function timelineSvg(tl, gerado, cabecalhoRanking) {
-    // {atleta: [[dataISO, valor], ...]} — carrega o último valor até `gerado`
+  // --- timeline do ranking ---
+  // O eixo Y é a POSIÇÃO (1º no topo), não o valor absoluto. Com valores como
+  // 3916 vs 376 vs 327 nenhuma escala (linear ou log) separa a sub-corrida — e a
+  // magnitude já está na tabela por cima. Aqui só interessa quem passou quem.
+  // Só se desenha onde houve troca real de posição; senão `pintar` mete uma linha.
+
+  function ordemDe(p) { return p.ranking.map(([n]) => n).join('>'); }
+
+  function temTroca(tl) {
+    return new Set(tl.map(ordemDe)).size > 1;
+  }
+
+  // Maior subida em squadratinhos entre o 1.º e o último ponto (regiões que
+  // mexeram em valor mas sem trocar ninguém de lugar).
+  function maiorGanho(tl) {
+    if (!tl || tl.length < 2) return null;
+    const ini = Object.fromEntries(tl[0].ranking);
+    const fim = Object.fromEntries(tl[tl.length - 1].ranking);
+    let best = null;
+    for (const n of Object.keys(fim)) {
+      const delta = (fim[n] || 0) - (ini[n] || 0);
+      if (delta > 0 && (!best || delta > best.delta)) best = { nome: n, delta };
+    }
+    return best;
+  }
+
+  function timelineRankSvg(tl, gerado) {
     const fimIso = (gerado || '').slice(0, 10) || tl[tl.length - 1].data;
-    const nomes = new Set();
-    tl.forEach(p => p.ranking.forEach(([n]) => nomes.add(n)));
-    cabecalhoRanking.forEach(r => nomes.add(r.nome));
+    const nomes = [];
+    tl.forEach(p => p.ranking.forEach(([n]) => { if (!nomes.includes(n)) nomes.push(n); }));
+    const NR = Math.max(nomes.length, 2);
+
+    // série de posições por atleta: [[dataISO, rank], ...]. Ausente nesse dia =
+    // uma linha abaixo do último classificado (entrou de fora).
     const serie = {};
     for (const n of nomes) serie[n] = [];
     for (const p of tl) {
-      const m = Object.fromEntries(p.ranking);
-      for (const n of nomes) serie[n].push([p.data, m[n] || 0]);
+      const idx = {};
+      p.ranking.forEach(([n], i) => { idx[n] = i + 1; });
+      for (const n of nomes) serie[n].push([p.data, idx[n] || Math.min(p.ranking.length + 1, NR)]);
     }
-    // filtrar quem esteve sempre a 0
-    for (const n of [...nomes]) if (serie[n].every(([, v]) => v === 0)) { delete serie[n]; nomes.delete(n); }
-    if (!nomes.size) return '';
 
     const datas = [...new Set(tl.map(p => p.data)).add(fimIso)].sort();
-    const t0 = Date.parse(datas[0]), t1 = Date.parse(fimIso) || Date.parse(datas[datas.length - 1]);
-    const maxV = Math.max(1, ...Object.values(serie).flat().map(([, v]) => v));
-    const W = 620, H = 120, pl = 4, pr = 4, pt = 8, pb = 16;
+    const t0 = Date.parse(datas[0]);
+    const t1 = Date.parse(fimIso) || Date.parse(datas[datas.length - 1]);
+    const W = 620, H = 120, pl = 18, pr = 74, pt = 12, pb = 16;
     const x = iso => pl + (t1 === t0 ? 0.5 : (Date.parse(iso) - t0) / (t1 - t0)) * (W - pl - pr);
-    const y = v => pt + (1 - v / maxV) * (H - pt - pb);
+    const y = r => pt + (NR === 1 ? 0.5 : (r - 1) / (NR - 1)) * (H - pt - pb);
 
-    let paths = '';
-    for (const [n, pts] of Object.entries(serie)) {
-      const ext = pts.concat([[fimIso, pts[pts.length - 1][1]]]);
+    let grid = '';
+    for (let r = 1; r <= NR; r++)
+      grid += `<line class="grid" x1="${pl}" y1="${y(r).toFixed(1)}" x2="${W - pr}" y2="${y(r).toFixed(1)}"/>`;
+
+    let paths = '', labels = '';
+    for (const n of nomes) {
+      const pts = serie[n].concat([[fimIso, serie[n][serie[n].length - 1][1]]]);
       let d = '';
-      ext.forEach(([iso, v], i) => {
-        const px = x(iso).toFixed(1), py = y(v).toFixed(1);
+      pts.forEach(([iso, r], i) => {
+        const px = x(iso).toFixed(1), py = y(r).toFixed(1);
         if (i === 0) d += `M${px} ${py}`;
-        else { const prevY = y(ext[i - 1][1]).toFixed(1); d += `L${px} ${prevY}L${px} ${py}`; }
+        else { const prevY = y(pts[i - 1][1]).toFixed(1); d += `L${px} ${prevY}L${px} ${py}`; }
       });
-      paths += `<path d="${d}" fill="none" stroke="${cor(n)}" stroke-width="1.6" opacity="0.9"/>`;
+      paths += `<path d="${d}" fill="none" stroke="${cor(n)}" stroke-width="1.8" opacity="0.9"/>`;
+      const ly = y(pts[pts.length - 1][1]).toFixed(1);
+      labels += `<text class="lbl" x="${W - pr + 5}" y="${ly}" dominant-baseline="middle" fill="${cor(n)}">${esc(n)}</text>`;
     }
+
     return `<svg class="reg-tl" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-      <line class="base" x1="${pl}" y1="${H - pb}" x2="${W - pr}" y2="${H - pb}"/>
-      ${paths}
+      ${grid}${paths}${labels}
+      <text x="${pl - 13}" y="${y(1).toFixed(1)}" dominant-baseline="middle">1º</text>
+      <text x="${pl - 13}" y="${y(NR).toFixed(1)}" dominant-baseline="middle">${NR}º</text>
       <text x="${pl}" y="${H - 3}">${dCurta(datas[0])}</text>
       <text x="${W - pr}" y="${H - 3}" text-anchor="end">${dCurta(fimIso)}</text>
-      <text x="${pl}" y="${pt + 8}">${nfmt(maxV)}</text>
     </svg>`;
   }
 
@@ -111,10 +143,20 @@
       ? `<a href="${v.key}.html">${esc(v.nome)}</a>`
       : `<span>${esc(v.nome)}</span>`).join('') : '<p class="reg-vazio">—</p>';
 
-    const tl = (d.timeline && d.timeline.length)
-      ? timelineSvg(d.timeline, d.gerado, d.ranking) +
-        `<p class="reg-tl-nota">Squadratinhos capturados por atleta ao longo do tempo — as linhas a cruzar-se são mudanças de posição.</p>`
-      : '<p class="reg-vazio">Sem histórico suficiente.</p>';
+    const tlData = (d.timeline && d.timeline.length) ? d.timeline : [];
+    let evolSec;
+    if (temTroca(tlData)) {
+      evolSec = `<section class="reg-sec"><h2>Evolução</h2>
+        ${timelineRankSvg(tlData, d.gerado)}
+        <p class="reg-tl-nota">Posição no ranking ao longo do tempo — as linhas a cruzar-se são trocas de lugar. Os totais estão na tabela em cima.</p>
+      </section>`;
+    } else {
+      const g = maiorGanho(tlData);
+      const linha = g
+        ? `${atl(g.nome)} somou <b>${nfmt(g.delta)}</b> squadratinho${g.delta === 1 ? '' : 's'} no período, sem trocar de posição.`
+        : 'Sem trocas de posição no ranking desde 15 ago 2026.';
+      evolSec = `<section class="reg-sec"><p class="reg-tl-so">${linha}</p></section>`;
+    }
 
     alvo.innerHTML = `
       <div class="reg-cab">
@@ -130,7 +172,7 @@
           no total.</p>
       </section>
 
-      <section class="reg-sec"><h2>Evolução</h2>${tl}</section>
+      ${evolSec}
 
       <section class="reg-sec"><h2>Eventos nesta região</h2>${evHtml}</section>
 

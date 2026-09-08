@@ -41,11 +41,13 @@ a:hover { text-decoration: underline; }
 .reg-totais { font-size: 12.5px; color: var(--suave); }
 .reg-totais b { color: var(--texto); font-variant-numeric: tabular-nums; }
 
-/* timeline */
+/* timeline do ranking */
 .reg-tl { display: block; width: 100%; height: 120px; margin: 2px 0 4px; }
 .reg-tl text { fill: var(--fraco); font-size: 9px; font-family: inherit; }
-.reg-tl .base { stroke: var(--borda); stroke-width: 1; }
+.reg-tl .lbl { font-weight: 700; }
+.reg-tl .grid { stroke: var(--linha); stroke-width: 1; }
 .reg-tl-nota { font-size: 10.5px; color: var(--fraco); }
+.reg-tl-so { font-size: 12.5px; color: var(--suave); margin: 4px 0 0; }
 
 /* eventos (mesmo look do historico) */
 .reg-ev { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0 7px 9px;
