@@ -1,117 +1,101 @@
-"""Ícones da PWA + favicon, a partir de uma forma única (folha de ácer sobre
-quadrado roxo). Roxo = #663399, a cor da marca Squadrats (o logótipo deles é
-fill='#639'); NÃO o roxo da Xeira (#9c46d8).
+"""Ícones da PWA + favicon, a partir de uma forma única: a folha de ácer do
+emoji 🍁 (silhueta do Twemoji, um path só, CC-BY 4.0) recolorida de laranja,
+sobre um quadrado roxo #663399 (a cor da marca Squadrats; o logótipo deles é
+fill='#639'), NÃO o roxo #9c46d8 da Xeira.
 
 Contexto da folha: o projecto começou como folha de cálculo no Google Sheets
 ("folha do clube").
 
-Desenha com Pillow (sem rasterizador de SVG na máquina). A mesma forma está
-à mão em icon.svg, que serve de favicon vectorial. Re-executar depois de
-mexer na forma:  py pipeline/gen_icons.py
+Rasteriza os SVG com PyMuPDF (não há rasterizador de sistema).
+Re-executar:  py -m pip install pymupdf pillow  &&  py pipeline/gen_icons.py
 
 Escreve na raiz do repo:
   icon.svg                  vector (favicon + manifest)
-  icon-192.png              maskable=any, cantos arredondados, fundo transparente
+  icon-192.png              cantos arredondados, fundo transparente
   icon-512.png              idem
-  icon-maskable-512.png     roxo até à borda, folha dentro da zona segura
+  icon-maskable-512.png     roxo até à borda, folha na zona segura
   apple-touch-icon.png      180x180, sem transparência (iOS arredonda sozinho)
   favicon-16.png / -32.png  + favicon.ico (16+32)
 """
 import os
 
-from PIL import Image, ImageDraw
+import pymupdf
+from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.dirname(HERE)
 
-ROXO = (0x66, 0x33, 0x99, 255)   # #663399 rebeccapurple, marca Squadrats
-FOLHA = (0xff, 0xff, 0xff, 255)  # branco
+ROXO = "#663399"      # rebeccapurple, marca Squadrats
+LARANJA = "#ef7722"   # laranja de Outono (não é cor de atleta)
 
-# Folha de ácer estilizada (5 lóbulos + pecíolo). Metade direita, centro x=100,
-# caixa 0..200, y para baixo: do bico central, no sentido dos ponteiros, pelo
-# lado direito até ao pé; a esquerda é o espelho. Sinus (entalhes) fundos e
-# perto do centro; lóbulo central o mais comprido.
-_META = [
-    (100, 20),                 # bico do lóbulo central
-    (126, 60),                 # ombro direito do central (largo)
-    (130, 78),                 # sinus central|superior (raso)
-    (144, 66),                 # ombro do lóbulo superior
-    (160, 44),                 # bico do lóbulo superior
-    (164, 78),                 # ombro inferior do superior
-    (150, 102),                # sinus superior|lateral (raso)
-    (170, 98),                 # ombro do lóbulo lateral
-    (196, 110),                # bico do lóbulo lateral (ponto mais largo)
-    (164, 130),                # ombro inferior do lateral
-    (140, 134),                # sinus lateral|inferior
-    (152, 150),                # ombro do lóbulo inferior
-    (146, 178),                # bico do lóbulo inferior
-    (118, 156),                # sinus inferior|pecíolo
-    (108, 170),                # a lâmina encontra o pecíolo
-    (108, 202),                # base do pecíolo, lado direito
-    (100, 202),                # base do pecíolo, no eixo
-]
-MAPLE = _META + [(200 - x, y) for x, y in reversed(_META[1:-1])]
+# Silhueta da folha de ácer do Twemoji (assets/svg/1f341.svg), viewBox 36x36,
+# um path só. https://github.com/jdecked/twemoji  (CC-BY 4.0)
+FOLHA_D = (
+    "M36 20.917c0-.688-2.895-.5-3.125-1s3.208-4.584 2.708-5.5-5.086 1.167-5.375"
+    ".708c-.288-.458.292-3.5-.208-3.875s-5.25 4.916-5.917 4.292c-.666-.625 1.542"
+    "-10.5 1.086-10.698-.456-.198-3.419 1.365-3.793 1.282C21.002 6.042 18.682 0 "
+    "18 0s-3.002 6.042-3.376 6.125c-.374.083-3.337-1.48-3.793-1.282-.456.198 "
+    "1.752 10.073 1.085 10.698C11.25 16.166 6.5 10.875 6 11.25s.08 3.417-.208 "
+    "3.875c-.289.458-4.875-1.625-5.375-.708s2.939 5 2.708 5.5-3.125.312-3.125 "
+    "1 8.438 5.235 9 5.771c.562.535-2.914 2.802-2.417 3.229.576.496 3.839-.83 "
+    "10.417-.957V35c0 .553.448 1 1 1 .553 0 1-.447 1-1v-6.04c6.577.127 9.841 "
+    "1.453 10.417.957.496-.428-2.979-2.694-2.417-3.229.562-.536 9-5.084 9-5.771z"
+)
+VB = 36
 
 
-def _folha_pontos(tam, margem):
-    """MAPLE reescalado para um quadrado `tam`, com `margem` (fracção) livre."""
-    util = tam * (1 - 2 * margem)
+def _svg(tam, *, fundo, margem, rx=None):
+    """SVG completo `tam`x`tam`: fundo (roxo arredondado ou cheio) + folha
+    laranja centrada com `margem` (fracção) livre à volta."""
+    esc = tam * (1 - 2 * margem) / VB      # escala da folha
     off = tam * margem
-    return [(off + x / 200 * util, off + y / 200 * util) for x, y in MAPLE]
-
-
-def _rrect(draw, box, raio, fill):
-    draw.rounded_rectangle(box, radius=raio, fill=fill)
-
-
-def _png(caminho, tam, *, fundo, margem, raio_frac=None, ss=4, rgb=False):
-    """Desenha num canvas ss vezes maior e reduz (anti-alias). `rgb`: grava
-    sem canal alfa (apple-touch-icon, que o iOS compõe sobre preto)."""
-    big = tam * ss
-    im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
+    partes = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{tam}" '
+              f'height="{tam}" viewBox="0 0 {tam} {tam}">']
     if fundo == "rrect":
-        _rrect(d, [0, 0, big - 1, big - 1], big * (raio_frac or 0.22), ROXO)
+        partes.append(f'<rect width="{tam}" height="{tam}" rx="{rx or tam*0.22:.0f}" '
+                      f'fill="{ROXO}"/>')
     elif fundo == "cheio":
-        d.rectangle([0, 0, big, big], fill=ROXO)
-    d.polygon(_folha_pontos(big, margem), fill=FOLHA)
-    im = im.resize((tam, tam), Image.LANCZOS)
+        partes.append(f'<rect width="{tam}" height="{tam}" fill="{ROXO}"/>')
+    partes.append(f'<path transform="translate({off:.1f} {off:.1f}) scale({esc:.4f})" '
+                  f'fill="{LARANJA}" d="{FOLHA_D}"/>')
+    partes.append('</svg>')
+    return "\n".join(partes)
+
+
+def _raster(tam, *, fundo, margem, rx=None, ss=4):
+    """SVG -> PIL RGBA, renderizado a ss vezes o tamanho e reduzido (LANCZOS)."""
+    svg = _svg(tam * ss, fundo=fundo, margem=margem, rx=rx and rx * ss)
+    doc = pymupdf.open(stream=svg.encode("utf-8"), filetype="svg")
+    pix = doc[0].get_pixmap(alpha=True)
+    im = Image.frombytes("RGBA", (pix.width, pix.height), pix.samples)
+    if im.size != (tam * ss, tam * ss):
+        im = im.resize((tam * ss, tam * ss), Image.LANCZOS)
+    return im.resize((tam, tam), Image.LANCZOS)
+
+
+def _png(nome, tam, *, fundo, margem, rx=None, rgb=False):
+    im = _raster(tam, fundo=fundo, margem=margem, rx=rx)
     if rgb:
-        fundo_rgb = Image.new("RGB", im.size, ROXO[:3])
-        fundo_rgb.paste(im, mask=im.split()[3])
-        im = fundo_rgb
+        base = Image.new("RGB", im.size, ROXO)
+        base.paste(im, mask=im.split()[3])
+        im = base
+    caminho = os.path.join(RAIZ, nome)
     im.save(caminho)
-    print("escrito:", os.path.relpath(caminho, RAIZ))
-
-
-def _svg(caminho):
-    m = 0.13                       # mesma margem que icon-192/512.png
-    util, off = 512 * (1 - 2 * m), 512 * m
-    pts = " ".join(f"{off + x/200*util:.1f},{off + y/200*util:.1f}" for x, y in MAPLE)
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" '
-        'viewBox="0 0 512 512">\n'
-        '  <rect width="512" height="512" rx="112" fill="#663399"/>\n'
-        f'  <polygon points="{pts}" fill="#fff"/>\n'
-        '</svg>\n'
-    )
-    with open(caminho, "w", encoding="utf-8", newline="\n") as f:
-        f.write(svg)
-    print("escrito:", os.path.relpath(caminho, RAIZ))
+    print("escrito:", nome)
 
 
 def main():
-    _svg(os.path.join(RAIZ, "icon.svg"))
-    # ícone normal: quadrado arredondado, folha com margem folgada
-    _png(os.path.join(RAIZ, "icon-192.png"), 192, fundo="rrect", margem=0.13)
-    _png(os.path.join(RAIZ, "icon-512.png"), 512, fundo="rrect", margem=0.13)
-    # maskable: roxo até à borda; folha dentro de ~66% (Android corta a ~80%)
-    _png(os.path.join(RAIZ, "icon-maskable-512.png"), 512, fundo="cheio", margem=0.20)
-    # iOS: 180x180, sem transparência (o SO arredonda)
-    _png(os.path.join(RAIZ, "apple-touch-icon.png"), 180, fundo="cheio", margem=0.18, rgb=True)
-    # favicon
-    _png(os.path.join(RAIZ, "favicon-32.png"), 32, fundo="rrect", margem=0.12, raio_frac=0.18)
-    _png(os.path.join(RAIZ, "favicon-16.png"), 16, fundo="rrect", margem=0.10, raio_frac=0.16)
+    with open(os.path.join(RAIZ, "icon.svg"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(_svg(512, fundo="rrect", margem=0.14, rx=112) + "\n")
+    print("escrito: icon.svg")
+
+    _png("icon-192.png", 192, fundo="rrect", margem=0.14)
+    _png("icon-512.png", 512, fundo="rrect", margem=0.14)
+    _png("icon-maskable-512.png", 512, fundo="cheio", margem=0.26)
+    _png("apple-touch-icon.png", 180, fundo="cheio", margem=0.16, rgb=True)
+    _png("favicon-32.png", 32, fundo="rrect", margem=0.10, rx=6)
+    _png("favicon-16.png", 16, fundo="rrect", margem=0.08, rx=3)
+
     ico16 = Image.open(os.path.join(RAIZ, "favicon-16.png"))
     ico32 = Image.open(os.path.join(RAIZ, "favicon-32.png"))
     ico32.save(os.path.join(RAIZ, "favicon.ico"), sizes=[(16, 16), (32, 32)],
