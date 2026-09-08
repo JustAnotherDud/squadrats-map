@@ -45,12 +45,14 @@
   // O eixo Y é a POSIÇÃO (1º no topo), não o valor absoluto. Com valores como
   // 3916 vs 376 vs 327 nenhuma escala (linear ou log) separa a sub-corrida — e a
   // magnitude já está na tabela por cima. Aqui só interessa quem passou quem.
-  // Só se desenha onde houve troca real de posição; senão `pintar` mete uma linha.
+  // Só se desenha onde há um evento de troca (ultrapassagem / novo líder) —
+  // mesma definição da fila "Regiões disputadas" do historico.html. Uma estreia
+  // (📍) mexe na ordem mas não é passar ninguém, por isso não conta.
 
-  function ordemDe(p) { return p.ranking.map(([n]) => n).join('>'); }
-
-  function temTroca(tl) {
-    return new Set(tl.map(ordemDe)).size > 1;
+  function temEventoTroca(eventos, d) {
+    return eventos.some(e =>
+      (e.tipo === 'ultrapassagem' || e.tipo === 'novo_lider') &&
+      e.nivel === d.nivel && e.regiao === d.regiao);
   }
 
   // Maior subida em squadratinhos entre o 1.º e o último ponto (regiões que
@@ -145,7 +147,7 @@
 
     const tlData = (d.timeline && d.timeline.length) ? d.timeline : [];
     let evolSec;
-    if (temTroca(tlData)) {
+    if (temEventoTroca(eventos, d) && tlData.length >= 2) {
       evolSec = `<section class="reg-sec"><h2>Evolução</h2>
         ${timelineRankSvg(tlData, d.gerado)}
         <p class="reg-tl-nota">Posição no ranking ao longo do tempo — as linhas a cruzar-se são trocas de lugar. Os totais estão na tabela em cima.</p>
