@@ -147,7 +147,7 @@
     const viz = d.vizinhos.length ? d.vizinhos.map(v => {
       if (!v.tem_pagina) return `<span>${esc(v.nome)}</span>`;
       const dp = vizDisp(v);
-      return `<a class="${dp ? 'viz-disp' : ''}" href="${v.key}.html"${dp ? ' title="troca de posição no ranking desde 15 ago"' : ''}>${esc(v.nome)}</a>`;
+      return `<a class="${dp ? 'viz-disp' : ''}" href="${v.key}.html"${dp ? ' title="troca de posição no ranking desde 26 jul"' : ''}>${esc(v.nome)}</a>`;
     }).join('') : '<p class="reg-vazio">—</p>';
     const algumVizDisp = d.vizinhos.some(vizDisp);
 
@@ -162,7 +162,7 @@
       const g = maiorGanho(tlData);
       const linha = g
         ? `${atl(g.nome)} somou <b>${nfmt(g.delta)}</b> squadratinho${g.delta === 1 ? '' : 's'} no período, sem trocar de posição.`
-        : 'Sem trocas de posição no ranking desde 15 ago 2026.';
+        : 'Sem trocas de posição no ranking desde 26 jul 2026.';
       evolSec = `<section class="reg-sec"><p class="reg-tl-so">${linha}</p></section>`;
     }
 
@@ -171,7 +171,7 @@
         <h1>${esc(d.regiao)}</h1>
         <p class="sub">${sub}</p>
       </div>
-      <p class="reg-meta">Actualizado ${esc(q)} · evolução e eventos desde 15 ago 2026</p>
+      <p class="reg-meta">Actualizado ${esc(q)} · evolução e eventos desde 26 jul 2026</p>
 
       <section class="reg-sec"><h2>Ranking</h2>
         <table class="reg-rank"><tbody>${rankRows}</tbody></table>
@@ -186,7 +186,7 @@
 
       <section class="reg-sec"><h2>Faz fronteira com</h2>
         <div class="reg-viz">${viz}</div>
-        ${algumVizDisp ? '<p class="reg-viz-nota">A dourado: vizinhos com troca de posição no ranking desde 15 ago.</p>' : ''}
+        ${algumVizDisp ? '<p class="reg-viz-nota">A dourado: vizinhos com troca de posição no ranking desde 26 jul.</p>' : ''}
       </section>
 
       <p class="reg-rodape">Ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); o

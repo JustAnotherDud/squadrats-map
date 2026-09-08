@@ -2,7 +2,9 @@
 com actividade, a partir de todo o histórico da branch `data`.
 
 - ranking/totais/vizinhos: do snapshot mais recente
-- timeline: o ranking de cada dia UTC (eventos.snapshots_por_dia)
+- timeline: o ranking de cada dia UTC (recon_snapshots.snapshots_estendidos —
+  club_regioes.json real de 15 ago +, reconstruído do club.json para
+  26 jul -> 14 ago, para o gráfico "desde 26 jul")
 
 A partir daqui, append_regioes.py (passo do run_all.py) mantém-nos — só
 acrescenta os dias novos à timeline, não revarre os 120 commits.
@@ -14,7 +16,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-import eventos
+import recon_snapshots
 import regioes
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +31,7 @@ def _carrega(path):
 
 
 def main(out_dir, branch):
-    snaps = eventos.snapshots_por_dia(REPO, branch)
+    snaps = recon_snapshots.snapshots_estendidos(REPO, branch)
     dias = sorted(snaps)
     atual = snaps[dias[-1]]
     print(f"{len(dias)} dias, {dias[0]} -> {dias[-1]}")

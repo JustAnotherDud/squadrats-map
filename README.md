@@ -69,8 +69,9 @@ git checkout origin/data -- data/
   distrito, PT only) — overtakes, new leaders, first square in a region,
   squadratinho milestones. Reverse-chronological, filters by athlete/region.
   Reads `data/events.json` + `data/club_regioes.json` from the `data` branch via
-  raw. History starts **2026-08-15** (when `club_regioes.json` began), not 26 Jul.
-  Region names link to `regioes/<c|d>-<slug>.html`.
+  raw. History starts **2026-07-26**: from 15 Aug it comes from the per-region
+  breakdown generated each run; before that it is reconstructed from `club.json`
+  (`recon_snapshots.py`). Region names link to `regioes/<c|d>-<slug>.html`.
 - `regioes/` — one static page per concelho/distrito **with activity** (~100
   today), at `regioes/c-<slug>.html` (concelho) / `regioes/d-<slug>.html`
   (distrito) — the `c-`/`d-` prefix disambiguates the 18 names that are both.
@@ -87,9 +88,11 @@ git checkout origin/data -- data/
   `atletas/<slug>.json` (per-athlete profile bundle, one file each +
   `index.json`; built by `pipeline/build_profiles.py` from the files above —
   no extra network) + `events.json` (club event feed, append-only; seeded once
-  by `pipeline/backfill_events.py`, kept current by `pipeline/append_events.py`
-  as a `run_all.py` step — compares the previous `club_regioes.json` day by day,
-  appends new events, idempotent across the 6 runs/day) + `regioes/<key>.json`
+  by `pipeline/backfill_events.py` — real `club_regioes.json` from 15 Aug,
+  reconstructed from `club.json` for 26 Jul→14 Aug via `recon_snapshots.py` —
+  kept current by `pipeline/append_events.py` as a `run_all.py` step that
+  compares the previous `club_regioes.json` day by day, appends new events,
+  idempotent across the 6 runs/day) + `regioes/<key>.json`
   (one per active region; `pipeline/backfill_regioes.py` seeds, `append_regioes.py`
   keeps current — ranking/totals/neighbours recomputed each run, the per-day
   ranking timeline appended and compressed to change-points only) +

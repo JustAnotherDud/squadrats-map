@@ -1,13 +1,14 @@
-"""One-off: reconstrói data/events.json a partir de todo o histórico de
-commits de data/club_regioes.json na branch `data`.
+"""One-off: reconstrói data/events.json a partir do histórico da branch `data`.
 
-Critério de "dia": o último snapshot de cada dia UTC (eventos.snapshots_por_dia,
-mesma lógica do backfill_daily_gains.py). Compara dias consecutivos e corre
-eventos.detectar. O resultado é versionado; a partir daí append_events.py
-mantém-no com um append incremental (só os dias ainda não cobertos).
+Critério de "dia": o último snapshot de cada dia UTC. Compara dias
+consecutivos e corre eventos.detectar. O resultado é versionado; a partir daí
+append_events.py mantém-no com um append incremental (só os dias ainda não
+cobertos).
 
-O histórico de club_regioes.json começa em 2026-08-15 — os eventos não vão
-mais para trás do que isso.
+Os snapshots vêm de recon_snapshots.snapshots_estendidos: club_regioes.json
+real de 15 ago em diante, reconstruído do club.json (Classifier + cache)
+para 26 jul -> 14 ago. A comparação de fronteira 14->15 ago recupera eventos
+que a versão antiga (só club_regioes.json) perdia por não ter baseline.
 
 Uso: py backfill_events.py [--branch origin/data] [pasta_saida]
 """
@@ -18,6 +19,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 import eventos
+import recon_snapshots
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -25,7 +27,7 @@ DATA_DIR = os.path.join(REPO, "data")
 
 
 def main(out_dir, branch):
-    por_dia = eventos.snapshots_por_dia(REPO, branch)
+    por_dia = recon_snapshots.snapshots_estendidos(REPO, branch)
     dias = sorted(por_dia)
     print(f"{len(dias)} dias com snapshot, {dias[0]} -> {dias[-1]}")
 

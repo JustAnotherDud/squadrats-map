@@ -137,9 +137,10 @@
   <p class="rodape-nota">
     Só eventos de ranking por <b>região</b> (concelho e distrito, Portugal): ultrapassagens,
     novos líderes, primeira presença numa região e marcos de squadratinhos. O histórico
-    começa a <b>15 ago 2026</b> — foi quando o breakdown por região passou a ser gerado;
-    o mapa em si é mais antigo. Os dados vêm da branch <code>data</code>, actualizados 6×/dia
-    pelo mesmo processo que gera o <a href="club.html">mapa do clube</a>.
+    começa a <b>26 jul 2026</b> — de 15 ago em diante vem do breakdown por região gerado
+    a cada run; antes disso é reconstruído do <code>club.json</code>. O mapa em si é mais
+    antigo. Os dados vêm da branch <code>data</code>, actualizados 6×/dia pelo mesmo
+    processo que gera o <a href="club.html">mapa do clube</a>.
   </p>
 </div>
 
@@ -290,7 +291,7 @@
       </div>`).join('') || '<p class="vazio">Nenhuma região disputada.</p>';
   }
 
-  // regiões com troca de posição real desde 15 ago — as páginas de região com
+  // regiões com troca de posição real desde 26 jul — as páginas de região com
   // gráfico. Independente dos filtros; ordenadas pela troca mais recente.
   function renderDisputadas() {
     const box = document.getElementById('disputadas');
@@ -313,7 +314,7 @@
   function renderMeta() {
     const m = document.getElementById('meta');
     const q = gerado ? fmtDataHora(gerado) : '?';
-    m.textContent = `Dados actualizados: ${q} · histórico desde 15 ago 2026`;
+    m.textContent = `Dados actualizados: ${q} · histórico desde 26 jul 2026`;
     // aviso de dados velhos
     if (gerado) {
       const idadeH = (Date.now() - Date.parse(gerado)) / 3.6e6;

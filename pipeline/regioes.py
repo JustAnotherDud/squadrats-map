@@ -16,7 +16,8 @@ import os
 
 from slugs import slugify
 
-DESDE = "2026-08-15"  # club_regioes.json só existe a partir daqui
+DESDE = "2026-07-26"  # timeline recuada até ao 1.º club.json (< 15 ago é
+                      # reconstruído — ver recon_snapshots.py)
 NIVEIS = ("concelho", "distrito")
 CHAVE_BUCKET = {"concelho": "by_concelho", "distrito": "by_distrito"}
 CHAVE_ADJ = {"concelho": "concelhos", "distrito": "distritos"}

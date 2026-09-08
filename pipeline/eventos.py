@@ -24,7 +24,7 @@ Tipos:
 # patamares por nível — escolhidos contra o histórico real (ver plano):
 # concelho arranca em 25 (~1 km² coberto, "andou lá a sério"), distrito mais
 # alto porque acumula naturalmente mais. Só cruzados para cima.
-# Backfill (2026-08-15+): 4 marcos. Projecção futura ~3-6/semana no total.
+# Backfill (26 jul+): ~28 marcos. Projecção futura ~3-6/semana no total.
 MARCOS = {
     "concelho": [25, 50, 100, 250, 500, 1000],
     "distrito": [50, 100, 250, 500, 1000, 2500],
@@ -32,7 +32,8 @@ MARCOS = {
 
 ATLETAS_ORDEM = ["Zé", "Xeira", "Carolina", "Inês S.", "Pedro"]
 
-DESDE = "2026-08-15"  # club_regioes.json só passou a ser gerado nesta data
+DESDE = "2026-07-26"  # 1.º dia com club.json (o histórico < 15 ago é
+                      # reconstruído do club.json — ver recon_snapshots.py)
 
 
 def snapshots_por_dia(repo, branch="origin/data", desde=None):
@@ -110,6 +111,13 @@ def detectar(anterior, atual, data):
     eventos = []
     na, nb = niveis_de(anterior), niveis_de(atual)
 
+    # Atleta que entra no roster (ATHLETES_JSON) não gera eventos no 1.º
+    # snapshot em que aparece — senão "passava" toda a gente em todas as
+    # regiões onde tem squares, num dia só. Mesmo critério do daily_gains.py.
+    # (Aconteceu no backfill quando o Pedro entrou a 1 ago: 54 eventos falsos.)
+    estreantes = (set((atual or {}).get("atletas", {}))
+                  - set((anterior or {}).get("atletas", {})))
+
     for chave, cb in nb.items():
         nivel, reg = chave
         ca = na.get(chave, {})
@@ -162,8 +170,9 @@ def detectar(anterior, atual, data):
     }
     return [
         e for e in eventos
-        if not (e["tipo"] == "primeira_presenca"
-                and (e["quem"], e["nivel"], e["regiao"]) in fortes)
+        if e["quem"] not in estreantes
+        and not (e["tipo"] == "primeira_presenca"
+                 and (e["quem"], e["nivel"], e["regiao"]) in fortes)
     ]
 
 
