@@ -2,7 +2,7 @@
 // detalhado pessoal, que fica de fora da navegação de propósito).
 //
 // Injecta-se a si própria: cada página só precisa de <script src="nav.js">
-// (ou "../nav.js" a partir de atletas/). Sem dependências.
+// (ou "../nav.js" a partir de atletas/ e regioes/). Sem dependências.
 //
 // Páginas de mapa em ecrã cheio (club.html) põem <body data-nav="overlay">:
 // a barra fica `position:fixed` e a página trata do offset do #map/#topbar.
@@ -10,14 +10,25 @@
 (function () {
   'use strict';
 
-  var atSub = location.pathname.indexOf('/atletas/') !== -1;
-  var P = atSub ? '../' : '';
-  var file = (location.pathname.split('/').pop() || '').toLowerCase();
+  // Prefixo para os links (raiz vs subpasta). Deriva-se do src do PRÓPRIO
+  // <script> desta página ("nav.js" na raiz, "../nav.js" em atletas/ e
+  // regioes/) — é a mesma declaração de caminho relativo que o autor do HTML
+  // já escreveu, por isso não pode discordar da localização real da página.
+  // Contar segmentos de location.pathname não serve: no GitHub Pages o path
+  // tem o prefixo do repo (/squadrats-map/regioes/x.html = 3 segmentos) e
+  // localmente não (/regioes/x.html = 2) — mesma página, contagem diferente.
+  var meSrc = (document.currentScript && document.currentScript.getAttribute('src')) || '';
+  var P = meSrc
+    ? (meSrc.match(/\.\.\//g) || []).join('')
+    : (/\/(atletas|regioes)\//.test(location.pathname) ? '../' : '');  // fallback
 
-  var atual = 'hub';
-  if (atSub) atual = 'perfis';
-  else if (file === 'club.html') atual = 'clube';
-  else if (file === 'historico.html') atual = 'historico';
+  var file = (location.pathname.split('/').pop() || '').toLowerCase();
+  var atual =
+    /\/atletas\//.test(location.pathname) ? 'perfis' :
+    file === 'club.html' ? 'clube' :
+    file === 'historico.html' ? 'historico' :
+    (file === '' || file === 'index.html') ? 'hub' :
+    null;  // regioes/*, mapa.html, … — nada destacado
 
   var DEST = [
     { id: 'clube', label: 'Clube', href: P + 'club.html' },
