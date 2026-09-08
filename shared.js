@@ -60,6 +60,21 @@ function bandeiras(largura, altura) {
 // "País/Região/Zona" é neutro e funciona nos cinco.
 const NIVEL_LABEL = { pais: 'País', regiao: 'Região', zona: 'Zona' };
 
+// Slug de uma região, igual ao pipeline/slugs.py::slugify (NFKD, sem acentos,
+// minúsculas, não-alfanumérico -> "-"). Tem de bater certo com os nomes dos
+// ficheiros regioes/<key>.html gerados no build.
+function slugify(s) {
+  return String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+// URL da página de uma região PT. `nivel`: 'concelho' | 'distrito'. O prefixo
+// c-/d- desambigua os 18 nomes que são concelho E distrito (Santarém, Coimbra,
+// …). Só há página para regiões com actividade — quem chama decide se linka.
+function regiaoHref(nivel, nome) {
+  return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+}
+
 // lat/lng -> tile x/y da grelha XYZ, para um dado zoom. Mesma convenção do
 // pipeline (pipeline/kml_parse.py lonlat_to_tile) — se um dia divergirem, os
 // squares desenhados deixam de bater com os capturados.

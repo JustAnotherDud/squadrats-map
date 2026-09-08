@@ -428,12 +428,17 @@ function linhasGeo(porPaisCaptured, ptBucket, foreignBucketBase) {
   return linhas.sort((a, b) => b.captured - a.captured);
 }
 
-function tabelaGeo(titulo, linhas) {
+// nivel: 'distrito' | 'concelho' liga os nomes PT à página da região; 'pais'
+// (ou omisso) deixa texto — país não tem página.
+function tabelaGeo(titulo, linhas, nivel) {
   if (!linhas.length) return '';
   const corpo = linhas.map(r => {
     const pct = r.total ? ` <span class="fraco">${(100 * r.captured / r.total).toFixed(1)}%</span>` : '';
+    const nome = (nivel && nivel !== 'pais' && r.cc === 'PT')
+      ? `<a class="lnome" href="${regiaoHref(nivel, r.nome)}">${r.nome}</a>`
+      : r.nome;
     return `<div class="linha-stat">
-      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${r.nome}</span></span>
+      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${nome}</span></span>
       <b>${r.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
   }).join('');
   return `<div class="grupo"><div class="titulo-seccao">${titulo}</div>${corpo}</div>`;
@@ -466,8 +471,8 @@ function renderDetalheGeo() {
   linhas.push(tabelaGeo('País', linhasPais(geo.country)));
   const porDistrito = { pt: geo.by_distrito, ...geo.by_region };
   const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
-  linhas.push(tabelaGeo('Região', linhasGeo(porDistrito, 'by_distrito', 'by_region')));
-  linhas.push(tabelaGeo('Zona', linhasGeo(porConcelho, 'by_concelho', 'by_municipio')));
+  linhas.push(tabelaGeo('Região', linhasGeo(porDistrito, 'by_distrito', 'by_region'), 'distrito'));
+  linhas.push(tabelaGeo('Zona', linhasGeo(porConcelho, 'by_concelho', 'by_municipio'), 'concelho'));
 
   linhas.push(`<div class="nota">Squadratinhos (zoom 17). Totais partilhados com o mapa pessoal
     (mesma grelha para toda a gente) — só a contagem capturada muda por atleta.
@@ -564,8 +569,11 @@ function renderLeaderboard() {
         <span class="txt">${nome}</span></span>
         <b>${e.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
     }).join('');
+    const nomeReg = (leaderboardNivel !== 'pais' && r.cc === 'PT')
+      ? `<a class="lnome" href="${regiaoHref(leaderboardNivel, r.nome)}">${r.nome}</a>`
+      : r.nome;
     linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
-      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${r.nome}</span></span>
+      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${nomeReg}</span></span>
       <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}</div>`);
   });
 

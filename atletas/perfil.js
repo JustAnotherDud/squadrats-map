@@ -133,8 +133,13 @@
 
   const traco = '<span class="fraco">—</span>';
 
-  function linhaGeo(r) {
-    const nome = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
+  function linhaGeo(r, nivel) {
+    const txt = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
+    // regiao -> distrito, zona -> concelho; só PT tem página
+    const ligaRegiao = (nivel === 'regiao' || nivel === 'zona') && r.cc === 'PT' && r.cc !== r.nome;
+    const nome = ligaRegiao
+      ? `<a href="../${regiaoHref(nivel === 'regiao' ? 'distrito' : 'concelho', r.nome)}">${txt}</a>`
+      : txt;
     const cls = r.posicao <= 3 && r.de > 1 ? ` p${r.posicao}` : '';
     const subir = r.acima != null ? `<span class="mg-neg">${nfmt(r.acima - r.captured)}</span>` : traco;
     const folga = r.abaixo != null ? `<span class="mg-pos">${nfmt(r.captured - r.abaixo)}</span>` : traco;
@@ -149,7 +154,7 @@
     </tr>`;
   }
 
-  function tabelaGeo(id, linhas, sort) {
+  function tabelaGeo(nivel, linhas, sort) {
     if (!linhas.length) return '<p class="perfil-vazio">Sem squares neste nível.</p>';
     const ord = ordenar(linhas, sort);
     const cabecas = COLS.map(c => {
@@ -159,7 +164,7 @@
     }).join('');
     return `<div class="perfil-scroll"><table class="perfil-tabela geo">
       <thead><tr>${cabecas}</tr></thead>
-      <tbody>${ord.map(linhaGeo).join('')}</tbody>
+      <tbody>${ord.map(r => linhaGeo(r, nivel)).join('')}</tbody>
     </table></div>`;
   }
 

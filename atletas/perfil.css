@@ -139,6 +139,9 @@ a:hover { text-decoration: underline; }
 .perfil-tabela td.n.fraco { color: var(--fraco); font-weight: 400; }
 .perfil-tabela .nome { display: flex; align-items: center; gap: 6px; }
 .perfil-tabela .bandeira { flex-shrink: 0; border-radius: 1px; }
+/* nome de região com página: link discreto, cor herdada, só sublinha no hover */
+.perfil-tabela.geo .nome a { color: inherit; text-decoration: none; }
+.perfil-tabela.geo .nome a:hover { text-decoration: underline; }
 
 /* cabeçalho de nível (País / Região / Zona) — mais forte que a linha de
    cabeçalhos das colunas, para se ver de relance onde começa cada nível */
