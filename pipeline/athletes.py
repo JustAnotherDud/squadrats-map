@@ -1,7 +1,7 @@
 """Lista única dos atletas do clube.
 
 Antes desta extracção, os mesmos nomes/UIDs viviam em triplicado
-(fetch_club_koms.py, fetch_club_squares.py, run_all.py) — um UID trocado
+(fetch_club_totais.py, fetch_club_squares.py, run_all.py) — um UID trocado
 por engano num só desses sítios só se notaria quando os totais não
 batessem. Agora há uma fonte só.
 

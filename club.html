@@ -2,11 +2,11 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>Squadrats — Club</title>
+<title>Mapa do clube — Squadrats Club</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<!-- vocabulário partilhado com o index.html (países, bandeiras, níveis, grelha
+<!-- shared.js: vocabulário comum ao mapa.html e às páginas de atleta (países,
      XYZ) — síncrono de propósito, o script inline abaixo usa-o logo -->
 <script src="shared.js"></script>
 <style>
@@ -94,7 +94,7 @@
 <script>
 // Página do club: só squadratinhos, só os três que têm conta Squadrats.
 // Sem classificação por concelho nem troféus — o assunto aqui é quem
-// partilha o quê. Deliberadamente sem link para o `index.html` (o mapa
+// partilha o quê. Deliberadamente sem link para o `mapa.html` (o mapa
 // pessoal detalhado do dono): são dois sítios separados, e quem recebe este
 // link não deve cair no outro.
 // Liga sim para /atletas/<slug>.html — os perfis são info do clube (as mesmas
@@ -120,7 +120,7 @@ let COR_ATLETA = [
   '#2f5fd0', // azul      (Pedro)
 ];
 
-// bandeiras do shared.js (as mesmas do index.html) — aqui em 13x10, um pouco
+// bandeiras do shared.js (as mesmas do mapa.html) — aqui em 13x10, um pouco
 // mais pequenas que no mapa pessoal. Estiveram copiadas à mão até 2026-08-18,
 // e a cópia já tinha divergido uma vez.
 const BANDEIRA = bandeiras(13, 10);
@@ -140,7 +140,6 @@ let porCoord = new Map();     // "x,y" -> mask
 let activos = 0;              // bitmask dos atletas ligados
 let camadaSquares = null;
 let detalheAberto = false;
-let geoAtletaSel = 0;          // índice do atleta seleccionado no "Por atleta"
 let leaderboardSoDisputadas = true;  // só regiões com 2+ pessoas, por defeito
 let leaderboardNivel = 'concelho';   // 'pais' | 'distrito' | 'concelho'
 
@@ -301,7 +300,6 @@ function renderPainel() {
   const linhas = [];
   linhas.push(`<div class="seg" style="margin-bottom:10px">
     <button data-painel-tab="sobreposicao" class="${painelTab === 'sobreposicao' ? 'on' : ''}">Sobreposição</button>
-    <button data-painel-tab="atleta" class="${painelTab === 'atleta' ? 'on' : ''}">Por atleta</button>
     <button data-painel-tab="leaderboard" class="${painelTab === 'leaderboard' ? 'on' : ''}">Leaderboard</button>
   </div>`);
 
@@ -315,7 +313,9 @@ function renderPainel() {
         <span class="txt">${linkNome(i, a.nome)}</span></span>
         <b>${a.total.toLocaleString('pt-PT')}</b></div>`;
     }).join('');
-    linhas.push(`<div class="grupo"><div class="titulo-seccao">Por atleta</div>${porAtleta}</div>`);
+    linhas.push(`<div class="grupo"><div class="titulo-seccao">Por atleta</div>${porAtleta}
+      <div class="nota" style="padding-top:3px">Cada nome liga ao <a href="atletas/">perfil</a>
+      (contagens, ganhos diários, posição por região).</div></div>`);
 
     const soLinhas = dados.atletas.map((a, i) => {
       if (!soDe.has(i)) return '';
@@ -363,8 +363,6 @@ function renderPainel() {
       Os totais por atleta são sempre os reais; as linhas de baixo contam o que
       está no mapa neste momento, por isso mudam quando se desliga alguém.<br>
       Actualizado: ${fmtDataHora(dados.atualizado)}</div>`);
-  } else if (painelTab === 'atleta') {
-    linhas.push(renderDetalheGeo());
   } else {
     linhas.push(renderLeaderboard());
   }
@@ -379,9 +377,6 @@ function renderPainel() {
     detalheAberto = !detalheAberto;
     renderPainel();
   };
-  corpo.querySelectorAll('[data-geo-atleta]').forEach(b => {
-    b.onclick = () => { geoAtletaSel = Number(b.dataset.geoAtleta); renderPainel(); };
-  });
   const lbFiltro = document.getElementById('leaderboard-filtro');
   if (lbFiltro) lbFiltro.onclick = () => { leaderboardSoDisputadas = !leaderboardSoDisputadas; renderPainel(); };
   corpo.querySelectorAll('[data-leaderboard-nivel]').forEach(b => {
@@ -389,97 +384,17 @@ function renderPainel() {
   });
 }
 
-// --- detalhe geográfico por atleta (2026-08-15) ---
 // club_regioes.json só tem "captured" por região (ver classify_club.py); o
 // total/denominador é sempre o mesmo para toda a gente, já publicado em
 // stats.json (by_distrito/by_concelho/by_region_XX/by_municipio_XX) — aqui
-// só se combinam os dois, sem duplicar a lógica de classificação.
+// só se combinam os dois, sem duplicar a lógica de classificação. Usado pelo
+// leaderboard para a % de cada atleta na região.
 function totalDe(bucket, nome) {
   const s = dadosStats && dadosStats[bucket] && dadosStats[bucket][nome];
   return s && s.z17 ? s.z17.total : null;
 }
 
 const NOME_PAIS = PAIS_NOME; // shared.js
-
-// País — geo.country já vem pronto do classify_club.py, só falta
-// juntar o total partilhado (stats.json) para a percentagem (2026-08-15).
-function linhasPais(country) {
-  return Object.entries(country || {}).map(([cc, captured]) => {
-    const s = dadosStats && dadosStats[`country_${cc.toLowerCase()}`];
-    const total = s && s.z17 ? s.z17.total : null;
-    return { cc, nome: NOME_PAIS[cc] || cc, captured, total };
-  }).sort((a, b) => b.captured - a.captured);
-}
-
-// PT e estrangeiro usam palavras diferentes em stats.json, não só um sufixo
-// de país (by_distrito vs by_region_es, by_concelho vs by_municipio_es) —
-// por isso dois nomes de bucket em vez de um prefixo só.
-function linhasGeo(porPaisCaptured, ptBucket, foreignBucketBase) {
-  // porPaisCaptured: { 'pt': {nome: n}, 'es': {...}, ... } — 'pt' é especial
-  // (sem prefixo de bandeira nas chaves de stats.json, ver pipeline.py)
-  const linhas = [];
-  for (const [cc, porNome] of Object.entries(porPaisCaptured)) {
-    const bucket = cc === 'pt' ? ptBucket : `${foreignBucketBase}_${cc}`;
-    for (const [nome, captured] of Object.entries(porNome)) {
-      const total = totalDe(bucket, nome);
-      linhas.push({ cc: cc.toUpperCase(), nome, captured, total });
-    }
-  }
-  return linhas.sort((a, b) => b.captured - a.captured);
-}
-
-// nivel: 'distrito' | 'concelho' liga os nomes PT à página da região; 'pais'
-// (ou omisso) deixa texto — país não tem página.
-function tabelaGeo(titulo, linhas, nivel) {
-  if (!linhas.length) return '';
-  const corpo = linhas.map(r => {
-    const pct = r.total ? ` <span class="fraco">${(100 * r.captured / r.total).toFixed(1)}%</span>` : '';
-    const nome = (nivel && nivel !== 'pais' && r.cc === 'PT')
-      ? `<a class="lnome" href="${regiaoHref(nivel, r.nome)}">${r.nome}</a>`
-      : r.nome;
-    return `<div class="linha-stat">
-      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${nome}</span></span>
-      <b>${r.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
-  }).join('');
-  return `<div class="grupo"><div class="titulo-seccao">${titulo}</div>${corpo}</div>`;
-}
-
-function renderDetalheGeo() {
-  const linhas = [];
-  if (!dadosGeo) {
-    linhas.push('<div class="nota">club_regioes.json ainda não disponível.</div>');
-    return linhas.join('');
-  }
-
-  linhas.push('<div class="seg" style="margin:4px 0 8px">' + dados.atletas.map((a, i) => `
-    <button data-geo-atleta="${i}" class="${i === geoAtletaSel ? 'on' : ''}" style="${i === geoAtletaSel ? `border-color:${COR_ATLETA[i]};background:${COR_ATLETA[i]}22` : ''}">
-      <span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}
-    </button>`).join('') + '</div>');
-
-  const atletaSel = dados.atletas[geoAtletaSel];
-  const nomeSel = atletaSel.nome;
-  const hrefPerfil = atletaSel.slug ? `atletas/${atletaSel.slug}.html` : 'atletas/';
-  linhas.push(`<div class="detalhe-toggle" style="margin:0 0 8px">
-    <a href="${hrefPerfil}" class="seta">ver perfil completo de ${nomeSel} →</a></div>`);
-
-  const geo = dadosGeo.atletas[nomeSel];
-  if (!geo) {
-    linhas.push(`<div class="nota">Sem dados geográficos para ${nomeSel}.</div>`);
-    return linhas.join('');
-  }
-
-  linhas.push(tabelaGeo('País', linhasPais(geo.country)));
-  const porDistrito = { pt: geo.by_distrito, ...geo.by_region };
-  const porConcelho = { pt: geo.by_concelho, ...geo.by_municipio };
-  linhas.push(tabelaGeo('Região', linhasGeo(porDistrito, 'by_distrito', 'by_region'), 'distrito'));
-  linhas.push(tabelaGeo('Zona', linhasGeo(porConcelho, 'by_concelho', 'by_municipio'), 'concelho'));
-
-  linhas.push(`<div class="nota">Squadratinhos (zoom 17). Totais partilhados com o mapa pessoal
-    (mesma grelha para toda a gente) — só a contagem capturada muda por atleta.
-    ${dadosGeo.atualizado ? `Actualizado: ${fmtDataHora(dadosGeo.atualizado)}` : ''}</div>`);
-
-  return linhas.join('');
-}
 
 // --- leaderboard por região (2026-08-15) — "quem manda em X" ---
 // Não precisa de dados novos: club_regioes.json já tem tudo, isto é só o
@@ -553,8 +468,8 @@ function renderLeaderboard() {
 
   entradas.forEach(r => {
     // país é plano em stats.json (country_pt.z17.total, sem nome dentro),
-    // ao contrário dos outros buckets (nome -> zoom -> total) — totalDe()
-    // não serve aqui, ver linhasPais() que tem o mesmo caso.
+    // ao contrário dos outros buckets (nome -> zoom -> total) — por isso
+    // totalDe() não serve para o nível 'pais'.
     const total = leaderboardNivel === 'pais'
       ? (dadosStats && dadosStats[bucketDe('pais', r.cc)] && dadosStats[bucketDe('pais', r.cc)].z17
           ? dadosStats[bucketDe('pais', r.cc)].z17.total : null)

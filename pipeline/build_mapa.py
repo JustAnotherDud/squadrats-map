@@ -1,14 +1,14 @@
-"""Pipeline: squares do squadrats.com (vector tiles) -> JSON classificado
-por concelho/distrito.
+"""Constrói o mapa detalhado PESSOAL (mapa.html) a partir dos vector tiles
+do squadrats.com de UM uid — classifica cada square por concelho/distrito e
+escreve tile_info_*.json, stats.json, trophies.json, suggestions.json.
 
 Uso:
-  py pipeline.py --uid <firebase_uid> [pasta_saida]
+  py build_mapa.py --uid <firebase_uid> [pasta_saida]
 
-ATENÇÃO (2026-08-15): correr este ficheiro directamente só actualiza o mapa
-detalhado (index.html — tile_info_*.json, stats.json, trophies.json). Não toca em
-squadrats.json/club.json/daily_gains.json — os ficheiros que o folha-do-clube
-e o club.html lêem. Para actualizar tudo de uma vez (o que se quer quase
-sempre), usar `run_all.py`, não este ficheiro directamente. Fora de emergência
+ATENÇÃO: correr este ficheiro directamente só actualiza o mapa.html. Não toca
+em squadrats.json/club.json/daily_gains.json — os ficheiros que o
+folha-do-clube e o club.html lêem. Para actualizar tudo de uma vez (o que se
+quer quase sempre), usar `run_all.py`, não este ficheiro. Fora de emergência
 local, preferir mesmo `gh workflow run fetch-map-data.yml` — corre run_all.py
 já dentro do fluxo normal de publicação na branch `data`, sem montagem manual
 de git worktree.
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(
-        "AVISO: a correr pipeline.py directamente — só actualiza o mapa pessoal "
+        "AVISO: a correr build_mapa.py directamente — só actualiza o mapa pessoal "
         "(tile_info_*.json/stats.json/trophies.json). squadrats.json/club.json/"
         "daily_gains.json (folha-do-clube, club.html) ficam por actualizar. "
         "Para tudo: `py run_all.py` ou `gh workflow run fetch-map-data.yml`.",

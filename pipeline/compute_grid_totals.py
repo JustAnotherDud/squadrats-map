@@ -5,7 +5,7 @@ atribuição do classify.py (maior área de intersecção do tile, sem limiar
 mínimo; se nada intersecta, fallback de proximidade simétrico PT/estrangeiro
 dentro de COASTAL_BUFFER_DEG).
 
-Corre uma vez, commita o output (pipeline/refdata/grid_totals.json). O pipeline.py
+Corre uma vez, commita o output (pipeline/refdata/grid_totals.json). O build_mapa.py
 NUNCA recalcula isto — só conta capturados contra estes totais estáticos.
 
 Paralelizado com multiprocessing (2026-08-15): a primeira versão, sequencial,

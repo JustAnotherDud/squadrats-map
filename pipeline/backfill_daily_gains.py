@@ -1,6 +1,6 @@
 """One-off: reconstrói o histórico de ganhos diários a partir do git log de
 data/squadrats.json. Corre uma vez, o resultado (data/daily_gains.json) fica
-versionado; a partir daí fetch_club_koms.py mantém-no actualizado a cada
+versionado; a partir daí fetch_club_totais.py mantém-no actualizado a cada
 corrida (recalcula só a entrada do dia corrente, idempotente).
 
 Critério de "dia": a data (UTC) do campo `atualizado` DENTRO de cada

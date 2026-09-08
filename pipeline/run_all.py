@@ -1,13 +1,13 @@
-"""Corre os três consumidores no mesmo processo, para cada atleta ser varrido
-uma vez só.
+"""Orquestrador do pipeline: corre todos os passos no mesmo processo, para
+cada atleta ser varrido do Squadrats uma vez só.
 
-Em passos separados do workflow, cada script varria os mesmos UIDs de novo: o
-primeiro atleta três vezes por run, dois deles duas. Eram ~1200 pedidos de
-tiles em duplicado, sem ganho nenhum — e o servidor da Squadrats não é uma API
-pública, por isso a metade que se poupa conta mais do que os minutos.
-
-A cache vive no `tiles_fetch.scan_athlete`; aqui só se garante que os três
-correm no mesmo processo.
+Os três que tocam a rede (build_mapa, fetch_club_totais, fetch_club_squares)
+partilhavam os mesmos UIDs; em passos separados do workflow cada um varria-os
+de novo — ~1200 pedidos de tiles em duplicado por run, sem ganho, contra um
+servidor que não é API pública. A cache vive no `tiles_fetch.scan_athlete`;
+aqui garante-se que correm no mesmo processo. Os passos seguintes (classify,
+eventos, regiões, ganhos, perfis) não tocam a rede — só juntam o que os
+primeiros produziram.
 
 Uso: py run_all.py [pasta_saida]
 """
@@ -19,11 +19,11 @@ import time
 import append_events
 import append_gains_regioes
 import append_regioes
+import build_mapa
 import build_profiles
 import classify_club
-import fetch_club_koms
 import fetch_club_squares
-import pipeline
+import fetch_club_totais
 from athletes import JOSE_UID
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -33,8 +33,8 @@ DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 def main(out_dir):
     inicio = time.time()
     passos = [
-        ("mapa detalhado", lambda: pipeline.run_from_tiles(JOSE_UID, out_dir)),
-        ("totais do clube", lambda: fetch_club_koms.main(out_dir)),
+        ("mapa detalhado", lambda: build_mapa.run_from_tiles(JOSE_UID, out_dir)),
+        ("totais do clube", lambda: fetch_club_totais.main(out_dir)),
         ("squares do club", lambda: fetch_club_squares.main(out_dir)),
         # depende do club.json escrito no passo anterior (mesma corrida) —
         # não volta a varrer o Squadrats, só classifica os squares já ali

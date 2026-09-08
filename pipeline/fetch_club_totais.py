@@ -7,7 +7,7 @@ Falha alto se algum UID devolver 500 ou se squadrats/squadratinhos não
 baterem com o `size` do servidor — nunca publica o último valor bom em
 silêncio (ver tiles_fetch.py).
 
-Uso: py fetch_club_koms.py [pasta_saida]
+Uso: py fetch_club_totais.py [pasta_saida]
 """
 import argparse
 import datetime

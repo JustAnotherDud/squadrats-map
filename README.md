@@ -112,7 +112,7 @@ git checkout origin/data -- data/
     world, with no fixed bbox to guess. Mandatory self-validation: the
     reconstructed count of `squadrats`/`squadratinhos` must match exactly the
     `size` the server itself reports — if it does not,
-    `pipeline.py`/`fetch_club_koms.py` blow up instead of publishing wrong
+    `build_mapa.py`/`fetch_club_totais.py` blow up instead of publishing wrong
     data.
     The cascade only runs when needed: each athlete's z10 coverage is stored
     in `data/scan_cache.json` (derived coordinates, never raw tiles; coarser
@@ -137,16 +137,16 @@ git checkout origin/data -- data/
     the yard — that is where the big gains are (isolated captures never go
     beyond +4/+5). The published gain always comes from recomputing the
     clusters, never from arithmetic on sizes.
-  - `pipeline.py` — detailed-map orchestrator.
-    `py pipeline.py --uid <firebase_uid> <out_dir>`
-  - `fetch_club_koms.py` — plain totals (all 8 layers) for the club athletes →
+  - `build_mapa.py` — builds the owner's detailed personal map.
+    `py build_mapa.py --uid <firebase_uid> <out_dir>`
+  - `fetch_club_totais.py` — plain totals (all 8 layers) for the club athletes →
     `data/squadrats.json`. Also updates `data/daily_gains.json` (gains per
     day, see `daily_gains.py` — baseline is the `ultimo_total` stored in the
     file itself, never git: in CI the checkout is shallow and history does not
     exist). Initial history (24 Jul onward) reconstructed once with
     `backfill_daily_gains.py`.
   - `fetch_club_squares.py` — squadratinhos of the same athletes, with a
-    bitmask of who has each square → `data/club.json` (`fetch_club_koms.py`
+    bitmask of who has each square → `data/club.json` (`fetch_club_totais.py`
     only brings totals; this one brings the coordinates). The order of the
     `ATLETAS` list fixes the bit assignment: do not reorder without
     regenerating the file.
@@ -155,7 +155,7 @@ git checkout origin/data -- data/
     was born parsing hand-exported KML, that path removed 2026-08-18; only the
     geometry remained, shared by almost the whole pipeline
     (`compute_grid_totals`, `classify_club`, `fetch_club_squares`,
-    `fetch_club_koms`, `pipeline`)
+    `fetch_club_totais`, `build_mapa`)
   - `classify.py` — classifies each square into municipality/district
     (point-in-polygon with STRtree)
   - `compute_grid_totals.py` — **one-off**, run manually, never by the
@@ -176,7 +176,7 @@ git checkout origin/data -- data/
     country (`ES.geojson`). Adding a new country (e.g. France) = just add
     `FR.geojson` in the same format (`properties.country` +
     `properties.region` per feature), zero code changes in
-    `classify.py`/`pipeline.py`.
+    `classify.py`/`build_mapa.py`.
   - `spikes/` — test/validation scripts used during development — not part of
     the production pipeline
 - `.github/workflows/`
@@ -294,8 +294,8 @@ the schema prepared but computes nothing for ES).
 
 ```
 py -m pip install -r requirements.txt
-py pipeline/pipeline.py --uid <FIREBASE_UID> data   # a club athlete, via vector tiles
-py pipeline/fetch_club_koms.py data                 # totals for the club athletes
+py pipeline/build_mapa.py --uid <FIREBASE_UID> data   # a club athlete, via vector tiles
+py pipeline/fetch_club_totais.py data                 # totals for the club athletes
 ```
 
 Produces `data/tile_info_squadrats.json`,
@@ -323,7 +323,7 @@ regenerating `data/club.json`.
       +-------------+-------------+
       |                           |
       v                           v
-[pipeline.py --uid]      [fetch_club_koms.py]
+[build_mapa.py --uid]  [fetch_club_totais.py]
   map owner -> classify.py   club athletes -> plain totals (8 layers)
   -> tile_info_*.json,       -> data/squadrats.json
      data/stats.json

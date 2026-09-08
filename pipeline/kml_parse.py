@@ -5,7 +5,7 @@ O nome do ficheiro é histórico: nasceu a fazer parse do KML exportado à mão
 do squadrats.com. Esse caminho foi removido em 2026-08-18 (o pipeline lê
 vector tiles, ver tiles_fetch.py) e ficou só a matemática da grelha, que é
 partilhada por praticamente todo o pipeline (compute_grid_totals, classify_club,
-fetch_club_squares, fetch_club_koms, pipeline).
+fetch_club_squares, fetch_club_totais, build_mapa).
 """
 import math
 

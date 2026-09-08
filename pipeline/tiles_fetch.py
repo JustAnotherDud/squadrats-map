@@ -303,7 +303,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
                  with_trophy_geometry=False, known_squadratinhos=None):
     """Varre o atleta uma vez por processo e guarda o resultado.
 
-    Há três consumidores dos mesmos UIDs (`pipeline.py`, `fetch_club_koms.py`,
+    Há três consumidores dos mesmos UIDs (`build_mapa.py`, `fetch_club_totais.py`,
     `fetch_club_squares.py`). Corridos em processos separados, cada um varria
     tudo outra vez — o primeiro atleta era varrido três vezes por run. Com esta cache e o
     `run_all.py` a chamá-los no mesmo processo, é um varrimento por atleta.

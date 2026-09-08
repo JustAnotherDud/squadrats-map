@@ -1,7 +1,8 @@
 """One-off: calcula adjacência (concelhos/distritos/províncias ES que partilham
-fronteira) e aplica greedy coloring sobre a paleta categórica do index.html, para
-vizinhos nunca partilharem cor. Corre uma vez, commita o output
-(data/adjacency.json). Nunca recalculado pelo pipeline.
+fronteira) e aplica greedy coloring, para vizinhos nunca partilharem cor.
+Corre uma vez, commita o output (data/adjacency.json). Nunca recalculado pelo
+pipeline. A paleta vai dentro do próprio adjacency.json (campo `palette`) —
+o mapa.html lê-a de lá, não tem cópia inline.
 
 Uso: py compute_adjacency.py
 """
@@ -24,7 +25,7 @@ TOUCH_BUFFER_DEG = 0.001  # tolerância p/ micro-gaps deixados pela limpeza anti
 # que tocam mesmo em terra.
 NEARBY_DEG = 0.015
 
-# tem de ser EXATAMENTE a mesma lista (e ordem) do CATEGORY_PALETTE em index.html
+# paleta categórica — vai para o adjacency.json (campo `palette`), fonte única
 CATEGORY_PALETTE = [
     "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0",
     "#f032e6", "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9a6324", "#fffac8",

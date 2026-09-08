@@ -9,7 +9,7 @@ pelo bitmask. Só faltava classificar cada um por concelho/país, que é o que
 este script faz. Zero pedidos de rede extra.
 
 Só "captured" por região — os totais (denominador) são os mesmos para toda a
-gente, já publicados em stats.json (via grid_totals.json, ver pipeline.py):
+gente, já publicados em stats.json (via grid_totals.json, ver build_mapa.py):
 o frontend combina os dois em vez de duplicar os totais aqui.
 
 Uso: py classify_club.py [pasta_saida]

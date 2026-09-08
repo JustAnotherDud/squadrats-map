@@ -14,7 +14,7 @@ name: fetch-map-data
 # perto do fim do dia em Lisboa — apanha a maior parte do dia antes de
 # qualquer detecção transitar para o dia seguinte (o "dia" do
 # daily_gains.py é sempre por data UTC no INÍCIO da corrida, não hora
-# local, ver fetch_club_koms.py). 22h UTC e não 23h de propósito: dá 2h de
+# local, ver fetch_club_totais.py). 22h UTC e não 23h de propósito: dá 2h de
 # folga até à meia-noite UTC (a fronteira real que importa, não a meia-
 # -noite local) para absorver um eventual atraso do GitHub Actions a
 # disparar o cron agendado — sem SLA documentado sobre isso, e sem essa
@@ -42,10 +42,11 @@ name: fetch-map-data
 # código ao mesmo tempo que o cron corria colidia com o commit do bot
 # (aconteceu de facto: `git pull --rebase` com conflito a meio de um fix).
 # Agora o bot só toca na branch `data`; código e docs continuam a viver só no
-# main. Os 3 consumidores (squadrats-map/index.html, club.html,
-# folha-do-clube) passam a ler de raw.githubusercontent.com/.../data/...
-# (branch `data`) em vez do URL do Pages — serve o JSON na hora, sem rebuild
-# nenhum, e sem risco de colidir com commits de código.
+# main. As páginas que lêem estes JSON (squadrats-map: mapa.html, club.html,
+# historico.html, atletas/*, regioes/*; e o folha-do-clube) puxam de
+# raw.githubusercontent.com/.../data/... (branch `data`) em vez do URL do
+# Pages — serve o JSON na hora, sem rebuild nenhum, e sem risco de colidir
+# com commits de código.
 # Histórico git dos dados mantém-se (a branch `data` continua com commits
 # normais) — o backfill_daily_gains.py continua a poder reconstruir a partir
 # daí se for preciso.

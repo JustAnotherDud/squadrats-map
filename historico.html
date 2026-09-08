@@ -2,7 +2,7 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>Squadrats — Histórico do Club</title>
+<title>Histórico — Squadrats Club</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   :root {
@@ -90,19 +90,16 @@
   .ev .dot { width: 8px; height: 8px; margin-right: 6px; }
   .vazio { color: var(--fraco); padding: 20px 0; text-align: center; }
 
-  /* --- rankings actuais --- */
+  /* --- sidebar: lista de regiões disputadas (navegação, não ranking) --- */
   .rank-col h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--suave); margin: 0 0 8px; }
-  .rank-box { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 4px 12px 10px; max-height: 70vh; overflow-y: auto; }
-  .rank-reg { padding: 8px 0; border-bottom: 1px solid var(--linha); }
+  .rank-box { background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; padding: 4px 12px 8px; max-height: 70vh; overflow-y: auto; }
+  .rank-reg { padding: 6px 0; border-bottom: 1px solid var(--linha);
+    display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; }
   .rank-reg:last-child { border-bottom: 0; }
-  .rank-reg .nome { font-weight: 700; font-size: 12.5px; margin-bottom: 2px; }
-  .rank-reg .nome .lvl { color: var(--fraco); font-weight: 400; font-size: 10.5px; text-transform: uppercase; margin-left: 4px; }
-  .rank-reg .linha { font-size: 12px; color: var(--suave); display: flex; align-items: center; padding: 1px 0; }
-  .rank-reg .linha .pos { color: var(--fraco); flex: 0 0 18px; }
-  .rank-reg .linha .dot { width: 8px; height: 8px; }
-  .rank-reg .linha b { color: var(--texto); }
-  .rank-reg .linha .c { margin-left: auto; padding-left: 8px; color: var(--fraco);
-    text-align: right; font-variant-numeric: tabular-nums; }
+  .rank-reg .reg { font-weight: 700; }
+  .rank-reg .lvl { color: var(--fraco); font-size: 10px; text-transform: uppercase; }
+  .rank-reg .lider { margin-left: auto; color: var(--suave); font-size: 11.5px; white-space: nowrap; }
+  .rank-reg .lider .dot { width: 7px; height: 7px; margin-right: 4px; }
 </style>
 </head>
 <body>
@@ -129,7 +126,7 @@
   <div class="cols">
     <div class="feed-col"><div id="feed"></div></div>
     <div class="rank-col">
-      <h2>Rankings por região <span id="rank-count" style="color:var(--fraco);font-weight:400"></span></h2>
+      <h2>Regiões contestadas <span id="rank-count" style="color:var(--fraco);font-weight:400"></span></h2>
       <div class="rank-box" id="rankings"></div>
     </div>
   </div>
@@ -259,6 +256,9 @@
     feed.innerHTML = html;
   }
 
+  // Sidebar = navegação, não conteúdo. Lista compacta das regiões disputadas
+  // (2+ atletas), com link para a página da região + o líder actual. O
+  // ranking completo (e a evolução) vive na página de cada região.
   function renderRankings() {
     const box = document.getElementById('rankings');
     if (!regioes) { box.innerHTML = '<p class="vazio">club_regioes.json indisponível.</p>'; return; }
@@ -274,20 +274,18 @@
         }
       }
       for (const [reg, arr] of Object.entries(porReg)) {
-        if (arr.length < 2) continue; // só disputadas
+        if (arr.length < 2) continue;                       // só disputadas
         if (estado.regiao && reg !== estado.regiao) continue;
         arr.sort((a, b) => b[1] - a[1] || ATLETAS.indexOf(a[0]) - ATLETAS.indexOf(b[0]));
-        linhas.push({ reg, lvl, arr, top: arr[0][1] });
+        linhas.push({ reg, lvl, lider: arr[0][0], top: arr[0][1] });
       }
     }
     linhas.sort((a, b) => b.top - a.top);
     document.getElementById('rank-count').textContent = `(${linhas.length})`;
-    box.innerHTML = linhas.map(({ reg, lvl, arr }) => `
+    box.innerHTML = linhas.map(({ reg, lvl, lider }) => `
       <div class="rank-reg">
-        <div class="nome">${regiaoHtml(lvl, reg)}<span class="lvl">${lvl}</span></div>
-        ${arr.slice(0, 4).map(([n, c], i) => `
-          <div class="linha"><span class="pos">${i + 1}º</span>${atletaHtml(n)}
-            <span class="c">${nfmt(c)}</span></div>`).join('')}
+        ${regiaoHtml(lvl, reg)}<span class="lvl">${lvl}</span>
+        <span class="lider">${atletaHtml(lider)}</span>
       </div>`).join('') || '<p class="vazio">Nenhuma região disputada.</p>';
   }
 
