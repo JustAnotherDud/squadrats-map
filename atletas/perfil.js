@@ -243,9 +243,12 @@
       const detalhe = aberto && temDetalhe
         ? `<tr class="gan-det"><td colspan="${ncols}">${ganhoDetalhe(d.regioes, d.squadratinhos)}</td></tr>`
         : '';
-      // dia: nº à direita numa caixa fixa -> mês e ano alinham em colunas
-      const [dnum, ...resto] = fmtData(d.data).split(' ');
-      return `<tr><td class="gan-dia"><span class="d-num">${esc(dnum)}</span> ${esc(resto.join(' '))}</td>${celulas}</tr>${detalhe}`;
+      // dia/mês/ano cada um no seu span de largura fixa: dia à direita, mês e
+      // ano à esquerda -> "8 set 2026" e "21 ago 2026" alinham em 3 colunas
+      const [dnum, dmes, dano] = fmtData(d.data).split(' ');
+      return `<tr><td class="gan-dia"><span class="d-num">${esc(dnum)}</span>` +
+        `<span class="d-mes">${esc(dmes)}</span><span class="d-ano">${esc(dano)}</span></td>` +
+        `${celulas}</tr>${detalhe}`;
     }).join('');
     return blocoSpark(dias) + `<div class="perfil-scroll"><table class="perfil-tabela">
       <thead><tr><th>Dia</th>${cab}</tr></thead><tbody>${linhas}</tbody></table></div>`;

@@ -137,9 +137,12 @@ a:hover { text-decoration: underline; }
 .perfil-tabela td { padding: 5px 6px; border-bottom: 1px solid var(--linha); }
 .perfil-tabela td.n { text-align: right; white-space: nowrap; font-weight: 600; }
 .perfil-tabela td.n.fraco { color: var(--fraco); font-weight: 400; }
-/* coluna Dia: nº do dia à direita numa caixa fixa; "set 2026" fica alinhado */
+/* coluna Dia: dia/mês/ano cada um numa caixa fixa -> 3 colunas verdadeiras,
+   independentes de o dia ter 1 ou 2 dígitos */
 .perfil-tabela td.gan-dia { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.perfil-tabela td.gan-dia .d-num { display: inline-block; min-width: 1.35em; text-align: right; }
+.gan-dia .d-num { display: inline-block; width: 1.5em; text-align: right; }
+.gan-dia .d-mes { display: inline-block; width: 2.9em; text-align: left; padding-left: 0.5em; }
+.gan-dia .d-ano { display: inline-block; text-align: left; }
 
 /* drill-down do "+N" de Squadratinhos (afordância SÓ nesta coluna) */
 .perfil-tabela td.gan-z { padding: 0; }
