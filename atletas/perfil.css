@@ -165,8 +165,8 @@ a:hover { text-decoration: underline; }
   padding: 2px 8px; color: var(--fraco); white-space: nowrap;
 }
 .gan-pais b { color: var(--suave); font-weight: 600; }
-.gan-dist { font-size: 11px; color: var(--fraco); gap: 4px; padding-top: 0; }
-.gan-dist .gan-chip { font-size: 10.5px; padding: 1px 7px; }
+.gan-sub { font-size: 11px; color: var(--fraco); gap: 4px; padding-top: 0; }
+.gan-sub .gan-chip { font-size: 10.5px; padding: 1px 7px; }
 .gan-resid { font-size: 11px; color: var(--fraco); font-style: italic; }
 .perfil-tabela .nome { display: flex; align-items: center; gap: 6px; }
 .perfil-tabela .bandeira { flex-shrink: 0; border-radius: 1px; }

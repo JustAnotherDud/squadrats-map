@@ -38,7 +38,7 @@ def main(out_dir, branch):
             if k not in vistos:
                 vistos.add(k)
                 todos.append(ev)
-    todos.sort(key=lambda e: (e["data"], e["nivel"], e["regiao"], e["tipo"]))
+    todos = eventos.ordenar_feed(eventos.colapsar_marcos(todos))
 
     resultado = {
         "gerado": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

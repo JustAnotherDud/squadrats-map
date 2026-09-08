@@ -117,3 +117,48 @@ def test_primeira_presenca_suprimida_quando_ha_movimento_forte():
     tipos = _tipos(evs, "Zé")
     assert "novo_lider" in tipos
     assert "primeira_presenca" not in tipos  # não repete o mesmo movimento
+
+
+# --- marcos: só o patamar mais alto por dia/região/atleta -----------------
+
+def test_um_sync_cruza_dois_patamares_gera_so_o_mais_alto():
+    """20 -> 55 cruza 25 e 50 no mesmo sync — só sai o 50 (implica o 25)."""
+    ant = _snap({"Zé": {"concelho": {"Rio Maior": 20}}})
+    novo = _snap({"Zé": {"concelho": {"Rio Maior": 55}}})
+    evs = eventos.detectar(ant, novo, "2026-08-04")
+    marcos = [e for e in evs if e["tipo"] == "marco"]
+    assert len(marcos) == 1
+    assert marcos[0]["valores"] == [50, 55]
+
+
+def test_colapsar_marcos_entre_runs_do_mesmo_dia():
+    """Runs sucessivos acrescentaram marco 25 e depois marco 50 em separado —
+    colapsar_marcos fica só com o 50, sem tocar nos outros tipos."""
+    evs = [
+        {"data": "2026-08-04", "nivel": "concelho", "regiao": "Rio Maior",
+         "tipo": "marco", "quem": "Zé", "sobre": None, "valores": [25, 40]},
+        {"data": "2026-08-04", "nivel": "concelho", "regiao": "Rio Maior",
+         "tipo": "marco", "quem": "Zé", "sobre": None, "valores": [50, 55]},
+        {"data": "2026-08-04", "nivel": "concelho", "regiao": "Peniche",
+         "tipo": "ultrapassagem", "quem": "Zé", "sobre": "Pedro", "valores": [70, 65]},
+        {"data": "2026-08-05", "nivel": "concelho", "regiao": "Rio Maior",
+         "tipo": "marco", "quem": "Zé", "sobre": None, "valores": [25, 30]},
+    ]
+    out = eventos.colapsar_marcos(evs)
+    marcos_rm = [e for e in out if e["tipo"] == "marco" and e["regiao"] == "Rio Maior"
+                 and e["data"] == "2026-08-04"]
+    assert [e["valores"][0] for e in marcos_rm] == [50]
+    assert any(e["tipo"] == "ultrapassagem" for e in out)      # outros tipos intactos
+    assert any(e["data"] == "2026-08-05" for e in out)         # outros dias intactos
+
+
+def test_ordenar_feed_movimento_antes_do_marco():
+    """Dentro de uma região/dia: novo_lider < ultrapassagem < primeira_presenca
+    < marco."""
+    def ev(tipo, regiao="Arouca"):
+        return {"data": "2026-08-04", "nivel": "concelho", "regiao": regiao,
+                "tipo": tipo, "quem": "Zé", "sobre": "Pedro" if "passa" in tipo else None,
+                "valores": [1]}
+    baralhado = [ev("marco"), ev("primeira_presenca"), ev("novo_lider"), ev("ultrapassagem")]
+    ordem = [e["tipo"] for e in eventos.ordenar_feed(baralhado)]
+    assert ordem == ["novo_lider", "ultrapassagem", "primeira_presenca", "marco"]

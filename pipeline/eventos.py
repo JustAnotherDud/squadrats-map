@@ -95,8 +95,12 @@ def ranking(counts):
     return [n for n, _ in presentes]
 
 
-def _marcos_cruzados(nivel, antes, agora):
-    return [T for T in MARCOS.get(nivel, []) if antes < T <= agora]
+def _marco_cruzado(nivel, antes, agora):
+    """O patamar MAIS ALTO cruzado entre `antes` e `agora` (None se nenhum).
+    Num sync grande (20 -> 55) cruzam-se 25 e 50 de uma vez — mas o 50 já
+    implica o 25, o evento pequeno é redundante no feed."""
+    cruzados = [T for T in MARCOS.get(nivel, []) if antes < T <= agora]
+    return max(cruzados) if cruzados else None
 
 
 def detectar(anterior, atual, data):
@@ -124,9 +128,10 @@ def detectar(anterior, atual, data):
         ra = ranking(ca)
         rb = ranking(cb)
 
-        # --- marcos (independentes do ranking) ---
+        # --- marcos (independentes do ranking) — só o patamar mais alto/dia ---
         for atl, agora in cb.items():
-            for T in _marcos_cruzados(nivel, ca.get(atl, 0), agora):
+            T = _marco_cruzado(nivel, ca.get(atl, 0), agora)
+            if T is not None:
                 eventos.append(_ev(data, nivel, reg, "marco", atl, None, [T, agora]))
 
         if ra == rb:
@@ -194,3 +199,32 @@ def chave(ev):
     do mesmo dia. Um marco inclui o patamar; os outros o par de atletas."""
     extra = ev["valores"][0] if ev["tipo"] == "marco" else (ev.get("sobre") or "")
     return (ev["data"], ev["nivel"], ev["regiao"], ev["tipo"], ev["quem"], str(extra))
+
+
+# ordem de leitura dentro de um dia: primeiro os movimentos de ranking, depois
+# a estreia, e o marco no fim (é o "e ainda"). O feed é mais-recente-primeiro
+# por dia; dentro do dia segue esta ordem, agrupado por região.
+ORDEM_TIPO = {"novo_lider": 0, "ultrapassagem": 1, "primeira_presenca": 2, "marco": 3}
+
+
+def ordenar_feed(evs):
+    """Ordena para o feed: dia desc, depois nivel, região, tipo (ver ORDEM_TIPO)."""
+    return sorted(evs, key=lambda e: (
+        e["data"], e["nivel"], e["regiao"], ORDEM_TIPO.get(e["tipo"], 9),
+        str(e.get("sobre") or ""),
+    ))
+
+
+def colapsar_marcos(evs):
+    """Por (data, nivel, regiao, quem) mantém só o marco de patamar mais alto.
+    Um sync grande pode gerar 25 e 50 de uma vez, ou runs sucessivos do mesmo
+    dia tê-los acrescentado em separado — o 50 já implica o 25."""
+    melhor = {}
+    for i, e in enumerate(evs):
+        if e["tipo"] != "marco":
+            continue
+        k = (e["data"], e["nivel"], e["regiao"], e["quem"])
+        if k not in melhor or e["valores"][0] > evs[melhor[k]]["valores"][0]:
+            melhor[k] = i
+    manter = set(melhor.values())
+    return [e for i, e in enumerate(evs) if e["tipo"] != "marco" or i in manter]

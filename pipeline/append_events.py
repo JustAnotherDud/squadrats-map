@@ -86,7 +86,9 @@ def main(out_dir):
 
     if novos:
         atual["eventos"].extend(novos)
-        atual["eventos"].sort(key=lambda e: (e["data"], e["nivel"], e["regiao"], e["tipo"]))
+        # colapsa marcos redundantes (25 quando já há 50 no mesmo dia/região/
+        # atleta — de um sync grande ou de runs sucessivos) e reordena p/ o feed
+        atual["eventos"] = eventos.ordenar_feed(eventos.colapsar_marcos(atual["eventos"]))
         print(f"append_events: +{len(novos)} evento(s)")
         for ev in novos:
             print(f"  {ev['data']} {ev['nivel']} {ev['regiao']}: {ev['tipo']} "
