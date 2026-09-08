@@ -108,6 +108,12 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
     z14 = (total.get("z14") or {}).get("total")
     z17 = (total.get("z17") or {}).get("total")
 
+    # união do clube: squadratinhos cobertos por qualquer membro, sem duplicar
+    # partilhados (classify_club.classify_uniao). É a métrica de "actividade"
+    # do índice de regiões, o total da região (z17) só diz o tamanho.
+    uni = ((snapshot_atual.get("uniao") or {}).get(CHAVE_BUCKET[nivel]) or {}).get(nome, 0)
+    uni_pct = round(100 * uni / z17, 2) if z17 else None
+
     rank = ranking_de(snapshot_atual, nivel, nome)
     ranking = [
         {"nome": a, "captured": n, "pct": round(100 * n / z17, 2) if z17 else None}
@@ -131,6 +137,7 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
         "distrito_pai": pai,
         "distrito_pai_key": key_de("distrito", pai) if pai else None,
         "totais": {"z14": z14, "z17": z17},
+        "uniao": {"z17": uni, "pct": uni_pct},
         "ranking": ranking,
         "vizinhos": viz,
         "timeline": [
@@ -160,7 +167,8 @@ def linha_indice(reg, disputadas):
         "regiao": reg["regiao"],
         "pai": reg["distrito_pai"],
         "pai_key": reg["distrito_pai_key"],
-        "z17": reg["totais"]["z17"],
+        "uniao": reg["uniao"]["z17"],
+        "uniao_pct": reg["uniao"]["pct"],
         "lider": rk[0]["nome"] if rk else None,
         "n": len(rk),
         "disp": (reg["nivel"], reg["regiao"]) in disputadas,

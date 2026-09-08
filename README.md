@@ -83,10 +83,12 @@ git checkout origin/data -- data/
   workflow, committed to `main` when the active-region list changes). Each page
   fetches `data/regioes/<key>.json` from the `data` branch via raw.
   `regioes/index.html` is the browsable index of all active regions, grouped by
-  district (the district row is the group header, concelhos below by z17 desc),
-  from `data/regioes_index.json` (one aggregate file, written by
-  `append_regioes.py`). Linked from the navbar ("Regiões"), the hub, each region
-  page's footer, and the history sidebar.
+  district (the district row is the group header, concelhos below), ordered by
+  club union (squadratinhos any member covers, shared ones counted once; from
+  `club_regioes.json["uniao"]`, written by `classify_club.py`), with the region
+  coverage percentage shown muted beside it. Data from `data/regioes_index.json`
+  (one aggregate file, written by `append_regioes.py`). Linked from the navbar
+  ("Regiões"), the hub, each region page's footer, and the history sidebar.
 - `data/`: files consumed by `mapa.html` (simplified geometry, square
   classification) + `squadrats.json` (club totals) + `trophies.json`
   (yard/übersquadrat shapes, for the map's optional layers) +

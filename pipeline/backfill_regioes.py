@@ -39,6 +39,13 @@ def main(out_dir, branch):
     atual = snaps[dias[-1]]
     print(f"{len(dias)} dias, {dias[0]} -> {dias[-1]}")
 
+    # os snapshots reconstruídos não têm o campo `uniao` (só o club_regioes.json
+    # vivo, escrito pelo classify_club nesta mesma corrida). Sem isto o índice
+    # sairia com uniao: null até ao primeiro cron pós-deploy.
+    live = _carrega(os.path.join(out_dir, "club_regioes.json"))
+    if live and live.get("uniao"):
+        atual = {**atual, "uniao": live["uniao"]}
+
     ativas = regioes.regioes_ativas(atual)
     print(f"regiões activas: {len(ativas['concelho'])} concelhos, {len(ativas['distrito'])} distritos")
 

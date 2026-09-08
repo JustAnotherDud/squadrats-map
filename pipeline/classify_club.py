@@ -8,9 +8,11 @@ varrer o Squadrats, os squares (x,y) de cada atleta já lá estão, filtrados
 pelo bitmask. Só faltava classificar cada um por concelho/país, que é o que
 este script faz. Zero pedidos de rede extra.
 
-Só "captured" por região, os totais (denominador) são os mesmos para toda a
-gente, já publicados em stats.json (via grid_totals.json, ver build_mapa.py):
-o frontend combina os dois em vez de duplicar os totais aqui.
+Escreve dois blocos: "atletas" (captured por região, por atleta) e "uniao"
+(squadratinhos que o clube cobre por região, partilhados contados uma vez;
+usado como número e ordenação do regioes/index.html via regioes.py). Os
+totais (denominador) são os mesmos para toda a gente, já em stats.json (via
+grid_totals.json, ver build_mapa.py): o frontend combina os dois.
 
 Uso: py classify_club.py [pasta_saida]
 """
@@ -28,6 +30,26 @@ DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 REFDATA_DIR = os.path.join(HERE, "refdata")
 
 ZOOM = 17  # club.json só tem squadratinhos (ver fetch_club_squares.py)
+
+
+def classify_uniao(classifier, squares):
+    """União do clube: cada squadratinho de club.json vale 1, sem repetir os
+    partilhados (club.json já traz cada (x,y) uma só vez, com o bitmask de
+    quem o tem). Ignora mask 0 por segurança, embora fetch_club_squares nunca
+    escreva nenhum. É o número que diz "actividade do clube nesta região", ao
+    contrário do total da região (só tamanho) ou do capturado pelo líder (um
+    atleta só)."""
+    by_distrito, by_concelho = {}, {}
+    for x, y, mask in squares:
+        if not mask:
+            continue
+        info = classifier.classify(tile_bounds(x, y, ZOOM))
+        if info["in_portugal"]:
+            if info["district"]:
+                by_distrito[info["district"]] = by_distrito.get(info["district"], 0) + 1
+            if info["concelho"]:
+                by_concelho[info["concelho"]] = by_concelho.get(info["concelho"], 0) + 1
+    return {"by_distrito": by_distrito, "by_concelho": by_concelho}
 
 
 def classify_athlete(classifier, squares):
@@ -87,10 +109,14 @@ def main(out_dir):
         atletas_out[nome] = classify_athlete(classifier, squares)
         print(f"{nome}: {len(squares)} squares classificados")
 
+    uniao = classify_uniao(classifier, club["squares"])
+    print(f"união: {len(club['squares'])} squares distintos classificados")
+
     resultado = {
         "atualizado": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "zoom": club["zoom"],
         "atletas": atletas_out,
+        "uniao": uniao,
     }
     out_path = os.path.join(out_dir, "club_regioes.json")
     with open(out_path, "w", encoding="utf-8") as f:

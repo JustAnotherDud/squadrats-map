@@ -26,8 +26,12 @@
   .idx-nome:hover { text-decoration: underline; }
   .idx-nome.disp { color: var(--ouro); }        /* tem evento de troca */
   .idx-z {
-    margin-left: auto; color: var(--fraco); font-size: 12px;
+    margin-left: auto; color: var(--texto); font-size: 12px;
     font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .idx-pct {
+    color: var(--fraco); font-size: 11px; opacity: .8;
+    font-variant-numeric: tabular-nums; flex: 0 0 40px; text-align: right;
   }
   .idx-lider {
     color: var(--suave); font-size: 11.5px; white-space: nowrap;
@@ -43,9 +47,12 @@
   <h1>Regiões</h1>
   <p class="idx-meta" id="meta"></p>
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
-  <p class="idx-nota">Só as regiões (concelho/distrito, Portugal) onde algum atleta
-    tem pelo menos um squadratinho; as restantes ~200 não têm página. A dourado:
-    regiões com troca de posição no ranking (ver o <a href="../historico.html">histórico</a>).</p>
+  <p class="idx-nota">Número e ordem: squadratinhos que o clube cobre na região
+    (união dos membros, sem repetir os partilhados); a seguir, a fracção da região
+    que isso representa. Só as regiões (concelho/distrito, Portugal) onde algum
+    atleta tem pelo menos um squadratinho; as restantes ~200 não têm página.
+    A dourado: regiões com troca de posição no ranking (ver o
+    <a href="../historico.html">histórico</a>).</p>
 </main>
 <script src="../nav.js"></script>
 <script src="../shared.js"></script>
@@ -63,6 +70,7 @@
   const cor = n => CORES[n] || 'var(--suave)';
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nfmt = n => (n == null ? '·' : n.toLocaleString('pt-PT'));
+  const pctfmt = p => (p == null ? '' : (p >= 9.5 ? Math.round(p) : p.toFixed(1)) + '%');
 
   function lider(x) {
     if (!x.lider) return '<span class="idx-lider solo">·</span>';
@@ -72,13 +80,14 @@
   function row(x, extraCls) {
     return `<div class="idx-row${extraCls ? ' ' + extraCls : ''}">
       <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
-      <span class="idx-z">${nfmt(x.z17)}</span>${lider(x)}</div>`;
+      <span class="idx-z">${nfmt(x.uniao)}</span>
+      <span class="idx-pct">${pctfmt(x.uniao_pct)}</span>${lider(x)}</div>`;
   }
 
   function pintar(d) {
     const regs = d.regioes || [];
     const dist = regs.filter(x => x.nivel === 'distrito')
-      .sort((a, b) => a.regiao.localeCompare(b.regiao, 'pt'));
+      .sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
     const concPorPai = {};
     for (const x of regs) if (x.nivel === 'concelho') (concPorPai[x.pai_key] = concPorPai[x.pai_key] || []).push(x);
 
@@ -88,7 +97,8 @@
 
     let html = '';
     for (const dd of dist) {
-      const filhos = (concPorPai[dd.key] || []).sort((a, b) => b.z17 - a.z17);
+      const filhos = (concPorPai[dd.key] || [])
+        .sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
       html += `<div class="idx-grupo">${row(dd, 'idx-dist')}`;
       if (filhos.length) html += `<div class="idx-conc">${filhos.map(c => row(c)).join('')}</div>`;
       html += '</div>';
@@ -99,7 +109,7 @@
         .filter(([k]) => k !== 'null' && !dist.some(dd => dd.key === k))
         .flatMap(([, v]) => v));
     if (orfaos.length) {
-      orfaos.sort((a, b) => b.z17 - a.z17);
+      orfaos.sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
       html += `<div class="idx-grupo"><div class="idx-row idx-dist">
         <span class="idx-nome">Sem distrito</span></div>
         <div class="idx-conc">${orfaos.map(c => row(c)).join('')}</div></div>`;
