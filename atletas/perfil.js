@@ -200,17 +200,19 @@
   }
 
   // Detalhe de um "+N" de Squadratinhos: onde caíram, por concelho (chips
-  // ligados à página da região) + linha muda com os distritos. Só z17 — o
+  // ligados à página da região) + linha muda com os distritos. O estrangeiro
+  // não tem página — aparece por nome de país (span tracejado). Só z17 — o
   // club.json é z17, por isso é a única coluna com "onde".
   function ganhoDetalhe(reg, total) {
-    const conc = Object.entries(reg.concelho || {}).sort((a, b) => b[1] - a[1]);
-    const dist = Object.entries(reg.distrito || {}).sort((a, b) => b[1] - a[1]);
-    const somaC = conc.reduce((s, [, n]) => s + n, 0);
-    const resid = total - somaC;
+    const ord = o => Object.entries(o || {}).sort((a, b) => b[1] - a[1]);
+    const conc = ord(reg.concelho), dist = ord(reg.distrito), pais = ord(reg.pais);
+    const soma = a => a.reduce((s, [, n]) => s + n, 0);
+    const resid = total - soma(conc) - soma(pais);
     const chip = (nivel, nome, n) =>
       `<a class="gan-chip" href="../${regiaoHref(nivel, nome)}">${esc(nome)} <b>+${n}</b></a>`;
     let h = `<div class="gan-linha">${conc.map(([nome, n]) => chip('concelho', nome, n)).join('')}`;
-    if (resid > 0) h += `<span class="gan-resid">+${resid} sem concelho / fora de PT</span>`;
+    h += pais.map(([cc, n]) => `<span class="gan-pais">${esc(paisNome(cc))} <b>+${n}</b></span>`).join('');
+    if (resid > 0) h += `<span class="gan-resid">+${resid} sem classificação</span>`;
     h += '</div>';
     if (dist.length) {
       h += `<div class="gan-linha gan-dist">distritos: ${dist.map(([nome, n]) => chip('distrito', nome, n)).join('')}</div>`;

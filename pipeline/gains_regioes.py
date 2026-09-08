@@ -24,10 +24,22 @@ NIVEIS = ("concelho", "distrito")
 _BUCKET = {"concelho": "by_concelho", "distrito": "by_distrito"}
 
 
+def _diff_bucket(b0, b1):
+    """{chave: ganho>0} entre dois dicionários {chave: cumulativo}."""
+    fora = {}
+    for k, v in (b1 or {}).items():
+        d = v - (b0 or {}).get(k, 0)
+        if d > 0:
+            fora[k] = d
+    return fora
+
+
 def diff_snapshots(ant, novo):
-    """{nome: {"concelho": {reg: ganho}, "distrito": {reg: ganho}}} — só
-    entradas com ganho > 0. `ant`/`novo` no formato do club_regioes.json
-    ({"atletas": {nome: {by_concelho: {...}, by_distrito: {...}}}}).
+    """{nome: {"concelho": {reg: ganho}, "distrito": {reg: ganho},
+    "pais": {cc: ganho}}} — só entradas com ganho > 0. `pais` é só o
+    estrangeiro (exclui PT), para dar nome ao resíduo do drill-down; vem do
+    bucket `country` do club_regioes.json ou de `by_pais` no snapshot
+    reconstruído pelo backfill.
 
     Atleta ausente em `ant` (1.ª aparição) não gera ganho — o total dele
     inteiro apareceria como um pico. Mesmo critério do daily_gains.py."""
@@ -39,15 +51,14 @@ def diff_snapshots(ant, novo):
         base = ant_at[nome] or {}
         por_nivel = {}
         for nivel in NIVEIS:
-            b0 = base.get(_BUCKET[nivel], {}) or {}
-            b1 = info.get(_BUCKET[nivel], {}) or {}
-            ganhos = {}
-            for reg, v in b1.items():
-                d = v - b0.get(reg, 0)
-                if d > 0:
-                    ganhos[reg] = d
+            ganhos = _diff_bucket(base.get(_BUCKET[nivel]), info.get(_BUCKET[nivel]))
             if ganhos:
                 por_nivel[nivel] = ganhos
+        pais = _diff_bucket(base.get("country") or base.get("by_pais"),
+                            info.get("country") or info.get("by_pais"))
+        pais.pop("PT", None)
+        if pais:
+            por_nivel["pais"] = pais
         if por_nivel:
             fora[nome] = por_nivel
     return fora

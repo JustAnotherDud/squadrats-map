@@ -56,27 +56,30 @@ def snapshots_club_por_dia(branch):
 
 def reconstruir(club, classifier, cache):
     """club.json -> formato club_regioes ({"atletas": {nome: {by_concelho,
-    by_distrito}}}), classificando cada square (com cache)."""
+    by_distrito, by_pais}}}), classificando cada square (com cache).
+    `by_pais` só o estrangeiro — para dar nome ao resíduo do drill-down."""
     atletas = club["atletas"]
-    out = {a["nome"]: {"by_concelho": {}, "by_distrito": {}} for a in atletas}
+    out = {a["nome"]: {"by_concelho": {}, "by_distrito": {}, "by_pais": {}}
+           for a in atletas}
     for x, y, mask in club["squares"]:
         cd = cache.get((x, y))
         if cd is None:
             info = classifier.classify(tile_bounds(x, y, ZOOM))
-            cd = ((info["concelho"], info["district"]) if info["in_portugal"]
-                  else (None, None))
+            cd = ((info["concelho"], info["district"], None) if info["in_portugal"]
+                  else (None, None, info["country"]))
             cache[(x, y)] = cd
-        conc, dist = cd
-        if not conc and not dist:
+        conc, dist, pais = cd
+        if not conc and not dist and not pais:
             continue
         for i, a in enumerate(atletas):
             if mask & (1 << i):
-                bc = out[a["nome"]]["by_concelho"]
-                bd = out[a["nome"]]["by_distrito"]
+                reg = out[a["nome"]]
                 if conc:
-                    bc[conc] = bc.get(conc, 0) + 1
+                    reg["by_concelho"][conc] = reg["by_concelho"].get(conc, 0) + 1
                 if dist:
-                    bd[dist] = bd.get(dist, 0) + 1
+                    reg["by_distrito"][dist] = reg["by_distrito"].get(dist, 0) + 1
+                if pais and pais != "PT":
+                    reg["by_pais"][pais] = reg["by_pais"].get(pais, 0) + 1
     return {"atletas": out}
 
 
