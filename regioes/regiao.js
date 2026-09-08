@@ -19,7 +19,7 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
   const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
-  // slugify vem do shared.js (= pipeline/slugs.py) — sem mapa nome->slug à mão
+  // slugify vem do shared.js (= pipeline/slugs.py), sem mapa nome->slug à mão
   const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
   // eixo do gráfico: forma curta sem ano ("6 set"), cabe melhor. MESES e
   // fmtData/fmtDataHora vêm do shared.js (carregado antes deste script).
@@ -43,9 +43,9 @@
 
   // --- timeline do ranking ---
   // O eixo Y é a POSIÇÃO (1º no topo), não o valor absoluto. Com valores como
-  // 3916 vs 376 vs 327 nenhuma escala (linear ou log) separa a sub-corrida — e a
+  // 3916 vs 376 vs 327 nenhuma escala (linear ou log) separa a sub-corrida, e a
   // magnitude já está na tabela por cima. Aqui só interessa quem passou quem.
-  // Só se desenha onde há um evento de troca (ultrapassagem / novo líder) —
+  // Só se desenha onde há um evento de troca (ultrapassagem / novo líder),
   // mesma definição da fila "Regiões disputadas" do historico.html. Uma estreia
   // (📍) mexe na ordem mas não é passar ninguém, por isso não conta.
 
@@ -142,13 +142,13 @@
       </div>`).join('') : '<p class="reg-vazio">Sem eventos registados nesta região.</p>';
 
     // vizinho com página e com troca de posição registada -> chip a dourado
-    // (não um 5.º emoji ao lado de 👑 ⇅ 📍 🚩 — cor + nota, para não confundir)
+    // (não um 5.º emoji ao lado de 👑 ⇅ 📍 🚩, cor + nota, para não confundir)
     const vizDisp = v => v.tem_pagina && temEventoTroca(eventos, { nivel: d.nivel, regiao: v.nome });
     const viz = d.vizinhos.length ? d.vizinhos.map(v => {
       if (!v.tem_pagina) return `<span>${esc(v.nome)}</span>`;
       const dp = vizDisp(v);
       return `<a class="${dp ? 'viz-disp' : ''}" href="${v.key}.html"${dp ? ' title="troca de posição no ranking desde 26 jul"' : ''}>${esc(v.nome)}</a>`;
-    }).join('') : '<p class="reg-vazio">—</p>';
+    }).join('') : '<p class="reg-vazio">·</p>';
     const algumVizDisp = d.vizinhos.some(vizDisp);
 
     const tlData = (d.timeline && d.timeline.length) ? d.timeline : [];
@@ -156,7 +156,7 @@
     if (temEventoTroca(eventos, d) && tlData.length >= 2) {
       evolSec = `<section class="reg-sec"><h2>Evolução</h2>
         ${timelineRankSvg(tlData, d.gerado)}
-        <p class="reg-tl-nota">Posição no ranking ao longo do tempo — as linhas a cruzar-se são trocas de lugar. Os totais estão na tabela em cima.</p>
+        <p class="reg-tl-nota">Posição no ranking ao longo do tempo, as linhas a cruzar-se são trocas de lugar. Os totais estão na tabela em cima.</p>
       </section>`;
     } else {
       const g = maiorGanho(tlData);

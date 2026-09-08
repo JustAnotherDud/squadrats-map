@@ -8,7 +8,7 @@ vez só, mesmo aparecendo em 44 snapshots (~15 k squares, ~8 s). A
 reconstrução vive em recon_snapshots.py, partilhada com o backfill_events.
 
 A partir daqui, append_gains_regioes.py (passo do run_all.py) mantém o
-ficheiro — só faz o diff de dois snapshots de club_regioes.json, sem
+ficheiro, só faz o diff de dois snapshots de club_regioes.json, sem
 classificar nada.
 
 Uso: py backfill_gains_regioes.py [--branch origin/data] [pasta_saida]
@@ -29,7 +29,7 @@ def main(out_dir, branch):
     snaps = recon_snapshots.snapshots_club_por_dia(REPO, branch)
     dias = sorted(d for d in snaps if d >= gains_regioes.DESDE)
     if not dias:
-        print("sem snapshots de club.json — nada a fazer")
+        print("sem snapshots de club.json, nada a fazer")
         return
     print(f"{len(dias)} dias de club.json: {dias[0]} -> {dias[-1]}")
 

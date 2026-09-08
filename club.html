@@ -7,13 +7,13 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <!-- shared.js: vocabulário comum ao mapa.html e às páginas de atleta (países,
-     XYZ) — síncrono de propósito, o script inline abaixo usa-o logo -->
+     XYZ), síncrono de propósito, o script inline abaixo usa-o logo -->
 <script src="shared.js"></script>
 <style>
   html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
   /* a barra de navegação (nav.js, position:fixed) ocupa 38px no topo */
   #map { position:absolute; inset:38px 0 0 0; }
-  /* O basemap Esri "Dark Gray" tem pouco contraste — escurecer + puxar o
+  /* O basemap Esri "Dark Gray" tem pouco contraste, escurecer + puxar o
      contraste só das tiles raster (o `img`; a camada de squares é um
      <canvas>, não é afectada) para os squares saltarem. (2026-09-04) */
   img.leaflet-tile { filter: brightness(.82) contrast(1.22) saturate(.9); }
@@ -44,11 +44,11 @@
   .detalhe-toggle:active { opacity:.7; }
   .fraco { color:#7d8598; font-weight:400; font-size:11px; }
   /* Ecrãs largos (2026-08-19): o painel ocupa a largura toda e cada .linha-stat
-     é um flex com space-between — num monitor de 1900px o número acabava a
+     é um flex com space-between, num monitor de 1900px o número acabava a
      meio metro do nome a que pertence. Encolher o painel resolvia a distância
      mas desperdiçava o espaço todo; em vez disso o conteúdo flui por colunas,
      que aproxima o valor do nome E mostra mais linhas sem scroll.
-     Os controlos (.seg) e as notas de rodapé atravessam as colunas todas —
+     Os controlos (.seg) e as notas de rodapé atravessam as colunas todas,
      senão apareciam espremidos numa só.
      Largura de coluna fixa, não número fixo de colunas: com column-count:2 num
      ecrã de 1280 cada coluna ficava com 640px e o número continuava a 475px do
@@ -93,23 +93,23 @@
 
 <script>
 // Página do club: só squadratinhos, só os três que têm conta Squadrats.
-// Sem classificação por concelho nem troféus — o assunto aqui é quem
+// Sem classificação por concelho nem troféus, o assunto aqui é quem
 // partilha o quê. Deliberadamente sem link para o `mapa.html` (o mapa
 // pessoal detalhado do dono): são dois sítios separados, e quem recebe este
 // link não deve cair no outro.
-// Liga sim para /atletas/<slug>.html — os perfis são info do clube (as mesmas
+// Liga sim para /atletas/<slug>.html, os perfis são info do clube (as mesmas
 // contagens/ranking que este painel mostra, reunidas por atleta), não o mapa
 // pessoal. O slug vem do club.json (pipeline/fetch_club_squares.py).
 
-// Só o modo "quantos" (2026-08-15, tirei o "quem" — cor da pessoa nos
+// Só o modo "quantos" (2026-08-15, tirei o "quem", cor da pessoa nos
 // exclusivos, escala neutra cinzento-a-branco nos partilhados, sem riscas).
 // Com 5 pessoas há 26 combinações possíveis e não existem 26 cores
 // distinguíveis, por isso a escala dos partilhados é deliberadamente neutra
-// — o *quem* de cada square continua no tooltip (hover/click) e no Detalhe.
+//, o *quem* de cada square continua no tooltip (hover/click) e no Detalhe.
 //
 // Uma cor por atleta, na ordem de ATLETAS (pipeline/fetch_club_squares.py),
 // que é quem fixa os bits. As cores em si vêm da fonte única
-// data/membros_cores.json (partilhada com o club-koms) — carregada no arranque
+// data/membros_cores.json (partilhada com o club-koms), carregada no arranque
 // e remapeada por nome (ver mais abaixo). Esta lista é só o fallback offline,
 // na mesma ordem de ATLETAS: Zé, Xeira, Carolina, Inês S., Pedro.
 let COR_ATLETA = [
@@ -120,7 +120,7 @@ let COR_ATLETA = [
   '#2f5fd0', // azul      (Pedro)
 ];
 
-// bandeiras do shared.js (as mesmas do mapa.html) — aqui em 13x10, um pouco
+// bandeiras do shared.js (as mesmas do mapa.html), aqui em 13x10, um pouco
 // mais pequenas que no mapa pessoal. Estiveram copiadas à mão até 2026-08-18,
 // e a cópia já tinha divergido uma vez.
 const BANDEIRA = bandeiras(13, 10);
@@ -134,8 +134,8 @@ function corPartilha(n) {
 }
 
 let dados = null;
-let dadosGeo = null;           // club_regioes.json — captured por atleta/região (2026-08-15)
-let dadosStats = null;         // stats.json — totais partilhados (denominador), o mesmo p/ toda a gente
+let dadosGeo = null;           // club_regioes.json, captured por atleta/região (2026-08-15)
+let dadosStats = null;         // stats.json, totais partilhados (denominador), o mesmo p/ toda a gente
 let porCoord = new Map();     // "x,y" -> mask
 let activos = 0;              // bitmask dos atletas ligados
 let camadaSquares = null;
@@ -146,7 +146,7 @@ let leaderboardNivel = 'concelho';   // 'pais' | 'distrito' | 'concelho'
 // três abas dentro do painel, em vez de tudo empilhado (2026-08-15, revisto
 // no mesmo dia): "sobreposição" (quem tem o quê no mapa, o assunto original
 // desta página), "por atleta" (onde é que cada um anda) e "leaderboard"
-// (quem manda em cada região) são três perguntas diferentes — cada uma na
+// (quem manda em cada região) são três perguntas diferentes, cada uma na
 // sua aba, conteúdo completo ao clicar, sem mostrar/esconder extra por
 // dentro (a aba já é o mostrar/esconder).
 let painelTab = 'sobreposicao';
@@ -165,7 +165,7 @@ function nomes(mask) {
 }
 
 // nome do atleta como link para o perfil (slug vem do club.json). Cor herdada,
-// só sublinha no hover — para não parecer um link azul no meio da lista.
+// só sublinha no hover, para não parecer um link azul no meio da lista.
 function linkNome(i, texto) {
   const s = dados.atletas[i] && dados.atletas[i].slug;
   return s ? `<a class="lnome" href="atletas/${s}.html">${texto}</a>` : texto;
@@ -178,7 +178,7 @@ function rotulo(mask) {
 
 // --- desenho ---
 // Canvas por tile, não L.rectangle: são ~9000 squares e em SVG o mapa
-// engasga a arrastar. Cada tile percorre a lista toda — a 9000 entradas o
+// engasga a arrastar. Cada tile percorre a lista toda, a 9000 entradas o
 // filtro é mais barato do que manter um índice espacial sincronizado.
 const CamadaSquares = L.GridLayer.extend({
   createTile: function (coords) {
@@ -238,7 +238,7 @@ function mostrarSquare(latlng) {
   const em = m ? m & activos : 0;
   if (!em) { hover.classList.remove('visivel'); return; }
   const n = contaBits(em);
-  // cada nome com a bolinha da sua cor — é o que as riscas do square dizem
+  // cada nome com a bolinha da sua cor, é o que as riscas do square dizem
   const quem = dados.atletas
     .map((a, i) => [a, i]).filter(([, i]) => em & (1 << i))
     .map(([a, i]) => `<span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}`)
@@ -279,7 +279,7 @@ function renderPainel() {
 
   // contar pelas máscaras efectivas (m & activos), não pelas do ficheiro:
   // com um atleta desligado, um square que era partilhado por dois passa a ser
-  // só do outro no mapa, e a legenda tem de dizer o mesmo — senão explica
+  // só do outro no mapa, e a legenda tem de dizer o mesmo, senão explica
   // riscas que lá não estão e omite as que estão
   const efectivas = new Map();
   for (const s of dados.squares) {
@@ -331,7 +331,7 @@ function renderPainel() {
         <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`).join('');
     linhas.push(`<div class="grupo"><div class="titulo-seccao">No mapa</div>${soLinhas}${partLinhas}</div>`);
 
-    // Quem partilha com quem vive aqui, com as riscas certas de cada combinação —
+    // Quem partilha com quem vive aqui, com as riscas certas de cada combinação,
     // escondido por defeito para o painel não ficar uma parede de números.
     linhas.push(`<div class="titulo-seccao detalhe-toggle" id="sobreposicao-detalhe-toggle">Detalhe
       <span class="seta">${detalheAberto ? 'esconder' : 'mostrar'}</span></div>`);
@@ -342,7 +342,7 @@ function renderPainel() {
         const pct = a.total ? Math.round(100 * so / a.total) : 0;
         linhas.push(`<div class="linha-stat">
           <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
-          <span class="txt">${linkNome(i, a.nome)} — único</span></span>
+          <span class="txt">${linkNome(i, a.nome)}, único</span></span>
           <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
       });
 
@@ -386,7 +386,7 @@ function renderPainel() {
 
 // club_regioes.json só tem "captured" por região (ver classify_club.py); o
 // total/denominador é sempre o mesmo para toda a gente, já publicado em
-// stats.json (by_distrito/by_concelho/by_region_XX/by_municipio_XX) — aqui
+// stats.json (by_distrito/by_concelho/by_region_XX/by_municipio_XX), aqui
 // só se combinam os dois, sem duplicar a lógica de classificação. Usado pelo
 // leaderboard para a % de cada atleta na região.
 function totalDe(bucket, nome) {
@@ -396,12 +396,12 @@ function totalDe(bucket, nome) {
 
 const NOME_PAIS = PAIS_NOME; // shared.js
 
-// --- leaderboard por região (2026-08-15) — "quem manda em X" ---
+// --- leaderboard por região (2026-08-15), "quem manda em X" ---
 // Não precisa de dados novos: club_regioes.json já tem tudo, isto é só o
 // mesmo club_regioes.json pivotado (por atleta -> por região) em vez de
 // (por região -> por atleta), inteiramente no browser.
 // nivel: 'pais' | 'distrito' | 'concelho'. Cada um usa um par de buckets
-// diferente (país é um caso à parte — geo.country já vem plano, sem nome
+// diferente (país é um caso à parte, geo.country já vem plano, sem nome
 // separado do código do país).
 function pivotRegioes(nivel) {
   const porRegiao = new Map();
@@ -459,7 +459,7 @@ function renderLeaderboard() {
     r.melhor = r.entradas[0].captured;
   });
   // mais disputada primeiro (mais pessoas), empate desempata pelo líder com
-  // mais squares — as duas coisas que tornam uma região "interessante" aqui
+  // mais squares, as duas coisas que tornam uma região "interessante" aqui
   entradas.sort((a, b) => b.entradas.length - a.entradas.length || b.melhor - a.melhor);
 
   if (!entradas.length) {
@@ -468,7 +468,7 @@ function renderLeaderboard() {
 
   entradas.forEach(r => {
     // país é plano em stats.json (country_pt.z17.total, sem nome dentro),
-    // ao contrário dos outros buckets (nome -> zoom -> total) — por isso
+    // ao contrário dos outros buckets (nome -> zoom -> total), por isso
     // totalDe() não serve para o nível 'pais'.
     const total = leaderboardNivel === 'pais'
       ? (dadosStats && dadosStats[bucketDe('pais', r.cc)] && dadosStats[bucketDe('pais', r.cc)].z17
@@ -505,7 +505,7 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
   // no-cache = revalidar sempre com o servidor (304 quando não mudou, por isso
   // não custa tráfego). Sem isto o browser servia o JSON de ontem depois de um
   // run do pipeline e a página parecia parada.
-  // club.json vive na branch `data`, não no master (2026-08-14) — ver
+  // club.json vive na branch `data`, não no master (2026-08-14), ver
   // fetch-map-data.yml.
   const r = await fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/club.json', { cache: 'no-cache' });
   if (!r.ok) {
@@ -533,7 +533,7 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
   renderAtletas();
   renderPainel();
 
-  // detalhe geográfico: opcional, carregado à parte e sem bloquear o resto —
+  // detalhe geográfico: opcional, carregado à parte e sem bloquear o resto,
   // club_regioes.json é mais recente que club.json (2026-08-15) e pode ainda
   // não existir num deploy fresco antes do primeiro run do cron
   const BRANCH = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/';

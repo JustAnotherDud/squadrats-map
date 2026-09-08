@@ -1,4 +1,4 @@
 shapely>=2.1
 mapbox-vector-tile>=2.2
 requests>=2.30
-pytest>=8  # pipeline/tests/ — corre no CI (.github/workflows/tests.yml)
+pytest>=8  # pipeline/tests/, corre no CI (.github/workflows/tests.yml)

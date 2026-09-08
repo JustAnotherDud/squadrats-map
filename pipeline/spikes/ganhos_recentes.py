@@ -47,7 +47,7 @@ def main(sha_base, sha_novo, nome):
     base = club_em(sha_base)
     novo = club_em(sha_novo)
     if base["zoom"] != 17 or novo["zoom"] != 17:
-        sys.exit("club.json não está a zoom 17 — inesperado")
+        sys.exit("club.json não está a zoom 17, inesperado")
 
     sq_base, i_base = squares_do_atleta(base, nome)
     sq_novo, i_novo = squares_do_atleta(novo, nome)
@@ -55,11 +55,11 @@ def main(sha_base, sha_novo, nome):
     perdidos = sq_base - sq_novo
 
     print(f"{nome}: bit {i_base} (base) / {i_novo} (novo)")
-    print(f"base  {sha_base}  {base['atualizado']}  — {len(sq_base)} squadratinhos")
-    print(f"novo  {sha_novo}  {novo['atualizado']}  — {len(sq_novo)} squadratinhos")
+    print(f"base  {sha_base}  {base['atualizado']} , {len(sq_base)} squadratinhos")
+    print(f"novo  {sha_novo}  {novo['atualizado']} , {len(sq_novo)} squadratinhos")
     print(f"\nnovos: {len(novos)}   perdidos: {len(perdidos)}")
     if perdidos:
-        print("  AVISO: há tiles que desapareceram — o diff deixa de ser só ganhos")
+        print("  AVISO: há tiles que desapareceram, o diff deixa de ser só ganhos")
     if not novos:
         return
 

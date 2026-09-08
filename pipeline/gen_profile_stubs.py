@@ -1,5 +1,5 @@
 """Gera os stubs HTML dos perfis: atletas/<slug>.html (um por atleta) +
-atletas/index.html (lista). Cada stub é só casca — carrega ../shared.js e
+atletas/index.html (lista). Cada stub é só casca, carrega ../shared.js e
 perfil.js, que fazem o resto lendo data/atletas/<slug>.json da branch `data`.
 
 Corre no fetch-map-data.yml e só commita para o `main` se o conjunto de

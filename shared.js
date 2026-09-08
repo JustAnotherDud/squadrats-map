@@ -1,15 +1,15 @@
 // Vocabulário comum ao index.html (vista pessoal) e ao club.html (vista do
 // clube). SÓ constantes e matemática pura: zero DOM, zero estado, zero Leaflet.
 //
-// Porquê existir (2026-08-18): as duas páginas partilham o vocabulário — os
+// Porquê existir (2026-08-18): as duas páginas partilham o vocabulário, os
 // mesmos 5 países, as mesmas bandeiras, os mesmos nomes de nível, a mesma
-// grelha XYZ — mas nada do resto. Enquanto isto estava duplicado, cada mudança
+// grelha XYZ, mas nada do resto. Enquanto isto estava duplicado, cada mudança
 // de vocabulário tinha de ser feita duas vezes e uma delas esquecia-se: já
 // aconteceu com o renomear de "Nível 1/2/3" para "País/Região/Zona" e com o
 // círculo amarelo da bandeira portuguesa.
 //
 // O que NÃO deve entrar aqui: render, estado, handlers, nada de Leaflet. As
-// duas páginas divergem em tudo isso de propósito — o club.html desenha em
+// duas páginas divergem em tudo isso de propósito, o club.html desenha em
 // canvas (L.GridLayer, bitmask de vários atletas), o index.html desenha
 // rectângulo a rectângulo com choropleth, troféus e sugestões. Fundir as
 // páginas foi considerado e recusado: zero reutilização no render, modelos de
@@ -27,11 +27,11 @@ const PAIS_NOME = {
   MA: 'Marrocos',
 };
 
-// Interior do <svg> de cada bandeira, sempre no mesmo viewBox 15x11 — o tamanho
+// Interior do <svg> de cada bandeira, sempre no mesmo viewBox 15x11, o tamanho
 // final é escolhido por quem chama (o index usa 15x11, o club 13x10).
 // SVG e não emoji (🇵🇹/🇪🇸) de propósito: o emoji depende da fonte do sistema e
 // em vários ambientes (Linux/Chrome headless, algumas versões mobile) cai para
-// as letras "PT"/"ES". Simplificadas, sem brasão — servem para identificar o
+// as letras "PT"/"ES". Simplificadas, sem brasão, servem para identificar o
 // país num relance, não para serem exactas.
 const BANDEIRA_PATHS = {
   PT: '<rect width="15" height="11" fill="#da020e"/><rect width="6" height="11" fill="#046a38"/><circle cx="6" cy="5.5" r="2" fill="#ffd400"/>',
@@ -55,7 +55,7 @@ function bandeiras(largura, altura) {
 }
 
 // Nomes dos três níveis geográficos. Antes eram "Nível 1/2/3" (renomeado
-// 2026-08-16): "distrito/concelho" só está certo em Portugal — Espanha tem
+// 2026-08-16): "distrito/concelho" só está certo em Portugal, Espanha tem
 // província/município, a Alemanha Land/Gemeinde, Marrocos região/cercle.
 // "País/Região/Zona" é neutro e funciona nos cinco.
 const NIVEL_LABEL = { pais: 'País', regiao: 'Região', zona: 'Zona' };
@@ -70,7 +70,7 @@ function slugify(s) {
 
 // URL da página de uma região PT. `nivel`: 'concelho' | 'distrito'. O prefixo
 // c-/d- desambigua os 18 nomes que são concelho E distrito (Santarém, Coimbra,
-// …). Só há página para regiões com actividade — quem chama decide se linka.
+// …). Só há página para regiões com actividade, quem chama decide se linka.
 function regiaoHref(nivel, nome) {
   return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
 }
@@ -78,8 +78,8 @@ function regiaoHref(nivel, nome) {
 // --- datas ---
 // Formato único do site: "6 set 2026" (dia sem zero, mês abreviado em
 // minúsculas, ano). A linha "Actualizado" mantém a hora: "8 set 2026, 00:11 UTC"
-// (sem segundos — não acrescentam nada). Tudo UTC, como os campos `gerado`/
-// `atualizado` dos JSON. Fonte única — antes havia `dataLonga` no historico.html
+// (sem segundos, não acrescentam nada). Tudo UTC, como os campos `gerado`/
+// `atualizado` dos JSON. Fonte única, antes havia `dataLonga` no historico.html
 // e `dLonga`/`dCurta` no regiao.js, cada um com o seu array de meses.
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
@@ -97,7 +97,7 @@ function fmtDataHora(ts) {
 }
 
 // lat/lng -> tile x/y da grelha XYZ, para um dado zoom. Mesma convenção do
-// pipeline (pipeline/kml_parse.py lonlat_to_tile) — se um dia divergirem, os
+// pipeline (pipeline/kml_parse.py lonlat_to_tile), se um dia divergirem, os
 // squares desenhados deixam de bater com os capturados.
 function lonlatParaTile(lat, lng, zoom) {
   const n = Math.pow(2, zoom);

@@ -5,13 +5,13 @@ por concelho/distrito de cada dia reconstrói-se do histórico de club.json
 (que vai até 26 jul) + o Classifier de sempre, com uma cache (x,y)->(concelho,
 distrito) para não reclassificar o mesmo square em 44 snapshots.
 
-Consumido pelos one-offs `backfill_events.py` e `backfill_regioes.py` — em vez
-de `eventos.snapshots_por_dia` sozinho — para que eventos e timelines das
+Consumido pelos one-offs `backfill_events.py` e `backfill_regioes.py`, em vez
+de `eventos.snapshots_por_dia` sozinho, para que eventos e timelines das
 regiões arranquem em 26 jul, não em 15 ago. O `backfill_gains_regioes.py`
 reutiliza daqui `snapshots_club_por_dia`/`reconstruir` (reconstrói tudo, não
 mistura com o real).
 
-Os passos incrementais (append_*) NÃO usam isto — só olham para o presente.
+Os passos incrementais (append_*) NÃO usam isto, só olham para o presente.
 """
 import json
 import os
@@ -35,7 +35,7 @@ def _git(repo, *args):
 
 
 def snapshots_club_por_dia(repo, branch):
-    """{data_utc: club_dict} — o último club.json commitado de cada dia UTC,
+    """{data_utc: club_dict}, o último club.json commitado de cada dia UTC,
     pela data do campo `atualizado` (mesma regra do backfill_daily_gains.py)."""
     shas = _git(repo, "log", branch, "--format=%H", "--", "data/club.json").split()
     por_dia, ts_por_dia = {}, {}
@@ -66,7 +66,7 @@ def criar_classifier():
 def reconstruir(club, classifier, cache):
     """club.json -> formato club_regioes ({"atletas": {nome: {by_concelho,
     by_distrito, by_pais}}}), classificando cada square (com cache).
-    `by_pais` só o estrangeiro — usado pelo backfill_gains_regioes para dar
+    `by_pais` só o estrangeiro, usado pelo backfill_gains_regioes para dar
     nome ao resíduo; ignorado por eventos/regioes."""
     atletas = club["atletas"]
     out = {a["nome"]: {"by_concelho": {}, "by_distrito": {}, "by_pais": {}}

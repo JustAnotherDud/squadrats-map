@@ -2,7 +2,7 @@
 
 Faz o diff dos snapshots consecutivos de club_regioes.json ainda não
 cobertos (anda só nesses dias no histórico de origin/data). Sem
-classificação nova — o club_regioes.json já traz o breakdown por região.
+classificação nova, o club_regioes.json já traz o breakdown por região.
 Idempotente entre os 6 runs/dia: recomputa o(s) dia(s) do topo e reescreve.
 
 Fallback shallow (mesmo padrão do append_regioes.py): se o git log de
@@ -35,7 +35,7 @@ def _carrega(path):
 def main(out_dir):
     novo = _carrega(os.path.join(out_dir, "club_regioes.json"))
     if not novo:
-        print("append_gains_regioes: sem club_regioes.json novo — nada a fazer")
+        print("append_gains_regioes: sem club_regioes.json novo, nada a fazer")
         return
     hoje = datetime.fromisoformat(novo["atualizado"].replace("Z", "+00:00")).date().isoformat()
 
@@ -53,7 +53,7 @@ def main(out_dir):
 
     # Checkout shallow (sem `snapshots_por_dia`): só se ADICIONA `hoje` se for
     # um dia ainda não coberto. O topo de origin/data pode ser um snapshot de
-    # hoje mais cedo (2.º run do dia) — usá-lo como baseline daria um delta
+    # hoje mais cedo (2.º run do dia), usá-lo como baseline daria um delta
     # intra-dia que substituiria a entrada certa do dia. Nesse caso não se
     # toca no que já lá está; o run seguinte com histórico (--depth=500 no
     # workflow) recomputa em condições.
@@ -66,7 +66,7 @@ def main(out_dir):
             try:
                 snaps = {"_prev": json.loads(raw.stdout), hoje: novo}
                 dias = ["_prev", hoje]
-                print("append_gains_regioes: sem histórico — só topo de origin/data vs novo")
+                print("append_gains_regioes: sem histórico, só topo de origin/data vs novo")
             except json.JSONDecodeError:
                 pass
 

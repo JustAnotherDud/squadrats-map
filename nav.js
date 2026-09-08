@@ -12,11 +12,11 @@
 
   // Prefixo para os links (raiz vs subpasta). Deriva-se do src do PRÓPRIO
   // <script> desta página ("nav.js" na raiz, "../nav.js" em atletas/ e
-  // regioes/) — é a mesma declaração de caminho relativo que o autor do HTML
+  // regioes/), é a mesma declaração de caminho relativo que o autor do HTML
   // já escreveu, por isso não pode discordar da localização real da página.
   // Contar segmentos de location.pathname não serve: no GitHub Pages o path
   // tem o prefixo do repo (/squadrats-map/regioes/x.html = 3 segmentos) e
-  // localmente não (/regioes/x.html = 2) — mesma página, contagem diferente.
+  // localmente não (/regioes/x.html = 2), mesma página, contagem diferente.
   var meSrc = (document.currentScript && document.currentScript.getAttribute('src')) || '';
   var P = meSrc
     ? (meSrc.match(/\.\.\//g) || []).join('')
@@ -32,7 +32,7 @@
     file === 'club.html' ? 'clube' :
     file === 'historico.html' ? 'historico' :
     (file === '' || file === 'index.html') ? 'hub' :
-    null;  // mapa.html — nada destacado
+    null;  // mapa.html, nada destacado
 
   var DEST = [
     { id: 'clube', label: 'Clube', href: P + 'club.html' },

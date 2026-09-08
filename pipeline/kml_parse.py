@@ -39,7 +39,7 @@ def tile_center(x, y, z):
 
 
 def tile_bounds(x, y, z):
-    """Polígono (shapely box) da área coberta pelo tile x/y/zoom — mesma
+    """Polígono (shapely box) da área coberta pelo tile x/y/zoom, mesma
     convenção do tile_center. Usado pela classificação por área
     (classify.py), que precisa da forma toda do square, não só do centro."""
     from shapely.geometry import box
@@ -54,7 +54,7 @@ def reconstruct_squares(geom, zoom):
     do polígono (mesma convenção usada para classificar os squares originalmente).
 
     O polígono de entrada é tipicamente um MultiPolygon com clusters muito
-    espalhados (squares em várias zonas do país/estrangeiro) — varrer a bbox
+    espalhados (squares em várias zonas do país/estrangeiro), varrer a bbox
     combinada de tudo seria enorme. Em vez disso, varremos a bbox de cada
     componente conectado separadamente e usamos geometria "prepared" para
     acelerar o contains().

@@ -1,7 +1,7 @@
 """One-off: calcula adjacência (concelhos/distritos/províncias ES que partilham
 fronteira) e aplica greedy coloring, para vizinhos nunca partilharem cor.
 Corre uma vez, commita o output (data/adjacency.json). Nunca recalculado pelo
-pipeline. A paleta vai dentro do próprio adjacency.json (campo `palette`) —
+pipeline. A paleta vai dentro do próprio adjacency.json (campo `palette`),
 o mapa.html lê-a de lá, não tem cópia inline.
 
 Uso: py compute_adjacency.py
@@ -18,14 +18,14 @@ DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 
 TOUCH_BUFFER_DEG = 0.001  # tolerância p/ micro-gaps deixados pela limpeza anti-sliver
 # regiões separadas por água (rios/estuários estreitos, ex: Tejo entre Lisboa
-# e Almada) não tocam (touches()) mas ficam visualmente coladas por pontes —
+# e Almada) não tocam (touches()) mas ficam visualmente coladas por pontes,
 # sem isto o greedy coloring pode dar-lhes a mesma cor. ~1.5km, acima da
 # distância real Lisboa-Almada (0.01445°); cobre também micro-gaps que a
 # limpeza anti-sliver (buffer independente por região) deixa entre concelhos
 # que tocam mesmo em terra.
 NEARBY_DEG = 0.015
 
-# paleta categórica — vai para o adjacency.json (campo `palette`), fonte única
+# paleta categórica, vai para o adjacency.json (campo `palette`), fonte única
 CATEGORY_PALETTE = [
     "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0",
     "#f032e6", "#bcf60c", "#fabebe", "#008080", "#e6beff", "#9a6324", "#fffac8",
@@ -34,7 +34,7 @@ CATEGORY_PALETTE = [
 
 
 def build_adjacency(names, geoms):
-    # 1) fronteira partilhada (terra) — buffer pequeno só p/ micro-gaps
+    # 1) fronteira partilhada (terra), buffer pequeno só p/ micro-gaps
     buffered = [g.buffer(TOUCH_BUFFER_DEG) for g in geoms]
     tree = STRtree(buffered)
     adjacency = {name: set() for name in names}
@@ -46,7 +46,7 @@ def build_adjacency(names, geoms):
             adjacency[names[j]].add(names[i])
 
     # 2) proximidade real (separadas por água mas visualmente coladas por
-    # pontes, ex: Lisboa/Almada) — geom.distance() direto, sem STRtree.query
+    # pontes, ex: Lisboa/Almada), geom.distance() direto, sem STRtree.query
     # por "dwithin" (mesma classe de bug do Peniche: ordem arbitrária não
     # interessa aqui porque testamos TODOS os pares próximos, não paramos
     # no primeiro match).

@@ -2,12 +2,12 @@
 
 Consumido por:
   - backfill_regioes.py  (varre todo o histórico da branch `data`, uma vez)
-  - append_regioes.py    (passo do run_all.py — só os dias novos)
+  - append_regioes.py    (passo do run_all.py, só os dias novos)
   - gen_regiao_stubs.py  (escreve regioes/<key>.html a partir de data/regioes/)
 
 Cada região com actividade (algum atleta com >=1 square lá) tem um ficheiro
 data/regioes/<key>.json, onde key = "c-<slug>" (concelho) ou "d-<slug>"
-(distrito) — o prefixo desambigua os 18 nomes que são concelho E distrito
+(distrito), o prefixo desambigua os 18 nomes que são concelho E distrito
 (Santarém, Coimbra, ...). O slug é o mesmo do pipeline.slugs.slugify, para o
 historico.html poder reconstruir o URL com um slugify igual em JS.
 """
@@ -18,7 +18,7 @@ from eventos import ATLETAS_ORDEM  # ordem canónica (bits/cores); fonte única
 from slugs import slugify
 
 DESDE = "2026-07-26"  # timeline recuada até ao 1.º club.json (< 15 ago é
-                      # reconstruído — ver recon_snapshots.py)
+                      # reconstruído, ver recon_snapshots.py)
 NIVEIS = ("concelho", "distrito")
 CHAVE_BUCKET = {"concelho": "by_concelho", "distrito": "by_distrito"}
 CHAVE_ADJ = {"concelho": "concelhos", "distrito": "distritos"}
@@ -67,7 +67,7 @@ def comprimir_timeline(tl):
 
 
 def timelines(snaps_por_dia, alvo=None):
-    """{(nivel, nome): [(data, [(atleta, n), ...]), ...]} — o ranking de cada
+    """{(nivel, nome): [(data, [(atleta, n), ...]), ...]}, o ranking de cada
     região em cada dia UTC em que já tinha actividade. `alvo` opcional:
     {nivel: set(nomes)} para limitar a essas regiões (as activas hoje)."""
     fora = {}
@@ -87,7 +87,7 @@ def timelines(snaps_por_dia, alvo=None):
 
 
 def _distrito_pai(concelhos_geojson_path, nome):
-    """distrito (property `parent`) de um concelho — para o cabeçalho."""
+    """distrito (property `parent`) de um concelho, para o cabeçalho."""
     try:
         with open(concelhos_geojson_path, encoding="utf-8") as f:
             geo = json.load(f)
@@ -121,9 +121,9 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
 
     pai = _distrito_pai(concelhos_geojson_path, nome) if nivel == "concelho" else None
 
-    # `key` fica só para o escrever() saber o nome do ficheiro — não vai para
+    # `key` fica só para o escrever() saber o nome do ficheiro, não vai para
     # o JSON (é o próprio nome do ficheiro). `cc` era sempre "PT", `slug` é
-    # derivável, `desde` é constante — nada disso era lido pelo regiao.js.
+    # derivável, `desde` é constante, nada disso era lido pelo regiao.js.
     return {
         "key": key_de(nivel, nome),
         "nivel": nivel,
@@ -168,7 +168,7 @@ def linha_indice(reg, disputadas):
 
 
 def escrever_indice(out_dir, linhas, gerado):
-    """data/regioes_index.json — a lista completa das regiões com actividade,
+    """data/regioes_index.json, a lista completa das regiões com actividade,
     para a página regioes/index.html (uma passagem, sem buscar 100 ficheiros)."""
     with open(os.path.join(out_dir, "regioes_index.json"), "w", encoding="utf-8") as f:
         json.dump({"gerado": gerado, "regioes": linhas},

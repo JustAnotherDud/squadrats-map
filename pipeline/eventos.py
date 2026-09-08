@@ -1,12 +1,12 @@
 """Detecção de eventos do clube a partir de snapshots de club_regioes.json.
 
 Um "evento" é uma mudança digna de nota no ranking por região (concelho ou
-distrito, só PT — ver squadrats-historico-plano abaixo). Consumido por:
+distrito, só PT, ver squadrats-historico-plano abaixo). Consumido por:
   - backfill_events.py (varre todo o histórico da branch `data`, uma vez)
   - append_events.py (passo do run_all.py, compara só anterior vs actual)
 
 Ambos produzem exactamente os mesmos eventos para o mesmo par de snapshots,
-e a CHAVE de cada evento (`chave`) é por DIA, não por timestamp — os 6 runs/
+e a CHAVE de cada evento (`chave`) é por DIA, não por timestamp, os 6 runs/
 dia re-detectam o mesmo flip e o append é idempotente (ver README).
 
 Níveis: só `concelho` e `distrito`, só PT. Região/município estrangeiros e
@@ -14,14 +14,14 @@ país: zero eventos em toda a história (2026-08-15+), ficam de fora do v1.
 
 Tipos:
   - ultrapassagem      X passou Y (X agora acima de Y; antes Y acima, ou X ausente)
-  - novo_lider         mudou o 1º da região (e havia 1º antes) — absorve o par
+  - novo_lider         mudou o 1º da região (e havia 1º antes), absorve o par
                        (novo_lider, ex_lider), esse não sai também como ultrapassagem
   - primeira_presenca  X capturou o 1º squadratinho numa região que JÁ tinha
                        outro atleta (juntou-se a um board existente)
   - marco              X cruzou um patamar de squadratinhos (só para cima)
 """
 
-# patamares por nível — escolhidos contra o histórico real (ver plano):
+# patamares por nível, escolhidos contra o histórico real (ver plano):
 # concelho arranca em 25 (~1 km² coberto, "andou lá a sério"), distrito mais
 # alto porque acumula naturalmente mais. Só cruzados para cima.
 # Backfill (26 jul+): ~28 marcos. Projecção futura ~3-6/semana no total.
@@ -33,14 +33,14 @@ MARCOS = {
 ATLETAS_ORDEM = ["Zé", "Xeira", "Carolina", "Inês S.", "Pedro"]
 
 DESDE = "2026-07-26"  # 1.º dia com club.json (o histórico < 15 ago é
-                      # reconstruído do club.json — ver recon_snapshots.py)
+                      # reconstruído do club.json, ver recon_snapshots.py)
 
 
 def snapshots_por_dia(repo, branch="origin/data", desde=None):
-    """{data_utc: club_regioes_dict} — o ÚLTIMO snapshot commitado de cada dia
+    """{data_utc: club_regioes_dict}, o ÚLTIMO snapshot commitado de cada dia
     UTC na branch dada. Mesma regra que o backfill_daily_gains.py.
 
-    `desde` (YYYY-MM-DD) limita a leitura aos commits desse dia em diante — o
+    `desde` (YYYY-MM-DD) limita a leitura aos commits desse dia em diante, o
     passo incremental passa aqui o último dia já coberto para não ler o
     histórico todo a cada run.
     """
@@ -97,7 +97,7 @@ def ranking(counts):
 
 def _marco_cruzado(nivel, antes, agora):
     """O patamar MAIS ALTO cruzado entre `antes` e `agora` (None se nenhum).
-    Num sync grande (20 -> 55) cruzam-se 25 e 50 de uma vez — mas o 50 já
+    Num sync grande (20 -> 55) cruzam-se 25 e 50 de uma vez, mas o 50 já
     implica o 25, o evento pequeno é redundante no feed."""
     cruzados = [T for T in MARCOS.get(nivel, []) if antes < T <= agora]
     return max(cruzados) if cruzados else None
@@ -116,7 +116,7 @@ def detectar(anterior, atual, data):
     na, nb = niveis_de(anterior), niveis_de(atual)
 
     # Atleta que entra no roster (ATHLETES_JSON) não gera eventos no 1.º
-    # snapshot em que aparece — senão "passava" toda a gente em todas as
+    # snapshot em que aparece, senão "passava" toda a gente em todas as
     # regiões onde tem squares, num dia só. Mesmo critério do daily_gains.py.
     # (Aconteceu no backfill quando o Pedro entrou a 1 ago: 54 eventos falsos.)
     estreantes = (set((atual or {}).get("atletas", {}))
@@ -128,7 +128,7 @@ def detectar(anterior, atual, data):
         ra = ranking(ca)
         rb = ranking(cb)
 
-        # --- marcos (independentes do ranking) — só o patamar mais alto/dia ---
+        # --- marcos (independentes do ranking), só o patamar mais alto/dia ---
         for atl, agora in cb.items():
             T = _marco_cruzado(nivel, ca.get(atl, 0), agora)
             if T is not None:
@@ -167,7 +167,7 @@ def detectar(anterior, atual, data):
                                    [cb.get(n, 0)]))
 
     # "capturou o 1º square" é implícito quando o mesmo atleta, na mesma
-    # região e dia, já assumiu a liderança ou passou alguém — tira-se para o
+    # região e dia, já assumiu a liderança ou passou alguém, tira-se para o
     # feed não repetir o mesmo movimento com duas frases.
     fortes = {
         (e["quem"], e["nivel"], e["regiao"])
@@ -195,7 +195,7 @@ def _ev(data, nivel, reg, tipo, quem, sobre, valores):
 
 
 def chave(ev):
-    """Identidade por DIA — o que torna o append idempotente entre os 6 runs
+    """Identidade por DIA, o que torna o append idempotente entre os 6 runs
     do mesmo dia. Um marco inclui o patamar; os outros o par de atletas."""
     extra = ev["valores"][0] if ev["tipo"] == "marco" else (ev.get("sobre") or "")
     return (ev["data"], ev["nivel"], ev["regiao"], ev["tipo"], ev["quem"], str(extra))
@@ -218,7 +218,7 @@ def ordenar_feed(evs):
 def colapsar_marcos(evs):
     """Por (data, nivel, regiao, quem) mantém só o marco de patamar mais alto.
     Um sync grande pode gerar 25 e 50 de uma vez, ou runs sucessivos do mesmo
-    dia tê-los acrescentado em separado — o 50 já implica o 25."""
+    dia tê-los acrescentado em separado, o 50 já implica o 25."""
     melhor = {}
     for i, e in enumerate(evs):
         if e["tipo"] != "marco":

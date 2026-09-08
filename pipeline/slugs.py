@@ -22,7 +22,7 @@ def slugify(nome: str) -> str:
 
 
 def slug_map(nomes) -> dict:
-    """{nome: slug}, a abortar se dois nomes colidirem no mesmo slug — mais
+    """{nome: slug}, a abortar se dois nomes colidirem no mesmo slug, mais
     vale falhar o build do que servir o perfil de A no URL de B."""
     fora = {}
     vistos = {}

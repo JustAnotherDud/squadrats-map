@@ -1,15 +1,15 @@
 """Constrói o mapa detalhado PESSOAL (mapa.html) a partir dos vector tiles
-do squadrats.com de UM uid — classifica cada square por concelho/distrito e
+do squadrats.com de UM uid, classifica cada square por concelho/distrito e
 escreve tile_info_*.json, stats.json, trophies.json, suggestions.json.
 
 Uso:
   py build_mapa.py --uid <firebase_uid> [pasta_saida]
 
 ATENÇÃO: correr este ficheiro directamente só actualiza o mapa.html. Não toca
-em squadrats.json/club.json/daily_gains.json — os ficheiros que o
+em squadrats.json/club.json/daily_gains.json, os ficheiros que o
 folha-do-clube e o club.html lêem. Para actualizar tudo de uma vez (o que se
 quer quase sempre), usar `run_all.py`, não este ficheiro. Fora de emergência
-local, preferir mesmo `gh workflow run fetch-map-data.yml` — corre run_all.py
+local, preferir mesmo `gh workflow run fetch-map-data.yml`, corre run_all.py
 já dentro do fluxo normal de publicação na branch `data`, sem montagem manual
 de git worktree.
 """
@@ -36,25 +36,25 @@ def run_from_tiles(uid, out_dir, bbox=None):
     known = known_squadratinhos(out_dir).get(uid)
     resultado = scan_athlete(uid, with_trophy_geometry=True, known_squadratinhos=known, **kwargs)
     if resultado is None:
-        # probe confirmou "sem alterações" (ver tiles_fetch.py) — os
+        # probe confirmou "sem alterações" (ver tiles_fetch.py), os
         # ficheiros que este UID publica (tile_info_*.json, stats.json,
         # trophies.json, suggestions.json) já estão no out_dir, carregados da
-        # branch 'data' antes de correr — não tocar neles é o comportamento
+        # branch 'data' antes de correr, não tocar neles é o comportamento
         # certo, não é um "esquecimento".
-        print(f"UID '{uid}': sem alterações desde a última publicação — a manter ficheiros existentes")
+        print(f"UID '{uid}': sem alterações desde a última publicação, a manter ficheiros existentes")
         return {}
     geoms, counts, trophies = resultado
 
     if "squadrats" not in geoms:
         raise RuntimeError(
-            f"UID '{uid}': nenhum square 'squadrats' encontrado na área varrida — "
+            f"UID '{uid}': nenhum square 'squadrats' encontrado na área varrida, "
             f"varrimento incompleto ou atleta sem dados. A abortar sem tocar em ficheiros de saída."
         )
     write_trophies(trophies, counts, out_dir)
     return run_from_geoms(geoms, out_dir, counts=counts)
 
 
-# grelha a que cada troféu pertence — o mapa mostra os do zoom activo
+# grelha a que cada troféu pertence, o mapa mostra os do zoom activo
 TROPHY_GRID = {
     "squadrats": ["yard", "ubersquadrat"],
     "squadratinhos": ["yardinho", "ubersquadratinho"],
@@ -62,7 +62,7 @@ TROPHY_GRID = {
 
 
 def write_trophies(trophies, counts, out_dir):
-    """data/trophies.json — geometria das formas de troféu (yard/über), para o
+    """data/trophies.json, geometria das formas de troféu (yard/über), para o
     mapa as poder desenhar como camadas opcionais."""
     from shapely.geometry import MultiPolygon, mapping
 
@@ -100,7 +100,7 @@ def write_trophies(trophies, counts, out_dir):
 
 
 def write_suggestions(visitados_por_grelha, counts, out_dir):
-    """data/suggestions.json — o que falta para o próximo übersquadrat.
+    """data/suggestions.json, o que falta para o próximo übersquadrat.
 
     Antes de sugerir seja o que for, `verify_rules` confirma que as nossas
     regras reproduzem o yard e o übersquadrat que o servidor reporta. Se
@@ -157,13 +157,13 @@ def run_from_geoms(geoms, out_dir, counts=None):
     summary = {}
     visitados_por_grelha = {}
     # países estrangeiros com total conhecido (grid_totals já tem country_XX/
-    # by_region_XX — ver compute_grid_totals.py) — descoberto a partir das
+    # by_region_XX, ver compute_grid_totals.py), descoberto a partir das
     # chaves do próprio grid_totals, não de uma lista fixa: um país novo lá
     # aparece aqui sozinho, sem tocar neste ficheiro.
     paises_com_total = sorted({
         k[len("country_"):].upper() for k in grid_totals if k.startswith("country_") and k != "country_pt"
     })
-    # mesmo princípio, para o nível concelho/município equivalente — hoje só
+    # mesmo princípio, para o nível concelho/município equivalente, hoje só
     # ES (grid_totals["by_municipio_es"]), descoberto pelas chaves, não por
     # uma lista fixa.
     paises_com_municipio = sorted({
@@ -189,11 +189,11 @@ def run_from_geoms(geoms, out_dir, counts=None):
 
         if declared_size is not None and len(squares) != declared_size:
             # a auto-validação É a rede de segurança do pipeline (ver
-            # tiles_fetch.py) — nunca publicar dados que não batam com o total
+            # tiles_fetch.py), nunca publicar dados que não batam com o total
             # que o próprio servidor da Squadrats reporta. Era tolerável (só
             # aviso) no caminho do KML, que deixou de existir em 2026-08-18.
             raise RuntimeError(
-                f"{type_name} — reconstruídos {len(squares)}, declarados {declared_size} "
+                f"{type_name}, reconstruídos {len(squares)}, declarados {declared_size} "
                 f"(diferença indica varrimento incompleto ou bug de geometria)"
             )
 
@@ -251,7 +251,7 @@ def run_from_geoms(geoms, out_dir, counts=None):
                             by_foreign_municipio_captured[info["country"]].get(info["municipio"], 0) + 1
                         )
                 else:
-                    # sem geometria disponível para este país — fallback genérico
+                    # sem geometria disponível para este país, fallback genérico
                     # (mesmo comportamento de antes desta iteração)
                     unclassified_foreign += 1
 
@@ -331,7 +331,7 @@ def run_from_geoms(geoms, out_dir, counts=None):
     # diagnóstico só no log: quantos squares não estão em terra nenhuma e
     # quantos foram resolvidos por proximidade (fenda de dados vs água). O
     # ficheiro classification_fallbacks.json que isto escrevia não era lido
-    # por ninguém — tirado no passe de limpeza.
+    # por ninguém, tirado no passe de limpeza.
     print(f"classificação: {not_on_land}/{total_squares} squares não estão em terra "
           f"nenhuma (resolvidos por proximidade ou sem classificação); "
           f"{len(fallback_events)} campos (país/concelho) resolvidos por proximidade")
@@ -346,7 +346,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(
-        "AVISO: a correr build_mapa.py directamente — só actualiza o mapa pessoal "
+        "AVISO: a correr build_mapa.py directamente, só actualiza o mapa pessoal "
         "(tile_info_*.json/stats.json/trophies.json). squadrats.json/club.json/"
         "daily_gains.json (folha-do-clube, club.html) ficam por actualizar. "
         "Para tudo: `py run_all.py` ou `gh workflow run fetch-map-data.yml`.",

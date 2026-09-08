@@ -1,11 +1,11 @@
-"""Ganhos diários por atleta — mantém data/daily_gains.json actualizado.
+"""Ganhos diários por atleta, mantém data/daily_gains.json actualizado.
 
 O ficheiro é auto-contido: além dos dias, guarda `ultimo_total` (os totais
 absolutos da última corrida observada). O ganho de uma corrida é o delta
 contra esse `ultimo_total`, acumulado na entrada do dia corrente.
 
 NÃO consulta o git. A primeira versão disto procurava a baseline no
-histórico de commits do squadrats.json — funcionava localmente e falhava em
+histórico de commits do squadrats.json, funcionava localmente e falhava em
 silêncio no CI, onde actions/checkout usa fetch-depth: 1 e o histórico não
 existe (baseline None -> ganhos vazios -> a entrada do dia era removida sem
 ser reposta; perdeu-se o dia 2026-08-08 antes de isto ser apanhado). Ler
@@ -19,7 +19,7 @@ Efeitos de acumular contra `ultimo_total` em vez de comparar dias:
   fica atrasado e a corrida seguinte recupera o que ficou por contar, em
   vez de o perder.
 
-Atleta que aparece pela primeira vez não conta como "ganho" — o total dele
+Atleta que aparece pela primeira vez não conta como "ganho", o total dele
 inteiro apareceria como um pico só por ter sido acrescentado ao ATHLETES.
 """
 import json
@@ -31,7 +31,7 @@ CAMPOS = ["squadrats", "squadratinhos", "yard", "yardinho",
 
 
 def calcular_delta(antes, agora):
-    """{atleta: {campo: delta}} — só campos que mudaram, só atletas com
+    """{atleta: {campo: delta}}, só campos que mudaram, só atletas com
     baseline (os novos entram no baseline sem gerar ganho)."""
     ganhos = {}
     for nome, valores in agora.items():

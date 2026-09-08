@@ -1,5 +1,5 @@
 """Gera os stubs HTML das páginas de região: regioes/<key>.html, um por
-ficheiro em data/regioes/. Cada stub é só casca — carrega ../nav.js,
+ficheiro em data/regioes/. Cada stub é só casca, carrega ../nav.js,
 ../shared.js (MESES/fmtData/regiaoHref) e ../regiao.js, que lê
 data/regioes/<key>.json da branch `data`.
 
@@ -41,7 +41,7 @@ def main(repo_dir, dados_dir):
     destino = os.path.join(repo_dir, "regioes")
     os.makedirs(destino, exist_ok=True)
 
-    # index.html é a página do índice (à mão, não gerada) — nunca a apagar
+    # index.html é a página do índice (à mão, não gerada), nunca a apagar
     escritos = {"index.html"}
     for p in sorted(glob.glob(os.path.join(dados_dir, "regioes", "*.json"))):
         with open(p, encoding="utf-8") as f:

@@ -2,7 +2,7 @@
 ainda não cobertos, sem reprocessar o histórico todo (isso é o
 backfill_events.py).
 
-Trabalha por DIA UTC, tal como o backfill — assim os dois concordam sempre,
+Trabalha por DIA UTC, tal como o backfill, assim os dois concordam sempre,
 mesmo quando o pipeline esteve parado vários dias e um run recupera o
 atraso (cada dia em falta fica com os seus eventos, não colapsa tudo no dia
 da recuperação). Num run normal (6×/dia) isto lê 1-2 commits, não 118.
@@ -30,7 +30,7 @@ DATA_DIR = os.path.join(REPO, "data")
 def main(out_dir):
     novo_path = os.path.join(out_dir, "club_regioes.json")
     if not os.path.exists(novo_path):
-        print("append_events: sem club_regioes.json novo — nada a fazer")
+        print("append_events: sem club_regioes.json novo, nada a fazer")
         return
     with open(novo_path, encoding="utf-8") as f:
         novo = json.load(f)
@@ -50,7 +50,7 @@ def main(out_dir):
     ultimo = max((e["data"] for e in atual["eventos"]), default=eventos.DESDE)
 
     # caminho preferido: walk dia-a-dia sobre o histórico de origin/data (precisa
-    # de profundidade — o workflow faz `git fetch origin data --depth=...`).
+    # de profundidade, o workflow faz `git fetch origin data --depth=...`).
     try:
         por_dia = eventos.snapshots_por_dia(REPO, "origin/data", desde=ultimo)
     except Exception as e:
@@ -70,9 +70,9 @@ def main(out_dir):
             ).stdout
             por_dia = {"_prev": json.loads(raw), hoje: novo}
             dias = ["_prev", hoje]
-            print("append_events: sem histórico — a comparar só topo de origin/data vs novo")
+            print("append_events: sem histórico, a comparar só topo de origin/data vs novo")
         except Exception:
-            print("append_events: sem snapshot anterior — só actualiza 'gerado'")
+            print("append_events: sem snapshot anterior, só actualiza 'gerado'")
 
     novos = []
     if len(dias) >= 2:
@@ -87,7 +87,7 @@ def main(out_dir):
     if novos:
         atual["eventos"].extend(novos)
         # colapsa marcos redundantes (25 quando já há 50 no mesmo dia/região/
-        # atleta — de um sync grande ou de runs sucessivos) e reordena p/ o feed
+        # atleta, de um sync grande ou de runs sucessivos) e reordena p/ o feed
         atual["eventos"] = eventos.ordenar_feed(eventos.colapsar_marcos(atual["eventos"]))
         print(f"append_events: +{len(novos)} evento(s)")
         for ev in novos:

@@ -10,7 +10,7 @@ pipeline/spikes/*.pkl
 
 # Dados dinâmicos: vivem SÓ na branch `data` (2026-08-14), regenerados 6x/dia
 # pelo fetch-map-data.yml. Estiveram também no master até 2026-08-18, mas como
-# nada os lia de lá ficaram congelados no dia da migração — 1,2 MB a dizer
+# nada os lia de lá ficaram congelados no dia da migração, 1,2 MB a dizer
 # valores de 14 Ago enquanto o site servia os de hoje, pronto a enganar quem
 # fosse debugar com eles. As páginas puxam-nos de raw.githubusercontent
 # (branch `data`); o workflow faz `git checkout origin/data -- $FILES`.
@@ -27,13 +27,13 @@ data/daily_gains.json
 data/scan_cache.json
 data/classification_fallbacks.json
 # perfis por atleta (build_profiles.py): um <slug>.json + index.json, mesma
-# regra — só na branch `data`, lidos por atletas/perfil.js via raw.
+# regra, só na branch `data`, lidos por atletas/perfil.js via raw.
 data/atletas/
-# feed de eventos do club (append_events.py / backfill_events.py) — mesma regra
+# feed de eventos do club (append_events.py / backfill_events.py), mesma regra
 data/events.json
-# páginas por região (append_regioes.py / backfill_regioes.py) — mesma regra
+# páginas por região (append_regioes.py / backfill_regioes.py), mesma regra
 data/regioes/
 # índice de todas as regiões, para regioes/index.html (append_regioes.py)
 data/regioes_index.json
-# ganhos de squadratinhos por região/dia (append_gains_regioes.py) — mesma regra
+# ganhos de squadratinhos por região/dia (append_gains_regioes.py), mesma regra
 data/gains_regioes.json

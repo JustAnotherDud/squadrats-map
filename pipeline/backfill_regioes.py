@@ -2,11 +2,11 @@
 com actividade, a partir de todo o histórico da branch `data`.
 
 - ranking/totais/vizinhos: do snapshot mais recente
-- timeline: o ranking de cada dia UTC (recon_snapshots.snapshots_estendidos —
+- timeline: o ranking de cada dia UTC (recon_snapshots.snapshots_estendidos,
   club_regioes.json real de 15 ago +, reconstruído do club.json para
   26 jul -> 14 ago, para o gráfico "desde 26 jul")
 
-A partir daqui, append_regioes.py (passo do run_all.py) mantém-nos — só
+A partir daqui, append_regioes.py (passo do run_all.py) mantém-nos, só
 acrescenta os dias novos à timeline, não revarre os 120 commits.
 
 Uso: py backfill_regioes.py [--branch origin/data] [pasta_saida]

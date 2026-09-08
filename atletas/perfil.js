@@ -1,4 +1,4 @@
-// Perfil de atleta — lê data/atletas/<slug>.json (branch `data`) e desenha
+// Perfil de atleta, lê data/atletas/<slug>.json (branch `data`) e desenha
 // tudo numa página só. Sem Leaflet, sem dependências além do shared.js
 // (bandeiras, PAIS_NOME, NIVEL_LABEL). O build (pipeline/build_profiles.py)
 // já juntou e pivotou os dados; aqui é só render.
@@ -28,7 +28,7 @@
   // visual: os 3 "grandes" primeiro, os 3 "-inhos" a seguir.
   const METRICAS = [
     ['squadrats', 'Squadrats', 'Nº de squares de 1609 m visitados.'],
-    ['yard', 'Yard', 'Nº de squares do maior cluster fechado — cada square com os 4 vizinhos também visitados.'],
+    ['yard', 'Yard', 'Nº de squares do maior cluster fechado, cada square com os 4 vizinhos também visitados.'],
     ['ubersquadrat', 'Übersquadrat', 'Lado do maior quadrado NxN totalmente preenchido, em squadrats.'],
     ['squadratinhos', 'Squadratinhos', 'Nº de squares de 201 m visitados.'],
     ['yardinho', 'Yardinho', 'Igual ao Yard, na grelha fina dos squadratinhos.'],
@@ -102,7 +102,7 @@
   }
 
   // Tabela geográfica de squadratinhos: uma coluna por dado, todas ordenáveis,
-  // todas as divisões de uma vez (sem "mostrar mais" — o scroll da página trata).
+  // todas as divisões de uma vez (sem "mostrar mais", o scroll da página trata).
   // acima = capturado de quem está uma posição à FRENTE (falta para subir);
   // abaixo = capturado de quem está uma posição ATRÁS (folga que se tem).
   const COLS = [
@@ -131,7 +131,7 @@
     });
   }
 
-  const traco = '<span class="fraco">—</span>';
+  const traco = '<span class="fraco">·</span>';
 
   function linhaGeo(r, nivel) {
     const txt = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
@@ -146,7 +146,7 @@
     return `<tr>
       <td><span class="nome">${flag(r.cc)}<span>${nome}</span></span></td>
       <td class="n"><b>${nfmt(r.captured)}</b></td>
-      <td class="n fraco">${r.total != null ? nfmt(r.total) : '—'}</td>
+      <td class="n fraco">${r.total != null ? nfmt(r.total) : '·'}</td>
       <td class="n">${r.pct != null ? r.pct.toFixed(1) + '%' : traco}</td>
       <td class="n"><span class="perfil-pos${cls}">${r.posicao}º</span><span class="fraco"> / ${r.de}</span></td>
       <td class="n mg">${subir}</td>
@@ -201,8 +201,8 @@
 
   // Detalhe de um "+N" de Squadratinhos: onde caíram. Distrito primeiro (chips
   // ligados à página da região), concelhos na linha muda por baixo. O
-  // estrangeiro não tem página — aparece por nome de país (span tracejado).
-  // Só z17 — o club.json é z17, por isso é a única coluna com "onde".
+  // estrangeiro não tem página, aparece por nome de país (span tracejado).
+  // Só z17, o club.json é z17, por isso é a única coluna com "onde".
   function ganhoDetalhe(reg, total) {
     const ord = o => Object.entries(o || {}).sort((a, b) => b[1] - a[1]);
     const conc = ord(reg.concelho), dist = ord(reg.distrito), pais = ord(reg.pais);
@@ -224,7 +224,7 @@
     if (!dias || !dias.length) {
       return '<p class="perfil-vazio">Sem ganhos registados desde que o registo diário começou.</p>';
     }
-    // sempre as 6 métricas, na mesma ordem das Contagens — uma sem ganhos
+    // sempre as 6 métricas, na mesma ordem das Contagens, uma sem ganhos
     // fica só com "·", como acontece quase sempre com Yard/Über
     const cab = METRICAS.map(m => `<th>${esc(m[1])}</th>`).join('');
     const campos = METRICAS.map(m => m[0]);

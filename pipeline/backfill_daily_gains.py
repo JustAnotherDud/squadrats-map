@@ -4,13 +4,13 @@ versionado; a partir daí fetch_club_totais.py mantém-no actualizado a cada
 corrida (recalcula só a entrada do dia corrente, idempotente).
 
 Critério de "dia": a data (UTC) do campo `atualizado` DENTRO de cada
-snapshot — não a data do commit em si. O bot corre a horas variáveis e às
+snapshot, não a data do commit em si. O bot corre a horas variáveis e às
 vezes duas vezes no mesmo dia UTC (ver discussão sobre "ruído de timestamp"),
 por isso ficamos com o ÚLTIMO snapshot de cada dia UTC; o ganho desse dia é
 a diferença para o último snapshot do dia anterior.
 
 Atleta que aparece pela primeira vez num dia não conta como "ganho" nesse
-dia — seria o total dele inteiro a aparecer como um pico gigante só por ter
+dia, seria o total dele inteiro a aparecer como um pico gigante só por ter
 sido acrescentado ao ATHLETES dict, não por ter corrido isso tudo num dia.
 
 Uso: py backfill_daily_gains.py
@@ -77,7 +77,7 @@ def main():
         ganhos = {}
         for nome, valores in atletas.items():
             if anterior_atletas is None or nome not in anterior_atletas:
-                continue  # 1º dia de sempre, ou atleta a aparecer pela 1ª vez — sem baseline
+                continue  # 1º dia de sempre, ou atleta a aparecer pela 1ª vez, sem baseline
             antes = anterior_atletas[nome]
             delta = {}
             for c in CAMPOS:
@@ -90,7 +90,7 @@ def main():
             resultado.append({"data": dia, "atletas": ganhos})
         anterior_atletas = atletas
 
-    # ultimo_total: totais absolutos do snapshot mais recente — é a baseline
+    # ultimo_total: totais absolutos do snapshot mais recente, é a baseline
     # que daily_gains.actualizar() usa daqui para a frente (não vai ao git)
     out = {
         "gerado": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -100,7 +100,7 @@ def main():
     out_path = os.path.join(DATA_DIR, "daily_gains.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"escrito {out_path} — {len(resultado)} dias com ganhos reais")
+    print(f"escrito {out_path}, {len(resultado)} dias com ganhos reais")
 
 
 if __name__ == "__main__":

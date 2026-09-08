@@ -36,7 +36,7 @@
   .rank-col { flex: 0 0 320px; }
   @media (max-width: 820px) { .cols { flex-direction: column; } .rank-col { flex: none; width: 100%; } }
 
-  /* quadrado de cor do atleta — espaço consistente até ao nome em todo o lado */
+  /* quadrado de cor do atleta, espaço consistente até ao nome em todo o lado */
   .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block;
     background: var(--suave); margin-right: 6px; vertical-align: middle; flex: 0 0 auto; }
 
@@ -108,7 +108,7 @@
   <p class="meta" id="meta"></p>
 
   <div id="aviso-stale">
-    ⚠ Os dados têm mais de 6 h — o pipeline pode não ter corrido. O que está aqui pode
+    ⚠ Os dados têm mais de 6 h, o pipeline pode não ter corrido. O que está aqui pode
     estar a repetir o dia anterior. <span id="aviso-idade"></span>
   </div>
 
@@ -135,7 +135,7 @@
   <p class="rodape-nota">
     Só eventos de ranking por <b>região</b> (concelho e distrito, Portugal): ultrapassagens,
     novos líderes, primeira presença numa região e marcos de squadratinhos. O histórico
-    começa a <b>26 jul 2026</b> — de 15 ago em diante vem do breakdown por região gerado
+    começa a <b>26 jul 2026</b>. De 15 ago em diante vem do breakdown por região gerado
     a cada run; antes disso é reconstruído do <code>club.json</code>. O mapa em si é mais
     antigo. Os dados vêm da branch <code>data</code>, actualizados 6×/dia pelo mesmo
     processo que gera o <a href="club.html">mapa do clube</a>.
@@ -164,7 +164,7 @@
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
 
   // nome do atleta com bolinha de cor, ligado ao perfil. slugify vem do
-  // shared.js (mesmo que o pipeline/slugs.py) — evita um mapa nome->slug à mão.
+  // shared.js (mesmo que o pipeline/slugs.py), evita um mapa nome->slug à mão.
   const atletaHtml = n => `<a class="atl" href="atletas/${slugify(n)}.html">${dot(n)}${esc(n)}</a>`;
   // regiaoHref / fmtData vêm do shared.js (carregado antes deste script)
   const regiaoHtml = (nivel, nome) =>
@@ -290,7 +290,7 @@
       </div>`).join('') || '<p class="vazio">Nenhuma região disputada.</p>';
   }
 
-  // regiões com troca de posição real desde 26 jul — as páginas de região com
+  // regiões com troca de posição real desde 26 jul, as páginas de região com
   // gráfico. Independente dos filtros; ordenadas pela troca mais recente.
   function renderDisputadas() {
     const box = document.getElementById('disputadas');

@@ -1,7 +1,7 @@
 """Busca e descodifica os vector tiles da Squadrats para um atleta (UID Firebase),
 substituindo o export manual de KML.
 
-Endpoint não documentado, sem API pública — ver a secção "Vector-tile endpoint
+Endpoint não documentado, sem API pública, ver a secção "Vector-tile endpoint
 usage rules" do README para o que se descobriu do formato e para as regras de
 uso: User-Agent identificável, concorrência baixa, nunca publicar tiles em bruto.
 """
@@ -20,7 +20,7 @@ from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 USER_AGENT = "squadrats-map-sync/1.0 (+github.com/JustAnotherDud/squadrats-map)"
-# dois limites separados: a descoberta (z4/z7/z10) é a cascata barata — só
+# dois limites separados: a descoberta (z4/z7/z10) é a cascata barata, só
 # desce de zoom dentro dos tiles que já mostraram cobertura, por isso varre
 # poucos candidatos por natureza. O fetch fino (FETCH_ZOOM, ver scan_athlete)
 # é sempre o batch grande, mesmo sendo hoje o mesmo zoom da descoberta (z10).
@@ -29,19 +29,19 @@ DISCOVERY_CONCURRENCY = 4
 # 4 -> 6 em 2026-08-08: a cache de cobertura já cortou 68% do volume total de
 # pedidos por corrida (a descoberta quase nunca corre), por isso subir aqui
 # continua a pesar menos no total do que pesava a versão antiga a 4. Passo
-# pequeno de propósito — 6 primeiro, 8 só depois de confirmar que não há
+# pequeno de propósito, 6 primeiro, 8 só depois de confirmar que não há
 # 500s/lentidão novos. Não subir sem medir outra vez.
 FETCH_CONCURRENCY = 6
 REQUEST_TIMEOUT = 15
 
-# camadas com geometria útil para classificação por concelho/distrito —
+# camadas com geometria útil para classificação por concelho/distrito,
 # reconstruídas em squares individuais (mesmo formato do parse de KML)
 GEOMETRY_LAYERS = {"squadrats": 14, "squadratinhos": 17}
 # camadas de "troféu". O `size` NÃO significa o mesmo nas duas (ver README):
 # yard/yardinho = nº de squares do maior cluster fechado;
 # ubersquadrat/-inho = o N do quadrado NxN.
 # A geometria delas só é descodificada com `with_trophy_geometry=True`.
-# (backyards/backyardinhos foram removidos em 2026-09-04 — contavam clusters,
+# (backyards/backyardinhos foram removidos em 2026-09-04, contavam clusters,
 # não squares, e a geometria continha a do próprio yard: mais confusão que
 # valor. O servidor ainda manda a camada; deixamos de a ler.)
 TROPHY_LAYERS = [
@@ -52,7 +52,7 @@ TROPHY_LAYERS = [
 # barato (z4, ~200 tiles cobrindo praticamente todas as terras habitadas) e
 # só desce de zoom dentro dos tiles que já mostraram cobertura. Torna o
 # varrimento robusto a qualquer atleta ter capturas em qualquer parte do
-# mundo, sem ter de adivinhar/manter um bbox por atleta — descoberto na
+# mundo, sem ter de adivinhar/manter um bbox por atleta, descoberto na
 # prática: um bbox só de Portugal falhava a auto-validação de um atleta com
 # squadrats em Espanha, e um bbox só da Ibéria falhava outro com squadrats
 # fora da Ibéria. Evita polos/Antártida (lat -60..75), onde não
@@ -61,17 +61,17 @@ WORLD_BBOX = (-180.0, -60.0, 180.0, 75.0)
 DISCOVERY_LEVELS = (4, 7, 10)  # zooms intermédios da cascata
 
 # FETCH_ZOOM = 10, não 12 (2026-08-15). O servidor NÃO simplifica geometria
-# a zooms mais grosseiros — devolve o desenho exacto dos squares na mesma,
+# a zooms mais grosseiros, devolve o desenho exacto dos squares na mesma,
 # só recortado a uma bbox maior. Testado ao vivo, com reconstrução completa
 # comparada ao total declarado pelo próprio servidor: z10, z9, z8 e até z7
 # reproduzem o total exacto (5 atletas do clube, todos batem certo; também
 # testado numa conta com 3984 células z10, ~100x maior que qualquer atleta
 # nosso). Só a partir de z4 é que começa a perder squares (confirmado:
-# perdeu 232 de 5565 numa conta), e a z2/z0 o pedido falha por completo —
+# perdeu 232 de 5565 numa conta), e a z2/z0 o pedido falha por completo,
 # nunca chegar perto disso. z10 (o mesmo zoom já usado na descoberta acima)
 # é a escolha conservadora: 4 zooms de margem até z4, 16x menos pedidos que
 # z12 quando alguém tem de facto squares novos (era o único custo que
-# sobrava depois do probe — ver README, secção "Regras de uso"). Ainda
+# sobrava depois do probe, ver README, secção "Regras de uso"). Ainda
 # haveria margem para z9/z8/z7, não usada de propósito: o ganho marginal é
 # pequeno, e não vale arriscar mais perto do limite desconhecido sem
 # necessidade real.
@@ -79,7 +79,7 @@ FETCH_ZOOM = 10
 
 # Cache de cobertura entre corridas: a descoberta em cascata era ~2/3 dos
 # pedidos de cada corrida (medido: 4242 de 6274) e re-derivava do zero algo
-# que quase nunca muda — em que tiles z10 do mundo cada atleta tem squares.
+# que quase nunca muda, em que tiles z10 do mundo cada atleta tem squares.
 # Guardamos essa lista por UID e saltamos a cascata na corrida seguinte.
 #
 # Porque é que isto é seguro:
@@ -87,7 +87,7 @@ FETCH_ZOOM = 10
 #   cache normalmente não fica com tiles a mais que deixem de ser válidos;
 # - se ficar com tiles a MENOS (atleta capturou numa zona nova), a
 #   reconstrução não bate com o `size` que o próprio servidor reporta nos
-#   tiles — detecta-se, faz-se a descoberta completa e refaz-se a cache,
+#   tiles, detecta-se, faz-se a descoberta completa e refaz-se a cache,
 #   reaproveitando os tiles já buscados no fetch fino. A auto-validação que já
 #   era a rede de segurança do pipeline passa a ser também o invalidador da
 #   cache.
@@ -96,10 +96,10 @@ FETCH_ZOOM = 10
 #   estrito quando isso acontece). Não invalida a lista de tiles z10 em si
 #   (é grosseira; é raríssimo um atleta perder TODA a cobertura de uma célula
 #   inteira), mas é a razão de `_probe_sem_alteracoes` comparar por
-#   IGUALDADE estrita, nunca "maior ou igual" — qualquer desvio, para cima
+#   IGUALDADE estrita, nunca "maior ou igual", qualquer desvio, para cima
 #   ou para baixo, dispara sempre o scan completo.
 #
-# O ficheiro guarda coordenadas z10 derivadas (nunca tiles em bruto — ver
+# O ficheiro guarda coordenadas z10 derivadas (nunca tiles em bruto, ver
 # regras no README) e é mais grosseiro do que o que o club.json já publica
 # (squares z17 individuais), portanto não expõe nada de novo.
 COVERAGE_CACHE_PATH = os.path.join(
@@ -144,7 +144,7 @@ def deg2num(lon, lat, z):
 
 def tile_to_lonlat(gx, gy, z):
     """Mesma convenção NW-corner do kml_parse.tileNW, mas para coordenadas
-    fracionárias (gx/gy não têm de ser inteiros — vêm de pixels dentro do tile)."""
+    fracionárias (gx/gy não têm de ser inteiros, vêm de pixels dentro do tile)."""
     n = 2 ** z
     lon = gx / n * 360.0 - 180.0
     lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * gy / n))))
@@ -152,12 +152,12 @@ def tile_to_lonlat(gx, gy, z):
 
 
 def tile_url(uid, z, x, y):
-    ts = int(time.time() * 1000)  # servidor ignora o valor, mas é a chave de cache — tem de ser fresco
+    ts = int(time.time() * 1000)  # servidor ignora o valor, mas é a chave de cache, tem de ser fresco
     return f"https://tiles1.squadrats.com/{uid}/trophies/{ts}/{z}/{x}/{y}.pbf"
 
 
 class SquadratsHttpError(RuntimeError):
-    """UID inválido (500) ou outro erro inesperado do servidor — falhar alto,
+    """UID inválido (500) ou outro erro inesperado do servidor, falhar alto,
     nunca devolver o último valor bom em silêncio."""
 
 
@@ -167,7 +167,7 @@ _thread_local = threading.local()
 def _thread_session():
     """Uma requests.Session por thread, criada uma vez e reutilizada.
 
-    requests.Session não tem garantia documentada de ser thread-safe — só o
+    requests.Session não tem garantia documentada de ser thread-safe, só o
     connection pool do urllib3 por baixo é. Passar a mesma Session a todas as
     threads de um ThreadPoolExecutor (como se fazia antes) funcionava por
     sorte com pouca concorrência; com FETCH_CONCURRENCY a poder subir isso
@@ -187,30 +187,30 @@ def fetch_tile(uid, z, x, y):
         timeout=REQUEST_TIMEOUT,
     )
     if resp.status_code == 204:
-        return None  # tile sem cobertura — normal, não é erro
+        return None  # tile sem cobertura, normal, não é erro
     if resp.status_code == 500:
         raise SquadratsHttpError(f"UID inválido ou erro do servidor para {uid} em {z}/{x}/{y}")
     resp.raise_for_status()
 
     data = resp.content
     # requests normalmente descomprime sozinho via Content-Encoding, mas o
-    # servidor às vezes manda gzip duplamente disfarçado de octet-stream —
+    # servidor às vezes manda gzip duplamente disfarçado de octet-stream,
     # confirmar pelos magic bytes em vez de confiar cegamente no header.
     if data[:2] == b"\x1f\x8b":
         data = gzip.decompress(data)
     # y_coord_down=True: mantém a convenção crua do MVT (Y cresce para baixo
     # dentro do tile, igual à convenção XYZ global usada em tile_to_lonlat).
     # O default da biblioteca é False (inverte para "y para cima" ao estilo
-    # GeoJSON) — sem isto, cada tile fica espelhado verticalmente. Não muda a
+    # GeoJSON), sem isto, cada tile fica espelhado verticalmente. Não muda a
     # CONTAGEM total (por isso a auto-validação contra o `size` passava na
-    # mesma), só a POSIÇÃO das squares dentro do tile — descoberto porque o
+    # mesma), só a POSIÇÃO das squares dentro do tile, descoberto porque o
     # Rio Maior tinha menos capturas do que o KML antigo mesmo com o total
     # nacional a bater certo.
     return mapbox_vector_tile.decode(data, default_options={"y_coord_down": True})
 
 
 def _project_geometry(geom, z, x, y, extent):
-    """Devolve uma lista de polígonos (lon/lat) — normalmente 1, mas o recorte
+    """Devolve uma lista de polígonos (lon/lat), normalmente 1, mas o recorte
     ao tile pode dividir a forma em mais do que uma parte."""
     rings = geom["coordinates"] if geom["type"] == "Polygon" else [
         ring for poly in geom["coordinates"] for ring in poly
@@ -220,14 +220,14 @@ def _project_geometry(geom, z, x, y, extent):
         raw = make_valid(raw)
 
     # a Squadrats manda a geometria clipada ao tile + um buffer (viu-se
-    # coordenadas de -320 a extent+320 num tile com extent=16384) — é o
+    # coordenadas de -320 a extent+320 num tile com extent=16384), é o
     # comportamento normal do MVT para permitir render sem costuras, mas
     # description redundante da MESMA área também é descrita pelo tile
     # vizinho. Sem recortar ao tile nominal antes de unir, a faixa de buffer
     # sobreposta entre tiles adjacentes engorda a área total após o
     # unary_union e infla a contagem de squares finais (visto em produção:
     # squadratinhos deu 5360 em vez dos 5050 reportados pelo servidor,
-    # squadrats — grelha 4x mais grossa, menos sensível ao efeito — bateu
+    # squadrats, grelha 4x mais grossa, menos sensível ao efeito, bateu
     # certo). Recortar ao [0, extent]² antes de projetar elimina a faixa
     # redundante; cada square real continua descrito por pelo menos um tile
     # dentro dos seus limites nominais.
@@ -237,7 +237,7 @@ def _project_geometry(geom, z, x, y, extent):
         return []
 
     # intersection() pode devolver GeometryCollection (mistura de
-    # Polygon/LineString/Point quando o recorte só toca a borda) — só
+    # Polygon/LineString/Point quando o recorte só toca a borda), só
     # interessam as partes com área.
     if clipped.geom_type in ("Polygon", "MultiPolygon"):
         raw_parts = clipped.geoms if clipped.geom_type == "MultiPolygon" else [clipped]
@@ -268,7 +268,7 @@ def _fetch_batch(uid, z, candidates):
 
 
 def discover_coverage(uid, bbox=WORLD_BBOX, levels=DISCOVERY_LEVELS):
-    """Descoberta em cascata — devolve os tiles (x, y) no último zoom de
+    """Descoberta em cascata, devolve os tiles (x, y) no último zoom de
     `levels` com cobertura, para depois só descermos aos filhos fetch_zoom
     desses. Cada nível só explora os filhos dos tiles que já bateram no
     nível anterior, por isso o custo cresce com a cobertura real do atleta,
@@ -305,7 +305,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
 
     Há três consumidores dos mesmos UIDs (`build_mapa.py`, `fetch_club_totais.py`,
     `fetch_club_squares.py`). Corridos em processos separados, cada um varria
-    tudo outra vez — o primeiro atleta era varrido três vezes por run. Com esta cache e o
+    tudo outra vez, o primeiro atleta era varrido três vezes por run. Com esta cache e o
     `run_all.py` a chamá-los no mesmo processo, é um varrimento por atleta.
 
     Varre-se sempre com a geometria de troféus (é um superconjunto e não custa
@@ -313,7 +313,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
 
     `known_squadratinhos` (opcional, ver `athletes.known_squadratinhos`):
     último total publicado. Se um probe de 1 pedido confirmar que continua
-    igual, devolve-se `None` em vez do tuplo — o chamador tem de reaproveitar
+    igual, devolve-se `None` em vez do tuplo, o chamador tem de reaproveitar
     a publicação anterior (nenhuma geometria nova foi buscada). Sem isto,
     comportamento igual ao de sempre.
     """
@@ -352,7 +352,7 @@ def _fetch_missing(uid, zoom, candidates, results):
 
 
 def _assemble_layers(results, fetch_zoom, with_trophy_geometry):
-    """Projecta e une os tiles descodificados nas camadas finais — devolve
+    """Projecta e une os tiles descodificados nas camadas finais, devolve
     (geometries, counts, trophies); trophies é None sem with_trophy_geometry."""
     polys_by_layer = {name: [] for name in GEOMETRY_LAYERS}
     if with_trophy_geometry:
@@ -368,7 +368,7 @@ def _assemble_layers(results, fetch_zoom, with_trophy_geometry):
             for feat in layer["features"]:
                 size = feat["properties"].get("size")
                 if size is not None and layer_name not in size_by_layer:
-                    size_by_layer[layer_name] = size  # global — primeiro valor não-nulo chega
+                    size_by_layer[layer_name] = size  # global, primeiro valor não-nulo chega
                 if layer_name in polys_by_layer:
                     polys_by_layer[layer_name].extend(
                         _project_geometry(feat["geometry"], fetch_zoom, x, y, layer["extent"])
@@ -394,7 +394,7 @@ def _assemble_layers(results, fetch_zoom, with_trophy_geometry):
 
 def _coverage_complete(geometries):
     """True se a reconstrução bate com o `size` do servidor em todas as
-    camadas de geometria presentes — a mesma auto-validação que os
+    camadas de geometria presentes, a mesma auto-validação que os
     consumidores fazem, usada aqui para decidir se a cache de cobertura
     apanhou tudo. Custa ~1-2s de CPU por atleta (a instrumentação antiga de
     reconstruct_squares mediu chamadas destas na ordem de décimas de
@@ -414,13 +414,13 @@ def _coverage_complete(geometries):
 
 def _serve_para_probe(decoded):
     """True se este tile decodificado dá para usar como probe_tile no futuro
-    — precisa de ter a camada squadratinhos COM `size`, não só conteúdo
+   , precisa de ter a camada squadratinhos COM `size`, não só conteúdo
     qualquer. Descoberto em produção (2026-08-15): um tile pode ter a
-    camada `squadrats` (1609m) sem ter `squadratinhos` (201m) — a
+    camada `squadrats` (1609m) sem ter `squadratinhos` (201m), a
     granularidade fina não aparece em todos os tiles onde a grosseira
     aparece. Escolher um tile assim como probe_tile deixava o probe sempre
     inconclusivo para essa pessoa, para sempre (`_probe_sem_alteracoes`
-    devolve False sem "squadratinhos" no tile) — o fallback caro disparava
+    devolve False sem "squadratinhos" no tile), o fallback caro disparava
     em TODAS as corridas seguintes, não só quando havia mudança real."""
     if decoded is None or "squadratinhos" not in decoded:
         return False
@@ -430,19 +430,19 @@ def _serve_para_probe(decoded):
 
 def _probe_sem_alteracoes(uid, probe_tile, fetch_zoom, known_squadratinhos):
     """1 pedido a um tile já confirmado com conteúdo (guardado no scan
-    anterior) — lê o total GLOBAL de squadratinhos embutido em qualquer
+    anterior), lê o total GLOBAL de squadratinhos embutido em qualquer
     feature dessa camada (é assim que a auto-validação já confia neste
     campo, ver `_assemble_layers`) e compara com `known_squadratinhos`.
 
     Comparação por igualdade estrita, não "maior ou igual": uma actividade
     apagada ou cortada DEPOIS de publicada pode fazer o total BAIXAR (a
-    'cobertura nunca encolhe' deixa de ser garantida quando isso acontece) —
+    'cobertura nunca encolhe' deixa de ser garantida quando isso acontece),
     qualquer desvio, para cima ou para baixo, tem de disparar o scan
     completo. Só um "igual" com toda a confiança salta o resto.
 
     Devolve False (nunca assume "sem alterações" às cegas) se o tile deixou
     de responder, se a camada não aparece nesta amostra, ou se o campo size
-    vier vazio — cai-se sempre no caminho seguro (scan completo) em caso de
+    vier vazio, cai-se sempre no caminho seguro (scan completo) em caso de
     dúvida."""
     x, y = probe_tile
     try:
@@ -467,18 +467,18 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     - counts: {layer_name: size} para as camadas de troféu
 
     Com `with_trophy_geometry=True` devolve um 3º valor,
-    trophies: {layer_name: shapely_geom} — só quando é preciso desenhar as
+    trophies: {layer_name: shapely_geom}, só quando é preciso desenhar as
     formas (mapa), não quando só interessam os totais (folha-do-clube).
 
     Devolve `None` (em vez do tuplo) quando `known_squadratinhos` é dado e o
-    probe de 1 pedido confirma que continua igual — nada foi buscado, o
+    probe de 1 pedido confirma que continua igual, nada foi buscado, o
     chamador tem de reaproveitar a publicação anterior (ver
     `athletes.known_squadratinhos`).
 
     Caminho normal: cobertura z10 vem de data/scan_cache.json (corrida
     anterior), salta-se a cascata de descoberta e valida-se o resultado
     contra o `size` do servidor. Se não bater (zona nova), cai-se na
-    descoberta completa — os tiles do fetch fino já buscados não se repetem.
+    descoberta completa, os tiles do fetch fino já buscados não se repetem.
     """
     coarse_zoom = discovery_levels[-1]
     factor = 2 ** (fetch_zoom - coarse_zoom)
@@ -494,21 +494,21 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     if cache_applicable and known_squadratinhos is not None and entry.get("probe_tile"):
         probe_tile = tuple(entry["probe_tile"])
         if _probe_sem_alteracoes(uid, probe_tile, fetch_zoom, known_squadratinhos):
-            print(f"{uid}: probe confirma squadratinhos={known_squadratinhos} sem alteração — "
+            print(f"{uid}: probe confirma squadratinhos={known_squadratinhos} sem alteração, "
                   f"a saltar scan completo (1 pedido em vez de dezenas/centenas)")
             return None
-        print(f"{uid}: probe indica alteração (ou inconclusivo) — a continuar com o scan normal")
+        print(f"{uid}: probe indica alteração (ou inconclusivo), a continuar com o scan normal")
 
     if cache_applicable:
         cached_coarse = [tuple(t) for t in entry["tiles"]]
         candidates = _children(cached_coarse, factor)
-        print(f"cobertura em cache: {len(cached_coarse)} tiles z{coarse_zoom} — "
+        print(f"cobertura em cache: {len(cached_coarse)} tiles z{coarse_zoom}, "
               f"a buscar {len(candidates)} tiles z{fetch_zoom} sem descoberta...")
         _fetch_missing(uid, fetch_zoom, candidates, results)
         geometries, counts, trophies = _assemble_layers(results, fetch_zoom, with_trophy_geometry)
         if _coverage_complete(geometries):
             # refresca o probe_tile de propósito, mesmo sem mudar a lista de
-            # tiles z10 — é o que a próxima corrida vai usar para o atalho
+            # tiles z10, é o que a próxima corrida vai usar para o atalho
             # acima, e nunca custa pedidos extra (os tiles já foram buscados).
             probe_tile = next((xy for xy, d in results.items() if _serve_para_probe(d)), None)
             _write_coverage_cache(uid, bbox, discovery_levels, fetch_zoom, cached_coarse, probe_tile)
@@ -516,7 +516,7 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
                 return geometries, counts, trophies
             return geometries, counts
         print("cache de cobertura desatualizada (reconstrução não bate com o size "
-              "do servidor — squares numa zona nova?) — descoberta completa...")
+              "do servidor, squares numa zona nova?), descoberta completa...")
 
     coarse_covered = discover_coverage(uid, bbox, levels=discovery_levels)
     candidates = _children(coarse_covered, factor)

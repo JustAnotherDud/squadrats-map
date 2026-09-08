@@ -2,12 +2,12 @@
 página do club (club.html).
 
 Só squadratinhos: a z14 os squares são grandes demais para a sobreposição
-dizer alguma coisa — toda a gente partilha o mesmo punhado de quadrados.
+dizer alguma coisa, toda a gente partilha o mesmo punhado de quadrados.
 
 Cada square sai como [x, y, mask], em que mask é um bitmask de quem o tem
 (bit 0 = primeiro atleta da lista, e por aí fora). Um ficheiro em vez de
 três evita mandar as coordenadas repetidas dos squares partilhados, que são
-a maioria — vivem todos na mesma zona.
+a maioria, vivem todos na mesma zona.
 
 Não classifica por concelho: aqui não serve para nada e é a parte lenta.
 
@@ -35,7 +35,7 @@ def squares_de(uid, known=None, anteriores_squares=None, bit=None):
 
     Se o probe de tiles_fetch.py confirmar "sem alterações", reaproveita o
     conjunto anterior deste atleta a partir do bitmask já publicado em
-    club.json — filtrado pelo bit dele, `anteriores_squares` traz todos os
+    club.json, filtrado pelo bit dele, `anteriores_squares` traz todos os
     atletas juntos."""
     resultado = scan_athlete(uid, known_squadratinhos=known)
     if resultado is None:
@@ -45,18 +45,18 @@ def squares_de(uid, known=None, anteriores_squares=None, bit=None):
         # sem cobertura: o scan chegou aqui sem levantar erro, e uma falha real
         # (500, geometria inválida) já teria abortado antes disto. Mas isto
         # também é o que um UID válido mas ERRADO (conta trocada, sem
-        # actividade) produz — 204 em todos os tiles, sem excepção — e o
+        # actividade) produz, 204 em todos os tiles, sem excepção, e o
         # servidor não distingue os dois casos. Por isso: zero continua a ser
         # aceite (não aborta o run todo), mas nunca em silêncio.
-        print(f"ATENÇÃO: UID '{uid}' devolveu 0 squares em '{CAMADA}' — confirma se o UID está certo (squadrats.com/map/{uid}/17)")
+        print(f"ATENÇÃO: UID '{uid}' devolveu 0 squares em '{CAMADA}', confirma se o UID está certo (squadrats.com/map/{uid}/17)")
         return set()
 
     declared_size, geom = geometries[CAMADA]
     squares = {(x, y) for x, y, _lon, _lat in reconstruct_squares(geom, ZOOM)}
     if declared_size is None or len(squares) != declared_size:
         raise RuntimeError(
-            f"UID '{uid}': {CAMADA} — reconstruídos {len(squares)}, servidor diz "
-            f"{declared_size}. Varrimento incompleto ou bug de geometria — a abortar "
+            f"UID '{uid}': {CAMADA}, reconstruídos {len(squares)}, servidor diz "
+            f"{declared_size}. Varrimento incompleto ou bug de geometria, a abortar "
             f"sem publicar club.json."
         )
     return squares
@@ -95,7 +95,7 @@ def main(out_dir):
             "partilhados": len(por_atleta[nome]) - exclusivos,
         })
 
-    # quantos squares por combinação — a legenda mostra isto sem ter de contar
+    # quantos squares por combinação, a legenda mostra isto sem ter de contar
     por_mask = {}
     for m in mascaras.values():
         por_mask[m] = por_mask.get(m, 0) + 1

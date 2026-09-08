@@ -1,20 +1,20 @@
 """Classifica squares (o polígono do tile, não só o centro) em concelho e
-distrito de Portugal, e — quando houver geometria disponível — região
+distrito de Portugal, e, quando houver geometria disponível, região
 estrangeira (ex: província espanhola). Sem geometria disponível para o país
 em causa, cai no fallback genérico (in_portugal=False, country=None,
 region=None).
 
 Critério: maior área de intersecção ganha, sem limiar mínimo (não é
 "maioria" >50%). Um square costeiro com 60% mar / 40% terra continua a
-contar para o único candidato com alguma área — não fica por classificar só
+contar para o único candidato com alguma área, não fica por classificar só
 por não ter maioria absoluta. Em terra firme dá o mesmo resultado que exigir
 maioria, porque só há um candidato relevante na prática; a diferença só
 aparece na costa/fronteira, que é exactamente onde interessa não ter buracos.
 
-Se o tile não intersecta terra nenhuma (ex: 100% rio/mar — travessia de
+Se o tile não intersecta terra nenhuma (ex: 100% rio/mar, travessia de
 ponte, ferry), aplica-se um fallback de proximidade dentro de
 COASTAL_BUFFER_DEG: ganha o candidato geometricamente mais próximo, **PT ou
-estrangeiro, sem preferência por nenhum dos dois** — só assim uma travessia
+estrangeiro, sem preferência por nenhum dos dois**, só assim uma travessia
 do Tejo continua a contar para Lisboa/Almada sem reintroduzir o viés que
 motivou tirar isto do caminho principal (ver abaixo). Fora do buffer, fica
 genuinamente sem classificação (ex: square em pleno oceano).
@@ -22,22 +22,22 @@ genuinamente sem classificação (ex: square em pleno oceano).
 O concelho tem o mesmo problema à escala interna: um square do Tejo não
 intersecta nenhum concelho, tal como não intersecta nenhum distrito. Por
 isso tem o mesmo fallback, mas restrito a dentro de Portugal (nunca escolhe
-um concelho espanhol) — sempre que é usado, `classify()` devolve a distância
+um concelho espanhol), sempre que é usado, `classify()` devolve a distância
 em `concelho_fallback_deg`, para quem consumir conseguir separar dois casos
 com a mesma cara (concelho ausente por intersecção nula): fendas de poucos
 metros entre `distritos_pt.geojson`/`concelhos_pt.geojson` (artefacto de
 dados, duas fontes desenhadas independentemente) de água genuína a
 centenas de metros/km da margem (Tejo, lagoas). O mesmo vale a nível de
-país em `country_fallback_deg` — e `on_land=False` sinaliza sempre que o
+país em `country_fallback_deg`, e `on_land=False` sinaliza sempre que o
 tile não tinha nenhuma área de terra dentro de si, ganhasse quem ganhasse
 a seguir.
 
 Substituiu o critério antigo (centro do tile, point-in-polygon com fallback
-de "mais próximo" só do lado de Portugal): esse fallback tinha um viés —
+de "mais próximo" só do lado de Portugal): esse fallback tinha um viés,
 só Portugal tinha a tolerância de distância, o que empurrava squares
 ambíguos perto da raia terrestre para PT mesmo sem estarem dentro de nenhum
 polígono português. Aqui o fallback só entra quando NADA intersecta o tile
-— na fronteira terrestre há sempre terra (de um lado ou do outro) dentro do
+na fronteira terrestre há sempre terra (de um lado ou do outro) dentro do
 tile, por isso o caso nem chega a este ramo; e quando chega (água), compete
 os dois lados em pé de igualdade.
 """
@@ -48,7 +48,7 @@ from shapely.geometry import shape
 from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
-COASTAL_BUFFER_DEG = 0.05  # limite do fallback de proximidade (~5,5 km) — só quando nada intersecta
+COASTAL_BUFFER_DEG = 0.05  # limite do fallback de proximidade (~5,5 km), só quando nada intersecta
 
 
 def _clean(geom):
@@ -66,7 +66,7 @@ class _Layer:
     def best_match(self, tile_poly):
         """Candidato com maior área de intersecção com `tile_poly`.
 
-        Devolve (nome, área) — (None, 0.0) se nada intersecta. Sem fallback
+        Devolve (nome, área), (None, 0.0) se nada intersecta. Sem fallback
         de "mais próximo": se a resposta é (None, 0.0), é porque o tile não
         toca em nenhuma geometria conhecida desta camada, não porque falhou
         a encontrar alguma."""
@@ -80,7 +80,7 @@ class _Layer:
     def nearest(self, tile_poly):
         """Geometria conhecida mais próxima de `tile_poly` (nome, distância).
 
-        Só para o fallback de "nada intersecta" — best_match já cobre o caso
+        Só para o fallback de "nada intersecta", best_match já cobre o caso
         normal. STRtree.nearest é sempre determinístico (o geometricamente
         mais próximo), ao contrário de `query(...)[0]` (ordem arbitrária)."""
         idx = self.tree.nearest(tile_poly)
@@ -111,13 +111,13 @@ class Classifier:
         # zero alterações de código.
         self.foreign = self._load_foreign(foreign_dir)
 
-        # município/concelho equivalente estrangeiro (2026-08-15) — mesmo
+        # município/concelho equivalente estrangeiro (2026-08-15), mesmo
         # princípio do foreign acima, mas nível mais fino (ex: refdata/
         # foreign_muni/ES.geojson, 8132 municípios). Só ES tem isto por
         # agora; um país sem ficheiro aqui simplesmente não aparece na vista
         # "Concelhos" (ver NIVEL_INFO no mapa.html). Nomes duplicados
         # dentro do mesmo país já vêm desambiguados no próprio ficheiro
-        # (ex: "Sada (Province)") — mesmo padrão do Calheta Açores/Madeira.
+        # (ex: "Sada (Province)"), mesmo padrão do Calheta Açores/Madeira.
         self.foreign_muni = self._load_foreign(foreign_muni_dir)
 
     @staticmethod
@@ -135,8 +135,8 @@ class Classifier:
 
     def _concelho(self, tile_poly):
         """Concelho por área; se nada intersecta, fallback de proximidade
-        dentro de COASTAL_BUFFER_DEG (nunca cruza fronteira — só chamado
-        quando o país já é PT). Devolve (nome, fallback_deg) — fallback_deg
+        dentro de COASTAL_BUFFER_DEG (nunca cruza fronteira, só chamado
+        quando o país já é PT). Devolve (nome, fallback_deg), fallback_deg
         é None quando resolvido por área OU quando nada está perto o
         suficiente (concelho fica None nesse caso, buraco genuíno)."""
         concelho, area = self.concelhos.best_match(tile_poly)
@@ -148,7 +148,7 @@ class Classifier:
         return None, None
 
     def _foreign_municipio(self, country, tile_poly):
-        """Município/concelho equivalente estrangeiro — só quando há fonte
+        """Município/concelho equivalente estrangeiro, só quando há fonte
         para esse país (refdata/foreign_muni/*.geojson; hoje só ES). Sem
         fallback de proximidade ao contrário do concelho PT: prefere-se
         None a arriscar atribuir a um município de outro país por estar
@@ -165,7 +165,7 @@ class Classifier:
         """`tile_poly`: polígono shapely do square (ver kml_parse.tile_bounds).
 
         País: distrito PT vs região estrangeira, ganha quem tiver mais área
-        do tile dentro de si — sem limiar. Se nada intersecta (tile 100% em
+        do tile dentro de si, sem limiar. Se nada intersecta (tile 100% em
         água), cai no fallback de proximidade: o candidato mais próximo,
         PT ou estrangeiro sem preferência, só dentro de COASTAL_BUFFER_DEG.
 
@@ -174,7 +174,7 @@ class Classifier:
         Além dos campos habituais, devolve sempre:
         - on_land: False se o tile não tinha nenhuma área de terra dentro
           de si (ganhou quem ganhou a seguir por proximidade, ou ficou sem
-          classificação) — conta quantos squares capturados não estão
+          classificação), conta quantos squares capturados não estão
           fisicamente em terra.
         - country_fallback_deg / concelho_fallback_deg: distância usada
           quando esse nível foi resolvido por proximidade, None quando foi
@@ -194,7 +194,7 @@ class Classifier:
                 f_name, f_dist = self.foreign.nearest(tile_poly)
 
             if min(d_dist, f_dist) > COASTAL_BUFFER_DEG:
-                # nada perto o suficiente — genuinamente sem classificação
+                # nada perto o suficiente, genuinamente sem classificação
                 # (ex: square em pleno oceano)
                 return {
                     "in_portugal": False, "district": None, "concelho": None,

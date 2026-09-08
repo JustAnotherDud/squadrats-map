@@ -5,7 +5,7 @@ os dias UTC ainda não cobertos (anda só nesses no histórico de origin/data,
 não nos 120 commits). Mesmo padrão do append_events.py: fallback a comparar
 só o topo se o checkout for shallow.
 
-Regiões que deixaram de ter actividade não são reescritas — o workflow faz
+Regiões que deixaram de ter actividade não são reescritas, o workflow faz
 mirror da pasta, portanto o ficheiro desaparece sozinho.
 
 Uso: py append_regioes.py [pasta_saida]
@@ -49,7 +49,7 @@ def _tl_existente(out_dir):
 def main(out_dir):
     novo = _carrega(os.path.join(out_dir, "club_regioes.json"))
     if not novo:
-        print("append_regioes: sem club_regioes.json novo — nada a fazer")
+        print("append_regioes: sem club_regioes.json novo, nada a fazer")
         return
     hoje = datetime.fromisoformat(novo["atualizado"].replace("Z", "+00:00")).date().isoformat()
 
@@ -74,7 +74,7 @@ def main(out_dir):
             try:
                 snaps = {"_prev": json.loads(raw.stdout), hoje: novo}
                 dias = ["_prev", hoje]
-                print("append_regioes: sem histórico — só topo de origin/data vs novo")
+                print("append_regioes: sem histórico, só topo de origin/data vs novo")
             except json.JSONDecodeError:
                 pass
 
@@ -94,7 +94,7 @@ def main(out_dir):
 
     # "disputada" no índice = evento de troca real (ultrapassagem / novo
     # líder), igual ao historico.html e ao regiao.js. O events.json já está
-    # escrito neste ponto — o append_events corre antes deste passo.
+    # escrito neste ponto, o append_events corre antes deste passo.
     disputadas = regioes.disputadas_de(
         (_carrega(os.path.join(out_dir, "events.json")) or {}).get("eventos", []))
 

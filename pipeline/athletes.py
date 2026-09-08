@@ -1,11 +1,11 @@
 """Lista única dos atletas do clube.
 
 Antes desta extracção, os mesmos nomes/UIDs viviam em triplicado
-(fetch_club_totais.py, fetch_club_squares.py, run_all.py) — um UID trocado
+(fetch_club_totais.py, fetch_club_squares.py, run_all.py), um UID trocado
 por engano num só desses sítios só se notaria quando os totais não
 batessem. Agora há uma fonte só.
 
-Os dados (nome → firebase UID) vêm do env `ATHLETES_JSON`, não do código —
+Os dados (nome → firebase UID) vêm do env `ATHLETES_JSON`, não do código,
 é informação de terceiros, não pertence a um repo público. No CI vem de um
 secret (ver .github/workflows/fetch-map-data.yml); localmente, exportar à
 mão:
@@ -34,24 +34,24 @@ except json.JSONDecodeError as e:
 if not ATHLETES:
     raise RuntimeError("ATHLETES_JSON está vazio.")
 
-# mesma ordem que ATHLETES (o dict preserva a ordem de inserção do JSON) —
+# mesma ordem que ATHLETES (o dict preserva a ordem de inserção do JSON),
 # usada onde a ordem importa (bitmask em fetch_club_squares.py, cores em
 # club.html)
 ATLETAS = list(ATHLETES.items())
 
-# primeiro atleta na ordem = dono do mapa detalhado (run_all.py) — mesma
+# primeiro atleta na ordem = dono do mapa detalhado (run_all.py), mesma
 # convenção do bit 0
 JOSE_UID = next(iter(ATHLETES.values()))
 
 
 def known_squadratinhos(out_dir):
     """{uid: último total de squadratinhos publicado}, lido do squadrats.json
-    já carregado no out_dir (branch 'data', ver fetch-map-data.yml) — fonte
+    já carregado no out_dir (branch 'data', ver fetch-map-data.yml), fonte
     do probe barato de tiles_fetch.scan_athlete (2026-08-14).
 
     Squadratinhos (201m) é a grelha mais fina: capturar qualquer square novo
     nas outras camadas (squadrats, yard/yardinho, übersquadrat/-inho) implica
-    sempre passar por um squadratinho ainda não visitado nesse mesmo sítio —
+    sempre passar por um squadratinho ainda não visitado nesse mesmo sítio,
     nunca o contrário, porque estar dentro de um squadrat ainda não capturado
     significa estar também dentro de um squadratinho ainda não capturado (é a
     mesma presença física). Por isso esta única contagem chega para confirmar

@@ -51,13 +51,13 @@ def maior_uber(visitados):
 
 def verify_rules(visitados, esperado_yard, esperado_uber, label):
     """O guard: se isto falhar, não sabemos reproduzir as regras da Squadrats
-    — não publicar sugestões inventadas com ar de rigor. Falhar alto."""
+   , não publicar sugestões inventadas com ar de rigor. Falhar alto."""
     clusters = clusters_fechados(visitados)
     maior_yard = max((len(c) for c in clusters), default=0)
     uber, _ = maior_uber(visitados)
     if maior_yard != esperado_yard or uber != esperado_uber:
         raise RuntimeError(
-            f"suggestions.py: não reproduzimos as regras da Squadrats para '{label}' — "
+            f"suggestions.py: não reproduzimos as regras da Squadrats para '{label}', "
             f"yard calculado={maior_yard} (servidor diz {esperado_yard}), "
             f"übersquadrat calculado={uber} (servidor diz {esperado_uber}). "
             f"A abortar sem publicar sugestões (seriam inventadas)."
@@ -91,11 +91,11 @@ class _Dsu:
 def _candidatos_ligacao(visitados, tam, comp_id):
     """Para cada square vazio adjacente a algo visitado, vê que fechados nascem
     ao capturá-lo sozinho e a que cluster(es) existentes eles se colam
-    (union-find). Devolve TODOS os candidatos com algum ganho — filtrar,
+    (union-find). Devolve TODOS os candidatos com algum ganho, filtrar,
     ordenar e cortar ao top-N fica para quem chama.
 
     Capturar um square só pode mudar o estado "fechado" dele próprio e dos 4
-    vizinhos — nada mais longe depende dele, por isso não é preciso
+    vizinhos, nada mais longe depende dele, por isso não é preciso
     recalcular os clusters todos por candidato.
     """
     fech = fechados(visitados)
@@ -132,7 +132,7 @@ def melhor_ligacao(visitados, top=8):
     """Que square, capturado sozinho, faz o yard crescer mais?
 
     Muitos clusters fechados secundários estão a um ou dois squares de colar
-    ao yard principal — é isso que estas ligações procuram.
+    ao yard principal, é isso que estas ligações procuram.
     """
     comps = clusters_fechados(visitados)
     comp_id = {s: i for i, c in enumerate(comps) for s in c}
@@ -155,7 +155,7 @@ def corredores(visitados, quantos=6, custo_max=80):
 
     O `melhor_ligacao` só olha para capturas isoladas e por isso nunca vê mais
     do que +4 ou +5. Os saltos grandes estão nos clusters já fechados que estão
-    ao lado — ligar um cluster de 29 ao yard pode custar 2 squares e valer +34.
+    ao lado, ligar um cluster de 29 ao yard pode custar 2 squares e valer +34.
 
     Um square só fecha com os 4 vizinhos visitados, por isso o corredor precisa
     de largura e não é uma linha: custa mais do que a distância. Dijkstra sobre
@@ -164,7 +164,7 @@ def corredores(visitados, quantos=6, custo_max=80):
     isso no fim reconstrói-se o caminho e conta-se a união real.
 
     O ganho publicado vem sempre de recalcular os clusters com os squares
-    adicionados — nunca de aritmética sobre os tamanhos.
+    adicionados, nunca de aritmética sobre os tamanhos.
     """
     import heapq
 
@@ -197,7 +197,7 @@ def corredores(visitados, quantos=6, custo_max=80):
                 break
             # o corte tem de ser folgado: `d` soma o custo de cada nó como se
             # nada fosse partilhado, e a união real do caminho é bastante
-            # menor. Cortar em custo_max aqui matava os corredores longos —
+            # menor. Cortar em custo_max aqui matava os corredores longos,
             # justamente os que valem mais. Filtra-se pela união, lá abaixo.
             if d > custo_max * 4:
                 break
@@ -268,7 +268,7 @@ def proximo_ubersquadrat(visitados, n_atual, margem=2):
     def soma(x_ini, y_ini, tam):
         x_fim, y_fim = x_ini + tam, y_ini + tam
         if x_fim >= w or y_fim >= h:
-            return -1  # fora da grelha (prefix não cobre) — ignorar
+            return -1  # fora da grelha (prefix não cobre), ignorar
         return (prefix[y_fim][x_fim] - prefix[y_ini][x_fim]
                 - prefix[y_fim][x_ini] + prefix[y_ini][x_ini])
 

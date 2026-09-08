@@ -6,15 +6,15 @@ mínimo; se nada intersecta, fallback de proximidade simétrico PT/estrangeiro
 dentro de COASTAL_BUFFER_DEG).
 
 Corre uma vez, commita o output (pipeline/refdata/grid_totals.json). O build_mapa.py
-NUNCA recalcula isto — só conta capturados contra estes totais estáticos.
+NUNCA recalcula isto, só conta capturados contra estes totais estáticos.
 
 Paralelizado com multiprocessing (2026-08-15): a primeira versão, sequencial,
 media ~1h só para PT+Espanha (52 províncias, ~5,5x a área de PT) num único
-núcleo, com a máquina a ter 16 disponíveis — reescrito para distribuir por
+núcleo, com a máquina a ter 16 disponíveis, reescrito para distribuir por
 vários processos. Candidatos de PT e de todos os países estrangeiros são
 unificados num varrimento só por zoom, para uma célula nunca ser
 classificada duas vezes (a versão anterior tinha um ciclo por país, cada um
-com o seu candidate-set — sobreposição perto de fronteiras classificava a
+com o seu candidate-set, sobreposição perto de fronteiras classificava a
 mesma célula 2x).
 
 Uso: py compute_grid_totals.py
@@ -34,14 +34,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REFDATA_DIR = os.path.join(HERE, "refdata")
 ZOOMS = [14, 17]
 
-# deixa 2 núcleos de fora de propósito — a máquina continua utilizável
+# deixa 2 núcleos de fora de propósito, a máquina continua utilizável
 # durante o cálculo, não trava tudo o resto
 N_WORKERS = max(1, (os.cpu_count() or 4) - 2)
 
 
 def candidate_cells_for_geom(geom, zoom):
     """Todas as (x, y) cuja bbox de tile intersecta a bbox do polígono, com
-    margem de 1 tile — sobre-inclui (será filtrado por classify() a seguir),
+    margem de 1 tile, sobre-inclui (será filtrado por classify() a seguir),
     mas nunca omite uma célula real."""
     minlon, minlat, maxlon, maxlat = geom.bounds
     x0, y1 = lonlat_to_tile(minlon, minlat, zoom)
@@ -59,14 +59,14 @@ def _build_classifier():
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
         foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
         # sem isto self.foreign fica None e o fallback de proximidade
-        # (classify.py) deixa de competir com o estrangeiro — PT ganha todos
+        # (classify.py) deixa de competir com o estrangeiro, PT ganha todos
         # os empates da fronteira/costa por omissão (bug encontrado 2026-08-06).
         foreign_muni_dir=os.path.join(REFDATA_DIR, "foreign_muni"),
     )
 
 
 # processo-worker: cada um constrói a sua própria Classifier UMA vez (não por
-# célula) — global de propósito, é o padrão exigido pelo multiprocessing com
+# célula), global de propósito, é o padrão exigido pelo multiprocessing com
 # spawn (Windows não usa fork; cada worker reimporta o módulo do zero, por
 # isso _init_worker tem de ser uma função de topo, não uma closure).
 _classifier_worker = None
@@ -79,7 +79,7 @@ def _init_worker():
 
 def _classify_chunk(args):
     """Classifica um bloco de células candidatas, devolve contagens já
-    agregadas (não a lista de resultados crus — para milhões de células,
+    agregadas (não a lista de resultados crus, para milhões de células,
     devolver um dict por bloco é muito mais leve do que devolver tudo)."""
     zoom, cells = args
     by_concelho, by_distrito = {}, {}
@@ -127,13 +127,13 @@ def main():
     classifier = _build_classifier()  # só para montar os candidatos e para a validação no fim
 
     paises_estrangeiros = sorted({country for country, _region in classifier.foreign.names})
-    # países com fonte de município (refdata/foreign_muni/*.geojson) — hoje
+    # países com fonte de município (refdata/foreign_muni/*.geojson), hoje
     # só ES. SEMPRE um subconjunto de paises_estrangeiros: sem entrada ao
     # nível região (refdata/foreign/), classify.py nunca atribui esse país
     # a square nenhum, e o município nunca seria usado por muito que exista
     # o ficheiro (ex: refdata/foreign_muni/DE.geojson está lá, arrumado
     # para o futuro, mas a Alemanha não tem refdata/foreign/DE.geojson
-    # ainda — filtrado aqui de propósito, para não varrer os municípios
+    # ainda, filtrado aqui de propósito, para não varrer os municípios
     # dela à toa).
     paises_com_municipio = sorted({
         country for country, _region in classifier.foreign_muni.names
@@ -165,7 +165,7 @@ def main():
 
         # candidatos UNIFICADOS: concelhos de PT + todas as regiões
         # estrangeiras + todos os municípios estrangeiros, num só
-        # varrimento — uma célula é classificada no máximo 1 vez, mesmo
+        # varrimento, uma célula é classificada no máximo 1 vez, mesmo
         # perto de fronteiras onde os candidate-sets se sobrepõem.
         candidates = set()
         for geom in classifier.concelhos.geoms:
@@ -200,7 +200,7 @@ def main():
                 decorrido = time.time() - t_inicio
                 por_bloco = decorrido / done
                 restam = (len(tasks) - done) * por_bloco
-                print(f"  blocos: {done}/{len(tasks)} — {decorrido:.0f}s decorridos, "
+                print(f"  blocos: {done}/{len(tasks)}, {decorrido:.0f}s decorridos, "
                       f"~{restam:.0f}s a faltar", file=sys.stderr)
 
         result["country_pt"][f"z{zoom}"] = acc["total_pt"]
@@ -228,26 +228,26 @@ def main():
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"escrito: {out_path}")
 
-    # validação obrigatória — Rio Maior tem de bater certo com os números já confirmados.
-    # ESTES NÚMEROS DEPENDEM DO CRITÉRIO DE CLASSIFICAÇÃO (classify.py) — mudar a regra
+    # validação obrigatória, Rio Maior tem de bater certo com os números já confirmados.
+    # ESTES NÚMEROS DEPENDEM DO CRITÉRIO DE CLASSIFICAÇÃO (classify.py), mudar a regra
     # muda os totais, não é sinal de bug por si só. Histórico:
-    #   78 / 4882  — critério antigo (centro do tile, point-in-polygon + buffer costeiro
+    #   78 / 4882 , critério antigo (centro do tile, point-in-polygon + buffer costeiro
     #                só do lado de PT); "4881" antes disso vinha de fronteira OSM/Overpass
     #                ad-hoc, fonte diferente da que classifica os squares capturados
     #                (discussão 2026-07-19).
-    #   78 / 4873  — 2026-08-06: mudança para maior-área-de-intersecção sem limiar; z14
+    #   78 / 4873 , 2026-08-06: mudança para maior-área-de-intersecção sem limiar; z14
     #                não mexeu (Rio Maior não é costeiro/fronteiriço, o critério novo só
-    #                difere do antigo perto de água/raia); z17 perdeu 9 squares — os do
+    #                difere do antigo perto de água/raia); z17 perdeu 9 squares, os do
     #                Portela do Home (Terras de Bouro) que a régua antiga levava a PT por
     #                estarem a <5,5km sem competir com Espanha, e que agora perdem esse
     #                desempate correctamente para Ourense.
-    #   78 / 4873  — 2026-08-06 (mesmo dia): recalculado depois de corrigir compute_grid_totals.py
+    #   78 / 4873 , 2026-08-06 (mesmo dia): recalculado depois de corrigir compute_grid_totals.py
     #                para passar foreign_dir ao Classifier (antes disso o fallback de
-    #                proximidade não competia com Espanha em lado nenhum do país — só
+    #                proximidade não competia com Espanha em lado nenhum do país, só
     #                afectava z14/country_pt/outros concelhos costeiros, não a Rio Maior,
     #                por isso o valor aqui não mudou nesta correcção).
-    #   78 / 4873  — 2026-08-15: reescrito para multiprocessing + candidatos unificados
-    #                PT+estrangeiro — mesmo critério de classify.py, valor não muda.
+    #   78 / 4873 , 2026-08-15: reescrito para multiprocessing + candidatos unificados
+    #                PT+estrangeiro, mesmo critério de classify.py, valor não muda.
     rm = result["by_concelho"].get("Rio Maior", {})
     print(f"Rio Maior: z14={rm.get('z14')} (esperado 78), z17={rm.get('z17')} (esperado 4873)")
     assert rm.get("z14") == 78, f"Rio Maior z14 devia ser 78, é {rm.get('z14')}"
@@ -278,7 +278,7 @@ def main():
         faltam = nomes_municipio - set(result[chave].keys())
         # aviso, não assert: municípios minúsculos podem legitimamente perder
         # TODAS as células z14 (1609m) para um vizinho maior que partilha a
-        # mesma célula — a regra é "maior área de intersecção", sem limiar.
+        # mesma célula, a regra é "maior área de intersecção", sem limiar.
         # Não acontece com as 52 províncias (grandes de mais para isto), mas
         # com 8132 municípios é esperado haver alguns. z17 (201m) não devia
         # ter este problema, é fino a mais para isso ser comum.

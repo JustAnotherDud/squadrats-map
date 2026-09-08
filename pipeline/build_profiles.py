@@ -1,12 +1,12 @@
-"""Perfil por atleta — data/atletas/<slug>.json, um ficheiro por atleta, com
+"""Perfil por atleta, data/atletas/<slug>.json, um ficheiro por atleta, com
 tudo o que a página /atletas/<slug>.html mostra num só sítio.
 
 Passo 5 do run_all.py: corre depois de squadrats.json, club.json,
 club_regioes.json, daily_gains.json e stats.json já estarem escritos na mesma
-corrida. NÃO varre o Squadrats — só junta e pivota o que os passos anteriores
+corrida. NÃO varre o Squadrats, só junta e pivota o que os passos anteriores
 produziram. Zero pedidos de rede.
 
-O que entra em cada perfil (só dados que já existem hoje — ver
+O que entra em cada perfil (só dados que já existem hoje, ver
 squadrats-multi-membro): as 8 contagens (squadrats.json), a fatia de ganhos
 diários do atleta (daily_gains.json), a sobreposição de squadratinhos
 (club.json), o detalhe geográfico de squadratinhos com % (club_regioes.json +
@@ -73,7 +73,7 @@ def _pct(captured, total):
 
 
 def _geo_atleta(geo_nome, stats):
-    """{pais: [...], regiao: [...], zona: [...]} — cada linha
+    """{pais: [...], regiao: [...], zona: [...]}, cada linha
     {cc, nome, captured, total, pct}, ordenada por captured desc."""
     if not geo_nome:
         return {"pais": [], "regiao": [], "zona": []}
@@ -107,7 +107,7 @@ def _geo_atleta(geo_nome, stats):
 
 
 def _pivot_ranking(regioes_atletas):
-    """{nivel: {chave: [(nome, captured), ...] ordenado desc}} — o mesmo pivot
+    """{nivel: {chave: [(nome, captured), ...] ordenado desc}}, o mesmo pivot
     (por região -> por atleta) que o club.html faz em pivotRegioes()."""
     saida = {n: {} for n in NIVEIS}
     for nome, geo in regioes_atletas.items():
@@ -173,7 +173,7 @@ def main(out_dir):
     gains_reg = _carregar_opcional(out_dir, "gains_regioes.json") or {"dias": []}
     stats = _carregar_opcional(out_dir, "stats.json")
 
-    # {data: {nome: {"concelho": {...}, "distrito": {...}}}} — drill-down da
+    # {data: {nome: {"concelho": {...}, "distrito": {...}}}}, drill-down da
     # coluna Squadratinhos na tabela de ganhos diários (só z17)
     gr_por_dia = {d["data"]: d.get("atletas", {}) for d in gains_reg.get("dias", [])}
 
@@ -191,7 +191,7 @@ def main(out_dir):
         slug = slugs[nome]
         totais = {c: (squadrats.get("atletas", {}).get(nome, {}).get(c, 0)) for c in CAMPOS}
 
-        # só os CAMPOS actuais — dias antigos podem trazer métricas já removidas
+        # só os CAMPOS actuais, dias antigos podem trazer métricas já removidas
         # (ex. backyardinhos, tirado em 2026-09-04); um dia que só tivesse
         # dessas deixa de contar como ganho.
         dias_atleta = []

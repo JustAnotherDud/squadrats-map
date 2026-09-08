@@ -74,6 +74,6 @@ def verificar(nome, esperado_yard, esperado_uber):
 if __name__ == "__main__":
     ok1 = verificar("squadrats", 90, 6)
     ok2 = verificar("squadratinhos", 480, 13)
-    print("\n" + ("REGRAS REPRODUZIDAS — dá para calcular sugestões."
+    print("\n" + ("REGRAS REPRODUZIDAS, dá para calcular sugestões."
                   if ok1 and ok2 else
-                  "DIVERGE — não sabemos as regras, não vale a pena sugerir nada."))
+                  "DIVERGE, não sabemos as regras, não vale a pena sugerir nada."))

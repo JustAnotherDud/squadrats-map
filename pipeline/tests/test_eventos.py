@@ -1,4 +1,4 @@
-"""Testes do eventos.detectar — sobretudo a guarda de estreia de atleta.
+"""Testes do eventos.detectar, sobretudo a guarda de estreia de atleta.
 
 O append (run_all.py) nunca exercita essa guarda hoje: os 5 atletas já estão
 todos no roster. Só o backfill a exercitou (quando o Pedro entrou a 1 ago
@@ -53,7 +53,7 @@ def test_estreante_nao_e_passado_por_estabelecido():
 
 
 def test_marco_de_estabelecido_sobrevive_a_estreia_de_outro():
-    """A guarda só apanha o estreante — o marco genuíno de outro atleta fica."""
+    """A guarda só apanha o estreante, o marco genuíno de outro atleta fica."""
     ant = _snap({"Zé": {"concelho": {"Rio Maior": 40}, "distrito": {"Santarém": 40}}})
     novo = _snap({
         "Zé":    {"concelho": {"Rio Maior": 55}, "distrito": {"Santarém": 55}},
@@ -103,8 +103,8 @@ def test_ordem_igual_nao_gera_ultrapassagem():
 
 def test_primeira_presenca_suprimida_quando_ha_movimento_forte():
     """Quem chega a uma região nova E passa alguém no mesmo dia não sai com
-    duas frases — fica só a ultrapassagem/novo_lider. (Zé já está no roster,
-    com actividade noutra região — não é estreante.)"""
+    duas frases, fica só a ultrapassagem/novo_lider. (Zé já está no roster,
+    com actividade noutra região, não é estreante.)"""
     ant = _snap({
         "Xeira": {"concelho": {"Espinho": 30}},
         "Zé":    {"concelho": {"Porto": 5}},
@@ -122,7 +122,7 @@ def test_primeira_presenca_suprimida_quando_ha_movimento_forte():
 # --- marcos: só o patamar mais alto por dia/região/atleta -----------------
 
 def test_um_sync_cruza_dois_patamares_gera_so_o_mais_alto():
-    """20 -> 55 cruza 25 e 50 no mesmo sync — só sai o 50 (implica o 25)."""
+    """20 -> 55 cruza 25 e 50 no mesmo sync, só sai o 50 (implica o 25)."""
     ant = _snap({"Zé": {"concelho": {"Rio Maior": 20}}})
     novo = _snap({"Zé": {"concelho": {"Rio Maior": 55}}})
     evs = eventos.detectar(ant, novo, "2026-08-04")
@@ -132,7 +132,7 @@ def test_um_sync_cruza_dois_patamares_gera_so_o_mais_alto():
 
 
 def test_colapsar_marcos_entre_runs_do_mesmo_dia():
-    """Runs sucessivos acrescentaram marco 25 e depois marco 50 em separado —
+    """Runs sucessivos acrescentaram marco 25 e depois marco 50 em separado,
     colapsar_marcos fica só com o 50, sem tocar nos outros tipos."""
     evs = [
         {"data": "2026-08-04", "nivel": "concelho", "regiao": "Rio Maior",

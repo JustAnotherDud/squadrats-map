@@ -1,14 +1,14 @@
 """Classificação por concelho/distrito/região dos squares de todos os
-atletas do clube — data/club_regioes.json, consumido por club.html para a
+atletas do clube, data/club_regioes.json, consumido por club.html para a
 vista de detalhe geográfico por atleta (2026-08-15).
 
 Reaproveita data/club.json (já produzido por fetch_club_squares.py na mesma
 corrida de run_all.py, sempre corrido antes deste passo) em vez de voltar a
-varrer o Squadrats — os squares (x,y) de cada atleta já lá estão, filtrados
+varrer o Squadrats, os squares (x,y) de cada atleta já lá estão, filtrados
 pelo bitmask. Só faltava classificar cada um por concelho/país, que é o que
 este script faz. Zero pedidos de rede extra.
 
-Só "captured" por região — os totais (denominador) são os mesmos para toda a
+Só "captured" por região, os totais (denominador) são os mesmos para toda a
 gente, já publicados em stats.json (via grid_totals.json, ver build_mapa.py):
 o frontend combina os dois em vez de duplicar os totais aqui.
 
