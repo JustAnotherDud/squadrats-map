@@ -1,92 +1,86 @@
-/* Página de região (regioes/<key>.html). Estilo herdado do historico.html. */
-:root {
-  --fundo: #0f1115; --cartao: #151821; --cartao-alto: #1b1f2b;
-  --borda: #262b38; --linha: #1e2230;
-  --texto: #e7e9ee; --suave: #7d8598; --fraco: #6b7285;
-  --azul: #3d7bf5; --azul-claro: #7ab8ff;
-  --ouro: #d9a441; --prata: #b7bec9; --bronze: #c1824a;
+/* Página de região (regioes/<key>.html) e de país (pais-*.html).
+   Tokens, grelha, fontes e primitivas vêm do site.css. Aqui só o que é
+   próprio destas páginas. */
+
+a:hover { text-decoration-color: var(--tinta); }
+
+#regiao, #pais {
+  max-width: 820px; margin: 0 auto; padding: 22px 18px 72px;
+  overflow-x: clip;
 }
-* { box-sizing: border-box; }
-html, body { margin: 0; background: var(--fundo); color: var(--texto);
-  font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }
-a { color: var(--azul-claro); text-decoration: none; }
-a:hover { text-decoration: underline; }
+.reg-estado { color: var(--tinta-2); padding: 48px 0; text-align: center; }
+.reg-erro { color: #e88a6a; }
 
-#regiao, #pais { max-width: 760px; margin: 0 auto; padding: 16px 16px 60px; overflow-x: clip; }
-.reg-estado { color: var(--suave); padding: 40px 0; text-align: center; }
-.reg-erro { color: #e08a6a; }
+/* cabeçalho */
+.reg-cab h1 { margin: 0; }
+.reg-cab .sub {
+  margin: 5px 0 0; font-family: var(--f-mono); font-size: 12px;
+  color: var(--tinta-3); letter-spacing: .02em;
+}
 
-.reg-cab h1 { font-size: 20px; margin: 0; }
-.reg-cab .sub { margin: 2px 0 0; font-size: 12.5px; color: var(--suave); }
-.reg-meta { font-size: 11px; color: var(--fraco); margin: 4px 0 18px; }
+/* secções: .sec vem do site.css */
 
-.reg-sec { margin: 24px 0 0; }
-.reg-sec > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--suave); margin: 0 0 8px; font-weight: 700; }
-
-/* ranking */
-.reg-rank { width: 100%; border-collapse: collapse; font-size: 13px; }
-.reg-rank th { padding: 0 4px 5px; text-align: right; font-size: 10px;
-  text-transform: uppercase; letter-spacing: .04em; color: var(--fraco); font-weight: 600; }
+/* ranking + tabelas de sub-regiões */
+.reg-rank { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.reg-rank th {
+  padding: 0 5px 6px; text-align: right; font-size: 10.5px;
+  color: var(--tinta-3); font-weight: 400;
+}
 .reg-rank th.h-nome { text-align: left; }
-.reg-rank td { padding: 6px 4px; border-bottom: 1px solid var(--linha); }
-.reg-rank td.num { text-align: right; white-space: nowrap; font-weight: 600;
-  font-variant-numeric: tabular-nums; }
-.reg-rank td.uni { text-align: right; white-space: nowrap; color: var(--suave);
-  font-variant-numeric: tabular-nums; }
-.reg-rank td.pct { text-align: right; white-space: nowrap; color: var(--fraco);
-  font-variant-numeric: tabular-nums; width: 46px; }
-.reg-rank .pos { color: var(--fraco); width: 22px; }
-.reg-rank .pos.p1 { color: var(--ouro); font-weight: 700; }
-.reg-rank .nome { display: flex; align-items: center; }
-.reg-rank .nome a { color: var(--texto); font-weight: 700; text-decoration: none; }
-.reg-rank .nome a:hover { text-decoration: underline; }
-/* quadrado de cor do atleta, mesmo espaço até ao nome em todo o lado (feed,
-   ranking), igual ao historico.html. Sem isto, no feed "Eventos nesta região"
-   o quadrado ficava colado ao nome (o feed é HTML inline, não um flex com gap). */
-.dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block;
-  background: var(--suave); margin-right: 6px; vertical-align: middle; flex: 0 0 auto; }
+.reg-rank td { padding: 6px 5px; border-bottom: 1px solid var(--hair); }
+.reg-rank td.tira-td { width: 150px; padding-right: 14px; line-height: 0; }
+.reg-rank tr:last-child td { border-bottom: 0; }
+.reg-rank td.num { text-align: right; white-space: nowrap; color: var(--tinta); }
+.reg-rank td.uni { text-align: right; white-space: nowrap; color: var(--tinta-2); }
+.reg-rank td.uni .tile { margin-right: 5px; }
+.reg-rank td.pct { text-align: right; white-space: nowrap; color: var(--tinta-3); width: 52px; }
+.reg-rank .pos { color: var(--tinta-3); width: 26px; font-family: var(--f-mono); font-size: 12px; }
+.reg-rank .nome { display: flex; align-items: center; gap: 8px; }
+.reg-rank .nome a { color: var(--tinta); text-decoration: none; font-weight: 500; }
+.reg-rank .nome a:hover { text-decoration: underline; text-decoration-color: var(--marca); }
+.reg-rank .tira { color: var(--tinta-2); }         /* fallback; style inline manda */
 
-.reg-totais { font-size: 12.5px; color: var(--suave); }
-.reg-totais b { color: var(--texto); font-variant-numeric: tabular-nums; }
+/* linha de cobertura da região */
+.reg-cobre { margin: 14px 0 0; font-size: 12.5px; color: var(--tinta-2); }
+.reg-cobre b { color: var(--tinta); font-weight: 500; font-family: var(--f-mono); }
 
-/* tabela de sub-regiões (concelhos de um distrito, províncias de um país) */
-.reg-rank .sr-nome { color: var(--texto); }
+/* sub-regiões expansíveis (país) */
+.reg-rank .sr-nome { color: var(--tinta); }
 .reg-rank.sr-exp .sr-row.exp { cursor: pointer; }
-.reg-rank.sr-exp .sr-row.exp:hover td { background: var(--cartao-alto); }
-.sr-tri { display: inline-block; width: 12px; color: var(--fraco); font-size: 10px;
+.reg-rank.sr-exp .sr-row.exp:hover td { background: var(--ch-1); }
+.sr-tri { display: inline-block; width: 12px; color: var(--tinta-3); font-size: 9px;
   transition: transform .12s; }
 .sr-row.aberto .sr-tri { transform: rotate(90deg); }
-.sr-det > td { padding: 4px 4px 12px 18px; border-bottom: 1px solid var(--linha);
-  background: var(--cartao); }
+.sr-det > td { padding: 6px 5px 14px 20px; border-bottom: 1px solid var(--hair);
+  background: var(--ch-1); }
 .sr-det .reg-rank { margin: 0; }
-.sr-det .reg-viz-nota { margin: 8px 0 0; }
 
-/* eventos (mesmo look do historico) */
-.reg-ev { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0 7px 9px;
-  border-bottom: 1px solid var(--linha); border-left: 2px solid var(--borda); font-size: 13px; }
-.reg-ev .tag { flex: 0 0 66px; text-align: center; align-self: center;
-  font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--fraco);
-  border: 1px solid var(--borda); border-radius: 4px; padding: 1px 4px; }
-.reg-ev .tag.distrito { color: var(--azul-claro); border-color: #2f4a6b; }
-.reg-ev .ico { flex: 0 0 18px; text-align: center; align-self: center; font-size: 13px; }
-.reg-ev .corpo { flex: 1 1 auto; min-width: 0; }
-.reg-ev .corpo .atl { color: #fff; font-weight: 700; text-decoration: none; }
-.reg-ev .corpo .atl:hover { text-decoration: underline; }
-.reg-ev .num { color: var(--fraco); font-size: 11.5px; white-space: nowrap; margin-left: 3px;
-  font-variant-numeric: tabular-nums; }
-.reg-vazio { color: var(--fraco); font-size: 12.5px; padding: 6px 0; }
+/* feed de eventos */
+.reg-ev {
+  display: grid; grid-template-columns: 56px 20px 1fr; gap: 0 10px;
+  align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--hair);
+}
+.reg-ev:last-child { border-bottom: 0; }
+.reg-ev .dia { font-family: var(--f-mono); font-size: 11px; color: var(--tinta-3); white-space: nowrap; }
+.reg-ev .ico { font-size: 13px; align-self: center; }
+.reg-ev .corpo { font-size: 13px; line-height: 1.5; }
+.reg-ev .corpo .tile { margin: 0 5px 0 3px; }
+.reg-ev .corpo .atl { color: var(--tinta); font-weight: 500; text-decoration: none; }
+.reg-ev .corpo .atl:hover { text-decoration: underline; text-decoration-color: var(--marca); }
+.reg-ev .corpo .num { color: var(--tinta-2); white-space: nowrap; margin-left: 3px; }
+.reg-vazio { color: var(--tinta-3); font-size: 12px; padding: 8px 0; }
 
-/* vizinhos */
-.reg-viz { display: flex; flex-wrap: wrap; gap: 6px; }
-.reg-viz a, .reg-viz span { font-size: 12px; border: 1px solid var(--borda); border-radius: 999px;
-  padding: 3px 10px; }
-.reg-viz a { color: var(--azul-claro); text-decoration: none; }
-.reg-viz a:hover { border-color: var(--azul); }
-.reg-viz span { color: var(--fraco); }
-.reg-viz a.viz-disp { color: var(--ouro); border-color: #6b5220; }
-.reg-viz a.viz-disp:hover { border-color: var(--ouro); }
-.reg-viz-nota { font-size: 10.5px; color: var(--fraco); margin: 7px 0 0; }
+/* vizinhos: links separados por espaço, sem chips */
+.reg-viz { font-size: 12.5px; line-height: 2; color: var(--tinta-3); }
+.reg-viz a { color: var(--tinta); text-decoration: underline;
+  text-decoration-color: var(--marca); text-underline-offset: 3px; margin-right: 4px; }
+.reg-viz a:hover { text-decoration-color: var(--tinta); }
+.reg-viz a.viz-disp { text-decoration-color: var(--ouro); }
+.reg-viz span { color: var(--tinta-3); margin-right: 4px; }
+.reg-viz-nota { font-size: 11.5px; color: var(--tinta-3); margin: 10px 0 0; max-width: 62ch; }
 
-.reg-rodape { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--linha);
-  font-size: 11px; color: var(--fraco); line-height: 1.6; }
+.reg-rodape {
+  margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--rule);
+  font-size: 11.5px; color: var(--tinta-3); line-height: 1.75; max-width: 66ch;
+}
+.reg-rodape .voltar { display: inline-block; margin-bottom: 6px; color: var(--tinta-2); }

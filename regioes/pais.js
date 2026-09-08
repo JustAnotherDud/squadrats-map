@@ -67,23 +67,28 @@
   function detalheProvincia(x, cr, cc, adjReg, comAtividade) {
     const ccl = cc.toLowerCase();
     const excR = ((((cr.uniao || {}).exclusivos || {}).by_region || {})[ccl] || {})[x.nome] || {};
+    const lider = x.pares.length ? x.pares[0][1] : 0;
     const linhas = x.pares.map(([n, cap], i) => `<tr>
-      <td class="pos${i === 0 ? ' p1' : ''}">${i + 1}º</td>
+      <td class="pos">${i + 1}</td>
       <td><span class="nome">${dot(n)}${atl(n)}</span></td>
+      <td class="tira-td">${tira(cor(n), lider ? cap / lider : 0)}</td>
       <td class="num">${nfmt(cap)}</td>
-      <td class="uni">${excR[n] ? nfmt(excR[n]) : '·'}</td>
+      <td class="uni">${excR[n] ? nfmt(excR[n]) : ''}</td>
       <td class="pct">${pctfmt(x.tot ? 100 * cap / x.tot : null, PCT_PAIS)}</td>
     </tr>`).join('');
     const vz = ((adjReg[x.nome] || {}).neighbors || []);
     const vizTxt = vz.map(v => comAtividade.has(v) ? `<b>${esc(v)}</b>` : esc(v)).join(', ');
     return `<table class="reg-rank"><thead><tr><th></th><th class="h-nome">atleta</th>
-      <th>total</th><th>únicos</th><th>%</th></tr></thead><tbody>${linhas}</tbody></table>
-      ${vizTxt ? `<p class="reg-viz-nota">Faz fronteira com: ${vizTxt}.</p>` : ''}`;
+      <th class="h-nome">quota</th><th>total</th><th>únicos</th><th>%</th></tr></thead>
+      <tbody>${linhas}</tbody></table>
+      ${vizTxt ? `<p class="reg-viz-nota">Faz fronteira com ${vizTxt}. A cheio, os que também têm actividade do clube.</p>` : ''}`;
   }
 
   function pintar(cr, stats, adj) {
     const nome = PAIS_NOME[CC] || CC;
     document.title = `${nome} · Squadrats Club`;
+    let ns = 0;
+    const sec = t => `<div class="sec"><span class="n">${String(++ns).padStart(2, '0')}</span><span class="t">${t}</span></div>`;
 
     const tot = stats[statKeyPais(CC)] || {};
     const z17 = (tot.z17 || {}).total || null;
@@ -91,32 +96,31 @@
 
     const { pares, exc, uniPais } = rankingPais(cr, CC);
     const temExc = ((cr.uniao || {}).exclusivos || {}).by_pais != null;
+    const lider = pares.length ? pares[0][1] : 0;
     const rankRows = pares.map(([n, cap], i) => {
       const pct = z17 ? (100 * cap / z17) : null;
       return `<tr>
-        <td class="pos${i === 0 ? ' p1' : ''}">${i + 1}º</td>
+        <td class="pos">${i + 1}</td>
         <td><span class="nome">${dot(n)}${atl(n)}</span></td>
+        <td class="tira-td">${tira(cor(n), lider ? cap / lider : 0)}</td>
         <td class="num">${nfmt(cap)}</td>
-        ${temExc ? `<td class="uni">${exc[n] ? nfmt(exc[n]) : '·'}</td>` : ''}
+        ${temExc ? `<td class="uni">${exc[n] ? nfmt(exc[n]) : ''}</td>` : ''}
         <td class="pct">${pctfmt(pct, PCT_PAIS)}</td>
       </tr>`;
     }).join('');
     const rankHead = `<thead><tr>
-      <th></th><th class="h-nome">atleta</th>
+      <th></th><th class="h-nome">atleta</th><th class="h-nome">quota</th>
       <th title="squadratinhos do atleta no país, partilhados incluídos">total</th>
       ${temExc ? '<th title="squadratinhos que mais nenhum membro do clube tem">únicos</th>' : ''}
       <th>%</th></tr></thead>`;
 
-    const uniLinha = uniPais
-      ? ` O clube cobre <b>${nfmt(uniPais)}</b>${z17 ? ` (${(100 * uniPais / z17).toFixed(2)}%)` : ''}.`
-      : '';
+    const cobre = `<p class="reg-cobre">País com <b>${z17 != null ? nfmt(z17) : '?'}</b> squadratinhos`
+      + (uniPais ? `, o clube cobre <b>${nfmt(uniPais)}</b>${z17 ? ` (${(100 * uniPais / z17).toFixed(2)}%)` : ''}` : '')
+      + '.</p>';
 
     let extra = '';
     if (CC === 'PT') {
-      extra = `<section class="reg-sec">
-        <p class="reg-tl-so">Detalhe por distrito e concelho no
-          <a href="index.html">índice de regiões</a>.</p>
-      </section>`;
+      extra = `<p class="reg-cobre">Detalhe por distrito e concelho no <a href="index.html">índice de regiões</a>.</p>`;
     } else {
       const linhas = subRegioesPais(cr, stats, CC);
       const adjReg = (adj || {})[adjKeyRegioes[CC]] || {};
@@ -127,35 +131,32 @@
             detalheHtml: x => detalheProvincia(x, cr, CC, adjReg, comAtividade),
           })
         : '<p class="reg-vazio">Sem regiões com actividade.</p>';
-      extra = `<section class="reg-sec"><h2>Por região</h2>
-        ${tab}
-        <p class="reg-viz-nota">Sem página própria: carrega numa linha para o
-          ranking e os vizinhos. "+N" = outros membros também presentes;
-          a <b>cheio</b>, vizinhos onde o clube também tem actividade.</p>
-      </section>`;
+      extra = sec('Por região') + tab
+        + `<p class="reg-viz-nota">Regiões estrangeiras não têm página própria.
+           Carrega numa linha para o ranking por atleta e os vizinhos dessa
+           província.</p>`;
     }
 
     alvo.innerHTML = `
       <div class="reg-cab">
         <h1>${esc(nome)}</h1>
         <p class="sub">país</p>
+        <dl class="meta"><dt>actualizado</dt><dd>${esc(q)}</dd></dl>
       </div>
-      <p class="reg-meta">Actualizado ${esc(q)}</p>
 
-      <section class="reg-sec"><h2>Ranking do clube</h2>
-        ${pares.length
-          ? `<table class="reg-rank">${rankHead}<tbody>${rankRows}</tbody></table>`
-          : '<p class="reg-vazio">Nenhum membro do clube tem squadratinhos aqui.</p>'}
-        <p class="reg-totais" style="margin-top:8px">País com
-          <b>${z17 != null ? nfmt(z17) : '?'}</b> squadratinhos.${uniLinha}</p>
-      </section>
+      ${sec('Ranking do clube')}
+      ${pares.length
+        ? `<table class="reg-rank">${rankHead}<tbody>${rankRows}</tbody></table>`
+        : '<p class="reg-vazio">Nenhum membro do clube tem squadratinhos aqui.</p>'}
+      ${cobre}
 
       ${extra}
 
-      <p class="reg-rodape"><a href="index.html">← todas as regiões</a> ·
-        ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m); <b>únicos</b> =
-        sem mais nenhum membro do clube. Dados actualizados 6×/dia pelo mesmo
-        processo que gera o <a href="../club.html">mapa do clube</a>.</p>`;
+      <p class="reg-rodape">
+        <a class="voltar" href="index.html">todas as regiões</a><br>
+        ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m). <b>únicos</b> =
+        sem mais nenhum membro do clube. Dados 6×/dia, mesmo processo que o
+        <a href="../club.html">mapa do clube</a>.</p>`;
 
     ligarExpansao(alvo.querySelector('.sr-exp'));
   }

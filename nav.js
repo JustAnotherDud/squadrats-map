@@ -41,28 +41,34 @@
     { id: 'historico', label: 'Histórico', href: P + 'historico.html' },
   ];
 
+  // Estilo: a barra segue o site.css (tokens, fontes). Nada de pill azul; o
+  // item activo leva uma aresta 2px em --marca (canto de tile).
   var CSS = [
     '#site-nav{position:sticky;top:0;z-index:3000;display:flex;align-items:center;',
-    'gap:14px;padding:0 14px;height:38px;background:#12141a;',
-    'border-bottom:1px solid #262b38;box-sizing:border-box;',
-    'font:13px/1 -apple-system,"Segoe UI",Roboto,sans-serif}',
+    'gap:14px;padding:0 16px;height:46px;background:var(--ch-0,#14131b);',
+    'border-bottom:1px solid var(--rule,#37334a);box-sizing:border-box;',
+    'font-family:var(--f-txt,system-ui,sans-serif);font-size:13px}',
     '#site-nav.overlay{position:fixed;left:0;right:0}',
-    '#site-nav .marca{font-weight:700;color:#9aa2b1;text-decoration:none;letter-spacing:.02em}',
-    '#site-nav .marca:hover{color:#e7e9ee}',
-    '#site-nav .marca[aria-current]{color:#fff}',
-    '#site-nav .links{display:flex;gap:4px;margin-left:auto}',
-    '#site-nav .links a{color:#9aa2b1;text-decoration:none;padding:6px 9px;border-radius:7px}',
-    '#site-nav .links a:hover{color:#e7e9ee;background:#1b1f2b}',
-    '#site-nav .links a[aria-current]{color:#fff;background:#3d7bf5}',
-    '@media(max-width:480px){#site-nav{gap:8px;padding:0 10px}',
-    '#site-nav .links{gap:2px}#site-nav .links a{padding:6px 7px;font-size:12px}}',
+    '#site-nav .marca{display:flex;align-items:center;gap:8px;text-decoration:none;',
+    'font-family:var(--f-tit,sans-serif);font-weight:600;font-size:14px;',
+    'color:var(--tinta-2,#a29cb4);letter-spacing:-.01em}',
+    '#site-nav .marca:hover,#site-nav .marca[aria-current]{color:var(--tinta,#eceaf4)}',
+    '#site-nav .marca .lf{width:11px;height:11px;border-radius:1px;background:#ef7722;flex:0 0 auto}',
+    '#site-nav .links{display:flex;gap:2px;margin-left:auto}',
+    '#site-nav .links a{color:var(--tinta-2,#a29cb4);text-decoration:none;',
+    'padding:14px 9px 12px;border-bottom:2px solid transparent}',
+    '#site-nav .links a:hover{color:var(--tinta,#eceaf4)}',
+    '#site-nav .links a[aria-current]{color:var(--tinta,#eceaf4);border-bottom-color:var(--marca,#663399)}',
+    '@media(max-width:480px){#site-nav{gap:8px;padding:0 12px}',
+    '#site-nav .links a{padding:14px 6px 12px;font-size:12px}}',
   ].join('');
 
   var links = DEST.map(function (d) {
     return '<a href="' + d.href + '"' + (d.id === atual ? ' aria-current="page"' : '') + '>' + d.label + '</a>';
   }).join('');
   var html =
-    '<a class="marca" href="' + P + 'index.html"' + (atual === 'hub' ? ' aria-current="page"' : '') + '>Squadrats</a>' +
+    '<a class="marca" href="' + P + 'index.html"' + (atual === 'hub' ? ' aria-current="page"' : '') +
+      '><span class="lf"></span>Squadrats Club</a>' +
     '<span class="links">' + links + '</span>';
 
   function montar() {

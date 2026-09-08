@@ -26,8 +26,17 @@ const pctfmt = (p, opts) => {
   if (opts.compacto && p >= 9.5) return Math.round(p) + '%';
   return p.toFixed(opts.casas != null ? opts.casas : 1) + '%';
 };
-const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
+const dot = n => `<span class="tile" style="background:${cor(n)}"></span>`;
 const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
+
+// Tira de quota: `frac` (0..1, quota dentro do grupo) -> N células na cor do
+// atleta, comparadas em comprimento entre linhas do mesmo grupo. NÃO é
+// magnitude (o número mono carrega isso). `n` = máx de células.
+function tira(corHex, frac, n) {
+  n = n || 16;
+  const cheias = frac > 0 ? Math.max(1, Math.min(n, Math.round(frac * n))) : 0;
+  return `<span class="tira" style="color:${corHex}">${'<i></i>'.repeat(cheias)}</span>`;
+}
 
 // Carrega e funde as cores dos membros (membros_cores.json). Falha em
 // silêncio, fica com COR_FB.
@@ -56,9 +65,7 @@ function tabelaSubRegioes(linhas, opts) {
     const nomeCel = (opts.linkKey && x.key)
       ? `<a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.nome)}</a>`
       : `<span class="sr-nome">${esc(x.nome)}</span>`;
-    const lid = x.lider
-      ? `${dot(x.lider)}${esc(x.lider)}${x.n > 1 ? ` <span class="pct">+${x.n - 1}</span>` : ''}`
-      : '·';
+    const lid = x.lider ? `${dot(x.lider)}${esc(x.lider)}` : '';
     const linha = `<tr class="sr-row${exp ? ' exp' : ''}"${exp ? ` data-i="${i}"` : ''}>
       <td>${exp ? '<span class="sr-tri">▸</span>' : ''}${nomeCel}</td>
       <td class="num">${nfmt(x.uniao)}</td>

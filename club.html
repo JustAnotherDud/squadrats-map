@@ -6,7 +6,7 @@
 <link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#12141a">
+<meta name="theme-color" content="#14131b">
 <title>Mapa do clube · Squadrats Club</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
@@ -14,40 +14,43 @@
 <!-- shared.js: vocabulário comum ao mapa.html e às páginas de atleta (países,
      XYZ), síncrono de propósito, o script inline abaixo usa-o logo -->
 <script src="shared.js"></script>
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/bricolage-grotesque.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/ibm-plex-sans-400.woff2">
+<link rel="stylesheet" href="site.css">
 <style>
-  html, body { margin:0; padding:0; height:100%; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#0f1115; color:#e7e9ee; overflow:hidden; }
-  /* a barra de navegação (nav.js, position:fixed) ocupa 38px no topo */
-  #map { position:absolute; inset:38px 0 0 0; }
+  html, body { height:100%; overflow:hidden; }
+  /* a barra de navegação (nav.js, position:fixed) ocupa 46px no topo */
+  #map { position:absolute; inset:46px 0 0 0; }
   /* O basemap Esri "Dark Gray" tem pouco contraste, escurecer + puxar o
      contraste só das tiles raster (o `img`; a camada de squares é um
      <canvas>, não é afectada) para os squares saltarem. (2026-09-04) */
   img.leaflet-tile { filter: brightness(.82) contrast(1.22) saturate(.9); }
 
-  #topbar { position:absolute; top:38px; left:0; right:0; z-index:1000; padding:8px 10px; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
-  #topbar h1 { font-size:14px; margin:0; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,.8); }
-  .seg { display:flex; gap:4px; pointer-events:auto; flex-wrap:wrap; }
-  .seg button { background:rgba(21,24,33,.92); color:#e7e9ee; border:1px solid #2c3242; border-radius:7px; padding:6px 9px; font-size:11.5px; cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:5px; }
-  .seg button.off { opacity:.45; }
-  .seg button.on { background:#3d7bf5; border-color:#3d7bf5; color:#fff; }
-  .dot { display:inline-block; width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  #topbar { position:absolute; top:46px; left:0; right:0; z-index:1000; padding:9px 12px; display:flex; flex-direction:column; gap:7px; pointer-events:none; }
+  #topbar h1 { font-size:15px; margin:0; font-weight:700; font-family:var(--f-tit); text-shadow:0 1px 4px rgba(0,0,0,.85); }
+  .seg { display:flex; gap:5px; pointer-events:auto; flex-wrap:wrap; }
+  .seg button { background:rgba(27,25,38,.92); color:var(--tinta-2); border:1px solid var(--rule); border-radius:3px; padding:6px 10px; font-size:11.5px; font-family:var(--f-mono); cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:6px; }
+  .seg button.off { opacity:.4; }
+  .seg button.on { color:var(--tinta); border-color:var(--marca); }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:1px; flex-shrink:0; }
 
-  #painel { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:#151821; border-top:1px solid #262b38; border-radius:14px 14px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,.4); max-height:58vh; display:flex; flex-direction:column; }
-  #painel-cabeca { padding:10px 14px; display:flex; justify-content:space-between; align-items:center; font-size:13px; cursor:pointer; user-select:none; }
-  #painel-cabeca b { color:#fff; }
-  #painel-corpo { padding:0 14px 16px; overflow-y:auto; display:none; }
+  #painel { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:var(--ch-1); border-top:1px solid var(--rule); border-radius:6px 6px 0 0; box-shadow:0 -1px 0 rgba(0,0,0,.5); max-height:58vh; display:flex; flex-direction:column; }
+  #painel-cabeca { padding:11px 15px; display:flex; justify-content:space-between; align-items:center; font-size:13px; cursor:pointer; user-select:none; }
+  #painel-cabeca b { color:var(--tinta); font-family:var(--f-mono); }
+  #painel-corpo { padding:0 15px 18px; overflow-y:auto; display:none; }
   #painel.aberto #painel-corpo { display:block; }
-  .linha-stat { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; }
-  .linha-stat b { color:#fff; white-space:nowrap; }
-  a.lnome { color:inherit; text-decoration:none; }
-  a.lnome:hover { text-decoration:underline; }
-  .esq { display:flex; align-items:center; gap:7px; overflow:hidden; }
+  .linha-stat { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--hair); font-size:12.5px; }
+  .linha-stat b { color:var(--tinta); font-family:var(--f-mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  a.lnome { color:var(--tinta); text-decoration:none; }
+  a.lnome:hover { text-decoration:underline; text-decoration-color:var(--marca); }
+  .esq { display:flex; align-items:center; gap:8px; overflow:hidden; }
   .esq span.txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .titulo-seccao { margin-top:12px; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
-  .nota { font-size:10px; color:#6b7285; padding:8px 0 0; line-height:1.45; }
+  .titulo-seccao { margin-top:16px; margin-bottom:3px; padding-bottom:5px; border-bottom:1px solid var(--rule); font-family:var(--f-tit); font-weight:600; font-size:13px; color:var(--tinta); }
+  .nota { font-size:11px; color:var(--tinta-3); padding:10px 0 0; line-height:1.55; }
   .detalhe-toggle { display:flex; justify-content:space-between; align-items:baseline; cursor:pointer; user-select:none; }
-  .detalhe-toggle .seta { color:#7ab8ff; text-transform:none; letter-spacing:0; font-size:11px; }
+  .detalhe-toggle .seta { color:var(--tinta-2); font-size:11px; font-family:var(--f-mono); }
   .detalhe-toggle:active { opacity:.7; }
-  .fraco { color:#7d8598; font-weight:400; font-size:11px; }
+  .fraco { color:var(--tinta-3); font-weight:400; font-size:11px; font-family:var(--f-mono); }
   /* Ecrãs largos (2026-08-19): o painel ocupa a largura toda e cada .linha-stat
      é um flex com space-between, num monitor de 1900px o número acabava a
      meio metro do nome a que pertence. Encolher o painel resolvia a distância
@@ -75,10 +78,10 @@
   /* levantar o zoom acima do painel colapsado */
   .leaflet-bottom.leaflet-right { bottom:52px; }
 
-  #hover { position:absolute; z-index:1001; top:auto; bottom:calc(100% + 8px); left:10px; right:10px; background:rgba(21,24,33,.96); border:1px solid #2c3242; border-radius:9px; padding:8px 11px; font-size:12px; display:none; backdrop-filter: blur(4px); pointer-events:none; }
+  #hover { position:absolute; z-index:1001; top:auto; bottom:calc(100% + 8px); left:10px; right:10px; background:rgba(27,25,38,.96); border:1px solid var(--rule); border-radius:3px; padding:9px 12px; font-size:12px; display:none; backdrop-filter: blur(4px); pointer-events:none; }
   #hover.visivel { display:block; }
-  #hover .quem { color:#fff; font-weight:600; }
-  #hover .coord { color:#6b7285; font-size:10.5px; margin-top:2px; }
+  #hover .quem { color:var(--tinta); font-weight:500; }
+  #hover .coord { color:var(--tinta-3); font-family:var(--f-mono); font-size:10.5px; margin-top:2px; }
 </style>
 </head>
 <body data-nav="overlay">

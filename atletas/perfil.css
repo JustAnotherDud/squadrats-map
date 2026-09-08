@@ -1,230 +1,175 @@
 /* Perfil de atleta (/atletas/<slug>.html) e o índice (/atletas/index.html).
-   Paleta e tom herdados do club.html, fundo escuro, cartões #151821. Página
-   normal com scroll (ao contrário do club.html, que é mapa em ecrã cheio). */
-
-:root {
-  --fundo: #0f1115;
-  --cartao: #151821;
-  --cartao-alto: #1b1f2b;
-  --borda: #262b38;
-  --linha: #1e2230;
-  --texto: #e7e9ee;
-  --suave: #7d8598;
-  --fraco: #6b7285;
-  --azul: #3d7bf5;
-  --azul-claro: #7ab8ff;
-  --ouro: #d9a441;
-  --prata: #b7bec9;
-  --bronze: #c1824a;
-}
-
-* { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
-  background: var(--fundo); color: var(--texto);
-  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px; line-height: 1.5;
-}
-a { color: var(--azul-claro); text-decoration: none; }
-a:hover { text-decoration: underline; }
+   Tokens, grelha, fontes e primitivas vêm do site.css. */
 
 #perfil, #perfil-indice {
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 18px 16px 60px;
-  /* os tooltips das contagens são position:absolute + width:max-content;
-     mesmo invisíveis inflam o scrollWidth e faziam a página ganhar ~10px de
-     scroll horizontal. clip (não hidden) corta esse excesso sem criar
-     scroll-container nem afectar o eixo Y do tooltip. */
+  max-width: 860px; margin: 0 auto; padding: 22px 18px 72px;
   overflow-x: clip;
 }
+.perfil-estado { color: var(--tinta-2); padding: 44px 0; text-align: center; }
+.perfil-erro { color: #e88a6a; }
 
-.perfil-estado { color: var(--suave); padding: 40px 0; text-align: center; }
-.perfil-erro { color: #e08a6a; }
-
-/* --- cabeçalho --- */
-.perfil-topo { margin-bottom: 6px; font-size: 12.5px; }
-.perfil-topo a { color: var(--suave); }
+/* cabeçalho */
 .perfil-cabeca {
-  display: flex; align-items: center; gap: 10px;
-  flex-wrap: wrap;
-  margin: 8px 0 2px;
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  margin: 4px 0 2px;
 }
-.perfil-cabeca h1 { font-size: 22px; margin: 0; font-weight: 700; }
-.perfil-cor {
-  display: inline-block; width: 14px; height: 14px;
-  border-radius: 3px; flex-shrink: 0; background: var(--suave);
-}
-.perfil-meta { color: var(--fraco); font-size: 11.5px; margin: 2px 0 20px; }
-.perfil-meta a { color: var(--azul-claro); }
+.perfil-cabeca .perfil-cor { width: 15px; height: 15px; border-radius: 2px; }
 
-/* --- secções --- */
-.perfil-seccao { margin: 30px 0 0; }
-.perfil-seccao > h2 {
-  font-size: 15px; font-weight: 700; letter-spacing: 0;
-  color: var(--texto); margin: 0 0 10px;
-}
+/* secções: .sec vem do site.css */
+.perfil-seccao { margin: 0; }
 
-/* --- 6 contagens, 3 por linha --- */
-.perfil-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
+/* contagens: painéis planos, número grande em Bricolage */
+.perfil-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .perfil-num {
-  background: var(--cartao); border: 1px solid var(--borda);
-  border-radius: 9px; padding: 10px 12px;
+  background: var(--ch-1); border: 1px solid var(--rule);
+  border-radius: 3px; padding: 11px 13px;
 }
-.perfil-num .v { font-size: 19px; font-weight: 700; }
+.perfil-num .v {
+  font-family: var(--f-tit); font-weight: 700; font-size: 21px;
+  font-variant-numeric: tabular-nums; color: var(--tinta);
+}
 .perfil-num .k {
-  font-size: 10.5px; color: var(--suave); margin-top: 2px;
-  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--f-mono); font-size: 10.5px; color: var(--tinta-3);
+  margin-top: 3px; display: inline-flex; align-items: center; gap: 4px;
 }
-/* tooltip real (o `title` nativo era lento e às vezes não aparecia de todo) */
-.perfil-num .k[data-tip] {
-  position: relative; cursor: help;
-  border-bottom: 1px dotted var(--fraco);
-}
+.perfil-num .k[data-tip] { position: relative; cursor: help; border-bottom: 1px dotted var(--tinta-3); }
 .perfil-num .k[data-tip]::after {
   content: attr(data-tip);
   position: absolute; left: 0; bottom: calc(100% + 6px);
   width: max-content; max-width: 220px;
-  background: var(--cartao-alto); border: 1px solid var(--borda);
-  color: var(--texto); font-size: 11px; line-height: 1.4; font-weight: 400;
-  text-transform: none; letter-spacing: 0;
-  padding: 6px 8px; border-radius: 6px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
-  opacity: 0; pointer-events: none; transition: opacity .12s;
-  z-index: 5;
+  background: var(--ch-2); border: 1px solid var(--rule);
+  color: var(--tinta); font-family: var(--f-txt); font-size: 11px; line-height: 1.45;
+  padding: 7px 9px; border-radius: 3px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, .5);
+  opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 5;
 }
 .perfil-num .k[data-tip]:hover::after,
 .perfil-num .k[data-tip]:focus-visible::after { opacity: 1; }
-/* colunas 2 e 3 abrem o tooltip para a esquerda, senão sai do ecrã */
 .perfil-num:nth-child(3n) .k[data-tip]::after { left: auto; right: 0; }
 
-/* --- barras (sobreposição) --- */
+/* sobreposição: faixa de proporção */
 .perfil-barra {
-  background: var(--cartao); border: 1px solid var(--borda);
-  border-radius: 9px; padding: 12px 14px;
+  background: var(--ch-1); border: 1px solid var(--rule);
+  border-radius: 3px; padding: 13px 15px;
 }
 .perfil-barra-faixa {
-  display: flex; height: 12px; border-radius: 4px; overflow: hidden;
-  background: var(--linha); margin: 8px 0;
+  display: flex; height: 12px; border-radius: 2px; overflow: hidden;
+  background: var(--vazio); margin: 8px 0;
 }
 .perfil-barra-faixa i { display: block; height: 100%; }
 .perfil-barra-legenda {
-  display: flex; gap: 16px; flex-wrap: wrap;
-  font-size: 12px; color: var(--suave);
+  display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--tinta-2);
 }
-.perfil-barra-legenda b { color: var(--texto); }
+.perfil-barra-legenda b { color: var(--tinta); font-family: var(--f-mono); }
 .perfil-barra-legenda .p { display: inline-flex; align-items: center; gap: 6px; }
-.perfil-barra-legenda .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.perfil-barra-legenda .tile,
+.perfil-barra-legenda .dot { width: 9px; height: 9px; border-radius: 1px; display: inline-block; }
 
-/* --- tabelas (geografia, ganhos) --- */
+/* tabelas */
 .perfil-scroll { overflow-x: auto; max-width: 100%; }
 .perfil-tabela { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .perfil-scroll .perfil-tabela { min-width: 320px; }
-.perfil-scroll .perfil-tabela.geo { min-width: 500px; }
+.perfil-scroll .perfil-tabela.geo { min-width: 520px; }
 .perfil-tabela th {
-  text-align: right; font-weight: 600; color: var(--suave);
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
-  padding: 4px 6px; border-bottom: 1px solid var(--borda); white-space: nowrap;
+  text-align: right; font-family: var(--f-mono); font-weight: 400;
+  color: var(--tinta-3); font-size: 10.5px;
+  padding: 4px 6px; border-bottom: 1px solid var(--rule); white-space: nowrap;
 }
 .perfil-tabela th:first-child { text-align: left; }
 .perfil-tabela.geo th[data-sort] { cursor: pointer; user-select: none; }
-.perfil-tabela.geo th[data-sort]:hover { color: var(--texto); }
-.perfil-tabela.geo th.ord { color: var(--azul-claro); }
-.perfil-tabela td { padding: 5px 6px; border-bottom: 1px solid var(--linha); }
-.perfil-tabela td.n { text-align: right; white-space: nowrap; font-weight: 600; }
-.perfil-tabela td.n.fraco { color: var(--fraco); font-weight: 400; }
-/* coluna Dia: dia/mês/ano cada um numa caixa fixa -> 3 colunas verdadeiras,
-   independentes de o dia ter 1 ou 2 dígitos */
-.perfil-tabela td.gan-dia { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.perfil-tabela.geo th[data-sort]:hover { color: var(--tinta); }
+.perfil-tabela.geo th.ord { color: var(--tinta); }
+.perfil-tabela td { padding: 5px 6px; border-bottom: 1px solid var(--hair); }
+.perfil-tabela td.n {
+  text-align: right; white-space: nowrap; font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums; color: var(--tinta);
+}
+.perfil-tabela td.n.fraco { color: var(--tinta-3); }
+.perfil-tabela td.gan-dia { white-space: nowrap; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 .gan-dia .d-num { display: inline-block; width: 1.5em; text-align: right; }
-.gan-dia .d-mes { display: inline-block; width: 2.9em; text-align: left; padding-left: 0.5em; }
+.gan-dia .d-mes { display: inline-block; width: 2.9em; text-align: left; padding-left: .5em; }
 .gan-dia .d-ano { display: inline-block; text-align: left; }
 
-/* drill-down do "+N" de Squadratinhos (afordância SÓ nesta coluna) */
+/* drill-down do "+N" de Squadratinhos */
 .perfil-tabela td.gan-z { padding: 0; }
 .gan-btn {
   display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end;
   width: 100%; padding: 5px 6px; background: none; border: 0;
-  font: inherit; font-weight: 600; color: inherit; cursor: pointer;
+  font: inherit; font-family: var(--f-mono); color: inherit; cursor: pointer;
 }
-.gan-btn:hover { color: var(--azul-claro); }
-.gan-caret { font-size: 9px; color: var(--fraco); transition: transform .12s; }
+.gan-btn:hover { color: var(--tinta); }
+.gan-caret { font-size: 9px; color: var(--tinta-3); transition: transform .12s; }
 .gan-z.aberto .gan-caret { transform: rotate(90deg); }
-.gan-det td { background: var(--cartao); padding: 4px 8px 8px; }
+.gan-det td { background: var(--ch-1); padding: 5px 8px 10px; }
 .gan-linha { display: flex; flex-wrap: wrap; gap: 5px; align-items: baseline; padding: 4px 0; }
 .gan-chip {
-  font-size: 11.5px; border: 1px solid var(--borda); border-radius: 999px;
-  padding: 2px 8px; color: var(--texto); text-decoration: none; white-space: nowrap;
+  font-size: 11.5px; border: 1px solid var(--rule); border-radius: 3px;
+  padding: 2px 8px; color: var(--tinta); text-decoration: none; white-space: nowrap;
 }
-.gan-chip b { color: var(--azul-claro); font-weight: 600; }
-.gan-chip:hover { border-color: var(--azul); text-decoration: none; }
-/* país estrangeiro: sem página, borda tracejada para se ver que não é link */
+.gan-chip b { color: var(--tinta); font-family: var(--f-mono); font-weight: 500; }
+.gan-chip:hover { border-color: var(--marca); }
 .gan-pais {
-  font-size: 11.5px; border: 1px dashed var(--borda); border-radius: 999px;
-  padding: 2px 8px; color: var(--fraco); white-space: nowrap;
+  font-size: 11.5px; border: 1px dashed var(--rule); border-radius: 3px;
+  padding: 2px 8px; color: var(--tinta-3); white-space: nowrap;
 }
-.gan-pais b { color: var(--suave); font-weight: 600; }
-.gan-sub { font-size: 11px; color: var(--fraco); gap: 4px; padding-top: 0; }
+.gan-pais b { color: var(--tinta-2); font-family: var(--f-mono); font-weight: 500; }
+.gan-sub { font-size: 11px; color: var(--tinta-3); gap: 4px; }
 .gan-sub .gan-chip { font-size: 10.5px; padding: 1px 7px; }
-.gan-resid { font-size: 11px; color: var(--fraco); font-style: italic; }
+.gan-resid { font-size: 11px; color: var(--tinta-3); font-style: italic; }
 .perfil-tabela .nome { display: flex; align-items: center; gap: 6px; }
 .perfil-tabela .bandeira { flex-shrink: 0; border-radius: 1px; }
-/* nome de região com página: link discreto, cor herdada, só sublinha no hover */
 .perfil-tabela.geo .nome a { color: inherit; text-decoration: none; }
-.perfil-tabela.geo .nome a:hover { text-decoration: underline; }
+.perfil-tabela.geo .nome a:hover { text-decoration: underline; text-decoration-color: var(--marca); }
 
-/* cabeçalho de nível (País / Região / Zona), mais forte que a linha de
-   cabeçalhos das colunas, para se ver de relance onde começa cada nível */
+/* cabeçalho de nível (País / Região / Zona) */
 .perfil-nivel {
-  font-size: 13px; font-weight: 700; color: var(--texto);
-  margin: 18px 0 4px; padding-bottom: 3px;
-  border-bottom: 2px solid var(--borda);
+  font-family: var(--f-tit); font-weight: 600; font-size: 14px; color: var(--tinta);
+  margin: 20px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--rule);
 }
 
-.perfil-pos { color: var(--texto); font-weight: 700; }
-.perfil-pos.p1 { color: var(--ouro); }
-.perfil-pos.p2 { color: var(--prata); }
-.perfil-pos.p3 { color: var(--bronze); }
-/* colunas Subir (falta p/ passar a posição de cima) e Folga (vantagem sobre a de baixo) */
-.perfil-tabela td.mg { font-size: 11.5px; }
-.mg-pos { color: #57ad76; }
-.mg-neg { color: #d98a6a; }
+.perfil-pos { color: var(--tinta); font-family: var(--f-mono); }
+.perfil-pos.p1, .perfil-pos.p2, .perfil-pos.p3 { color: var(--tinta); }
+.perfil-tabela td.mg { font-size: 11.5px; font-family: var(--f-mono); }
+.mg-pos { color: var(--ganho); }
+.mg-neg { color: #e08a6a; }
 
 .perfil-toggle {
-  background: var(--cartao-alto); color: var(--texto);
-  border: 1px solid var(--borda); border-radius: 7px;
-  padding: 5px 10px; font-size: 11.5px; cursor: pointer; margin-bottom: 8px;
+  background: var(--ch-1); color: var(--tinta-2);
+  border: 1px solid var(--rule); border-radius: 3px;
+  padding: 5px 11px; font-size: 11.5px; font-family: var(--f-mono);
+  cursor: pointer; margin-bottom: 10px;
 }
-.perfil-toggle.on { background: var(--azul); border-color: var(--azul); color: #fff; }
+.perfil-toggle.on { color: var(--tinta); border-color: var(--marca); }
 
 .perfil-spark { display: block; width: 100%; height: 90px; margin: 4px 0 12px; }
-.perfil-spark rect { fill: var(--azul); }
-.perfil-spark text { fill: var(--fraco); font-size: 9px; font-family: inherit; }
+.perfil-spark rect { fill: var(--tinta-2); }
+.perfil-spark text { fill: var(--tinta-3); font-size: 9px; font-family: var(--f-mono); }
 
 .perfil-nota {
-  font-size: 10.5px; color: var(--fraco); line-height: 1.5;
-  margin-top: 30px; border-top: 1px solid var(--linha); padding-top: 12px;
+  font-size: 11.5px; color: var(--tinta-3); line-height: 1.75; max-width: 70ch;
+  margin-top: 36px; border-top: 1px solid var(--rule); padding-top: 16px;
 }
+.perfil-nota b { color: var(--tinta-2); font-weight: 500; }
+.perfil-nota b.mg-pos { color: var(--ganho); }
+.perfil-nota b.mg-neg { color: #e08a6a; }
 
-.perfil-vazio { color: var(--fraco); font-size: 12px; padding: 6px 0; }
+.perfil-vazio { color: var(--tinta-3); font-size: 12px; padding: 8px 0; }
 
-/* --- índice --- */
-#perfil-indice h1 { font-size: 20px; margin: 6px 0 16px; }
-.perfil-lista { list-style: none; padding: 0; margin: 0; }
+/* índice */
+#perfil-indice h1 { margin: 0 0 4px; }
+#perfil-indice .perfil-nota { margin-top: 24px; }
+.perfil-lista { list-style: none; padding: 0; margin: 18px 0 0; }
 .perfil-lista li { margin: 0 0 6px; }
 .perfil-lista a {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--cartao); border: 1px solid var(--borda);
-  border-radius: 9px; padding: 12px 14px;
-  color: var(--texto); font-weight: 600;
+  display: flex; align-items: center; gap: 11px;
+  background: var(--ch-1); border: 1px solid var(--rule);
+  border-radius: 3px; padding: 13px 15px;
+  color: var(--tinta); font-family: var(--f-tit); font-weight: 600;
+  text-decoration: none;
 }
-.perfil-lista a:hover { border-color: var(--azul); text-decoration: none; }
+.perfil-lista a:hover { border-color: var(--marca); }
+.perfil-lista .perfil-cor { width: 12px; height: 12px; border-radius: 2px; }
 
 @media (max-width: 480px) {
-  .perfil-cabeca h1 { font-size: 19px; }
-  .perfil-num .v { font-size: 17px; }
+  .perfil-num .v { font-size: 18px; }
 }

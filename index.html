@@ -6,92 +6,138 @@
 <link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#12141a">
+<meta name="theme-color" content="#14131b">
 <title>Squadrats</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/bricolage-grotesque.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/ibm-plex-sans-400.woff2">
+<link rel="stylesheet" href="site.css">
 <style>
-  :root {
-    --fundo: #0f1115; --cartao: #151821; --borda: #262b38; --linha: #1e2230;
-    --texto: #e7e9ee; --suave: #7d8598; --fraco: #6b7285; --azul-claro: #7ab8ff;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--fundo); color: var(--texto);
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.5; }
+  .hub { max-width: 760px; margin: 0 auto; padding: 30px 20px 80px; }
+  .hub .sub { margin: 8px 0 4px; font-size: 13px; color: var(--tinta-2); max-width: 60ch; }
 
-  .hub { max-width: 720px; margin: 0 auto; padding: 26px 18px 60px; }
-  .hub h1 { font-size: 20px; margin: 0 0 2px; }
-  .hub .sub { margin: 0 0 22px; font-size: 12.5px; color: var(--fraco); }
-
-  .cards { display: flex; flex-direction: column; gap: 12px; }
-  .card {
-    position: relative; background: var(--cartao); border: 1px solid var(--borda);
-    border-radius: 12px; padding: 16px 18px;
+  .linhas { margin: 26px 0 0; }
+  .linha {
+    display: grid; grid-template-columns: 26px 1fr; gap: 4px 12px;
+    padding: 18px 0; border-bottom: 1px solid var(--rule); position: relative;
   }
-  .card:hover { border-color: #38405a; }
-  .card h2 { margin: 0 0 4px; font-size: 15px; font-weight: 700; }
-  .card h2 a { color: var(--texto); text-decoration: none; }
-  .card h2 a::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
-  .card p { margin: 0; font-size: 12.5px; color: var(--suave); }
-  .card .atletas {
-    display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 11px;
-    position: relative; z-index: 1;
+  .linha:first-child { border-top: 1px solid var(--rule); }
+  .linha .n { font-family: var(--f-mono); font-size: 12px; color: var(--tinta-3); padding-top: 3px; }
+  .linha h2 {
+    grid-column: 2; margin: 0; font-family: var(--f-tit); font-weight: 700;
+    font-size: 17px; letter-spacing: -.01em;
   }
-  .card .atletas a { display: inline-flex; align-items: center; gap: 5px;
-    font-size: 12px; color: var(--azul-claro); text-decoration: none; }
-  .card .atletas a:hover { text-decoration: underline; }
-  .card .atletas .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--suave); display: inline-block; }
+  .linha h2 a { color: var(--tinta); text-decoration: none; }
+  .linha h2 a::after { content: ""; position: absolute; inset: 0; }
+  .linha p { grid-column: 2; margin: 4px 0 0; font-size: 12.5px; color: var(--tinta-2); max-width: 58ch; }
+  .linha .viz { grid-column: 2; margin: 11px 0 0; position: relative; z-index: 1; }
+  .linha:hover h2 a { text-decoration: underline; text-decoration-color: var(--marca); }
 
-  .hub .mais { margin: 16px 0 0; font-size: 12px; color: var(--suave); }
-  .hub .rodape { margin-top: 22px; font-size: 11px; color: var(--fraco); line-height: 1.6; }
+  .ros { display: flex; flex-wrap: wrap; gap: 7px 14px; }
+  .ros a {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+    color: var(--tinta-2); text-decoration: none;
+  }
+  .ros a:hover { color: var(--tinta); text-decoration: underline; text-decoration-color: var(--marca); }
+
+  .lb { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; }
+  .lb .r { display: flex; align-items: center; gap: 9px; }
+  .lb .r .nm { color: var(--tinta-2); width: 66px; flex: 0 0 auto; }
+  .lb .r .v { font-family: var(--f-mono); color: var(--tinta-3); font-variant-numeric: tabular-nums; }
+
+  .hub .mais { margin: 26px 0 0; font-size: 12.5px; color: var(--tinta-2); }
+  .hub .rodape {
+    margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--hair);
+    font-size: 11.5px; color: var(--tinta-3); line-height: 1.7;
+  }
 </style>
 </head>
 <body>
 <main class="hub">
   <h1>Squadrats Club</h1>
-  <p class="sub">Mapa, perfis e histórico do clube. Dados actualizados 6×/dia a partir da Squadrats.</p>
+  <p class="sub">A folha do clube: quem tem o quê, onde, e o que mudou desde a
+    última vez. Dados actualizados 6&times;/dia a partir da Squadrats.</p>
 
-  <div class="cards">
-    <div class="card">
+  <div class="linhas">
+    <div class="linha">
+      <span class="n">01</span>
       <h2><a href="club.html">Mapa do clube</a></h2>
       <p>Os squadratinhos dos 5 atletas no mapa: quem partilha o quê e quem manda
-        em cada região (leaderboard).</p>
+        em cada região.</p>
+      <div class="viz"><div class="lb" id="hub-lb"></div></div>
     </div>
 
-    <div class="card">
+    <div class="linha">
+      <span class="n">02</span>
       <h2><a href="atletas/">Perfis</a></h2>
       <p>Contagens, ganhos diários, sobreposição e posição por região, atleta a atleta.</p>
-      <span class="atletas" id="hub-atletas"></span>
+      <div class="viz"><div class="ros" id="hub-atletas"></div></div>
     </div>
 
-    <div class="card">
+    <div class="linha">
+      <span class="n">03</span>
+      <h2><a href="regioes/">Regiões</a></h2>
+      <p>As 100 regiões (concelho e distrito) onde algum atleta tem squadratinhos,
+        ordenadas pelo que o clube lá cobre, com o líder de cada uma.</p>
+    </div>
+
+    <div class="linha">
+      <span class="n">04</span>
       <h2><a href="historico.html">Histórico</a></h2>
-      <p>Feed de mudanças de ranking por região: ultrapassagens, novos líderes, primeira
-        presença numa região e marcos de squadratinhos.</p>
+      <p>Feed de mudanças de ranking por região: ultrapassagens, novos líderes,
+        primeira presença numa região e marcos de squadratinhos.</p>
     </div>
   </div>
 
-  <p class="mais">Índice de <a href="regioes/">todas as regiões com actividade</a>
-    (concelho e distrito), com o líder de cada uma.</p>
+  <p class="mais">Por país: <a href="regioes/pais-pt.html">Portugal</a> e
+    <a href="regioes/pais-es.html">Espanha</a>.</p>
 
-  <p class="rodape">Ferramenta interna do clube. O histórico de eventos começa a 26 jul 2026;
-    o mapa é mais antigo.</p>
+  <p class="rodape">Ferramenta interna do clube. O histórico de eventos começa a
+    26 jul 2026; o mapa é mais antigo.</p>
 </main>
 
 <script src="nav.js"></script>
 <script>
   (function () {
+    'use strict';
     var A = [['Zé', 'ze'], ['Xeira', 'xeira'], ['Carolina', 'carolina'], ['Inês S.', 'ines-s'], ['Pedro', 'pedro']];
     var COR = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
-    function render() {
+    var RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
+    var LOCAL = ['localhost', '127.0.0.1', ''].indexOf(location.hostname) >= 0;
+
+    function tile(n) {
+      return '<span class="tile" style="background:' + (COR[n] || 'var(--tinta-2)') + '"></span>';
+    }
+    function roster() {
       document.getElementById('hub-atletas').innerHTML = A.map(function (a) {
-        return '<a href="atletas/' + a[1] + '.html"><span class="dot" style="background:' +
-          (COR[a[0]] || '#7d8598') + '"></span>' + a[0] + '</a>';
+        return '<a href="atletas/' + a[1] + '.html">' + tile(a[0]) + a[0] + '</a>';
       }).join('');
     }
-    render();
-    fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/main/data/membros_cores.json', { cache: 'no-cache' })
+    // leaderboard: total de squadratinhos por atleta (club.json), como tira de
+    // quota do líder. Uma leitura, ficheiro pequeno.
+    function leaderboard(club) {
+      var arr = (club.atletas || []).map(function (x) { return [x.nome, x.total || 0]; })
+        .sort(function (a, b) { return b[1] - a[1]; });
+      var lider = arr.length ? arr[0][1] : 0;
+      document.getElementById('hub-lb').innerHTML = arr.map(function (p) {
+        var frac = lider ? p[1] / lider : 0;
+        var cel = frac > 0 ? Math.max(1, Math.round(frac * 16)) : 0;
+        var t = '<span class="tira" style="color:' + (COR[p[0]] || 'var(--tinta-2)') + '">';
+        for (var i = 0; i < cel; i++) { t += '<i></i>'; }
+        t += '</span>';
+        return '<div class="r"><span class="nm">' + p[0] + '</span>' + t +
+          '<span class="v">' + p[1].toLocaleString('pt-PT') + '</span></div>';
+      }).join('');
+    }
+
+    roster();
+    fetch(RAW + 'main/data/membros_cores.json', { cache: 'no-cache' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j && j.cores) { Object.assign(COR, j.cores); render(); } })
+      .then(function (j) { if (j && j.cores) { Object.assign(COR, j.cores); roster(); } })
+      .catch(function () {});
+    fetch((LOCAL ? 'data/club.json' : RAW + 'data/data/club.json'), { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) leaderboard(j); })
       .catch(function () {});
   })();
 </script>

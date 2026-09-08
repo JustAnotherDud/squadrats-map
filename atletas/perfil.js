@@ -67,8 +67,11 @@
   const alvo = document.getElementById('perfil');
   const INDICE = document.getElementById('perfil-indice');
 
+  let SEC_N = 0;
   function seccao(titulo, corpoHtml) {
-    return `<section class="perfil-seccao"><h2>${esc(titulo)}</h2>${corpoHtml}</section>`;
+    return `<section class="perfil-seccao"><div class="sec">`
+      + `<span class="n">${String(++SEC_N).padStart(2, '0')}</span>`
+      + `<span class="t">${esc(titulo)}</span></div>${corpoHtml}</section>`;
   }
 
   function blocoTotais(totais) {
@@ -260,14 +263,16 @@
     let estado = { soDisputadas: false, sort: { k: 'captured', dir: 'desc' }, ganhoAberto: null };
 
     function desenhar() {
+      SEC_N = 0;
       alvo.innerHTML = `
-        <p class="perfil-topo"><a href="index.html">← todos os perfis</a></p>
         <div class="perfil-cabeca">
-          <span class="perfil-cor" style="background:${cor || 'var(--suave)'}"></span>
+          <span class="perfil-cor tile" style="background:${cor || 'var(--tinta-2)'}"></span>
           <h1>${esc(d.nome)}</h1>
         </div>
-        <p class="perfil-meta">Actualizado ${esc(quando)} ·
-          <a href="${mapaUrl}" target="_blank" rel="noopener">mapa no squadrats.com ↗</a></p>
+        <dl class="meta">
+          <dt>actualizado</dt><dd>${esc(quando)}</dd>
+          <dt>mapa</dt><dd><a href="${mapaUrl}" target="_blank" rel="noopener">squadrats.com</a></dd>
+        </dl>
 
         ${seccao('Contagens', blocoTotais(d.totais || {}))}
         ${seccao('Sobreposição de squadratinhos', blocoSobreposicao(d.sobreposicao, cor))}
@@ -320,7 +325,7 @@
       if (!r.ok) throw new Error(r.status);
       dados = await r.json();
     } catch (e) {
-      alvo.innerHTML = `<p class="perfil-topo"><a href="index.html">← perfis</a></p>
+      alvo.innerHTML = `<p><a class="voltar" href="index.html">todos os perfis</a></p>
         <p class="perfil-estado perfil-erro">Não consegui carregar o perfil (${esc(e.message)}).
         Talvez o build ainda não tenha corrido para este atleta.</p>`;
       return;

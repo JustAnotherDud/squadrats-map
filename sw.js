@@ -4,7 +4,7 @@
 // sério: só serve a casca da cache quando a rede falha.
 //
 // Registado pelo nav.js. Versão na cache: subir CACHE ao mudar a casca.
-const CACHE = 'squadrats-club-v1';
+const CACHE = 'squadrats-club-v2';
 
 // Âmbito do SW (…/squadrats-map/ no GitHub Pages, / em local).
 const BASE = new URL('./', self.registration.scope).pathname;
@@ -14,7 +14,9 @@ self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll([
     BASE, BASE + 'index.html',
     BASE + 'manifest.json', BASE + 'icon.svg',
-    BASE + 'nav.js', BASE + 'shared.js',
+    BASE + 'nav.js', BASE + 'shared.js', BASE + 'site.css',
+    BASE + 'fonts/bricolage-grotesque.woff2', BASE + 'fonts/ibm-plex-sans-400.woff2',
+    BASE + 'fonts/ibm-plex-mono-400.woff2',
   ]).catch(() => {})));
 });
 
