@@ -165,9 +165,9 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
 
-  const SLUG = { 'Zé': 'ze', 'Xeira': 'xeira', 'Carolina': 'carolina', 'Inês S.': 'ines-s', 'Pedro': 'pedro' };
-  // nome do atleta com bolinha de cor, ligado ao perfil
-  const atletaHtml = n => `<a class="atl" href="atletas/${SLUG[n] || ''}.html">${dot(n)}${esc(n)}</a>`;
+  // nome do atleta com bolinha de cor, ligado ao perfil. slugify vem do
+  // shared.js (mesmo que o pipeline/slugs.py) — evita um mapa nome->slug à mão.
+  const atletaHtml = n => `<a class="atl" href="atletas/${slugify(n)}.html">${dot(n)}${esc(n)}</a>`;
   // regiaoHref / fmtData vêm do shared.js (carregado antes deste script)
   const regiaoHtml = (nivel, nome) =>
     `<a class="reg" href="${regiaoHref(nivel, nome)}">${esc(nome)}</a>`;

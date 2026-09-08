@@ -14,6 +14,7 @@ historico.html poder reconstruir o URL com um slugify igual em JS.
 import json
 import os
 
+from eventos import ATLETAS_ORDEM  # ordem canónica (bits/cores); fonte única
 from slugs import slugify
 
 DESDE = "2026-07-26"  # timeline recuada até ao 1.º club.json (< 15 ago é
@@ -22,8 +23,6 @@ NIVEIS = ("concelho", "distrito")
 CHAVE_BUCKET = {"concelho": "by_concelho", "distrito": "by_distrito"}
 CHAVE_ADJ = {"concelho": "concelhos", "distrito": "distritos"}
 CHAVE_STATS = {"concelho": "by_concelho", "distrito": "by_distrito"}
-
-ATLETAS_ORDEM = ["Zé", "Xeira", "Carolina", "Inês S.", "Pedro"]
 
 
 def key_de(nivel, nome):
@@ -122,12 +121,13 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
 
     pai = _distrito_pai(concelhos_geojson_path, nome) if nivel == "concelho" else None
 
+    # `key` fica só para o escrever() saber o nome do ficheiro — não vai para
+    # o JSON (é o próprio nome do ficheiro). `cc` era sempre "PT", `slug` é
+    # derivável, `desde` é constante — nada disso era lido pelo regiao.js.
     return {
+        "key": key_de(nivel, nome),
         "nivel": nivel,
         "regiao": nome,
-        "cc": "PT",
-        "key": key_de(nivel, nome),
-        "slug": slugify(nome),
         "distrito_pai": pai,
         "distrito_pai_key": key_de("distrito", pai) if pai else None,
         "totais": {"z14": z14, "z17": z17},
@@ -137,12 +137,12 @@ def construir(nivel, nome, snapshot_atual, timeline, stats, adjacency,
             {"data": d, "ranking": [[a, n] for a, n in r]}
             for d, r in comprimir_timeline(timeline)
         ],
-        "desde": DESDE,
     }
 
 
 def escrever(out_dir, regiao_dict, gerado):
-    d = dict(regiao_dict, gerado=gerado)
+    d = {k: v for k, v in regiao_dict.items() if k != "key"}
+    d["gerado"] = gerado
     os.makedirs(os.path.join(out_dir, "regioes"), exist_ok=True)
     caminho = os.path.join(out_dir, "regioes", regiao_dict["key"] + ".json")
     with open(caminho, "w", encoding="utf-8") as f:

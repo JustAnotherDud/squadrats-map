@@ -38,9 +38,9 @@ def run_from_tiles(uid, out_dir, bbox=None):
     if resultado is None:
         # probe confirmou "sem alterações" (ver tiles_fetch.py) — os
         # ficheiros que este UID publica (tile_info_*.json, stats.json,
-        # trophies.json, suggestions.json, classification_fallbacks.json) já
-        # estão no out_dir, carregados da branch 'data' antes de correr — não
-        # tocar neles é o comportamento certo, não é um "esquecimento".
+        # trophies.json, suggestions.json) já estão no out_dir, carregados da
+        # branch 'data' antes de correr — não tocar neles é o comportamento
+        # certo, não é um "esquecimento".
         print(f"UID '{uid}': sem alterações desde a última publicação — a manter ficheiros existentes")
         return {}
     geoms, counts, trophies = resultado
@@ -328,21 +328,13 @@ def run_from_geoms(geoms, out_dir, counts=None):
         json.dump(stats, f, ensure_ascii=False, separators=(",", ":"))
     print(f"stats -> {stats_path}")
 
-    # ficheiro à parte (não no stats.json): quantos squares não estão em
-    # terra nenhuma, e a lista de quem foi resolvido por proximidade em vez
-    # de área — país e/ou concelho. distance_m_approx separa fenda de dados
-    # (metros) de água genuína (centenas de metros/km), sem impor um corte.
-    fallbacks_path = os.path.join(out_dir, "classification_fallbacks.json")
-    with open(fallbacks_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "total_squares": total_squares,
-            "not_on_land": not_on_land,
-            "fallback_events": len(fallback_events),
-            "events": fallback_events,
-        }, f, ensure_ascii=False, indent=2)
+    # diagnóstico só no log: quantos squares não estão em terra nenhuma e
+    # quantos foram resolvidos por proximidade (fenda de dados vs água). O
+    # ficheiro classification_fallbacks.json que isto escrevia não era lido
+    # por ninguém — tirado no passe de limpeza.
     print(f"classificação: {not_on_land}/{total_squares} squares não estão em terra "
           f"nenhuma (resolvidos por proximidade ou sem classificação); "
-          f"{len(fallback_events)} campos (país/concelho) resolvidos por proximidade -> {fallbacks_path}")
+          f"{len(fallback_events)} campos (país/concelho) resolvidos por proximidade")
 
     return summary
 

@@ -14,13 +14,13 @@
   const KEY = alvo.dataset.key, NIVEL = alvo.dataset.nivel, NOME = alvo.dataset.nome;
 
   const COR_FB = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
-  const SLUG = { 'Zé': 'ze', 'Xeira': 'xeira', 'Carolina': 'carolina', 'Inês S.': 'ines-s', 'Pedro': 'pedro' };
   let CORES = { ...COR_FB };
   const cor = n => CORES[n] || '#7d8598';
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nfmt = n => (n || 0).toLocaleString('pt-PT');
   const dot = n => `<span class="dot" style="background:${cor(n)}"></span>`;
-  const atl = n => `<a class="atl" href="../atletas/${SLUG[n] || ''}.html">${esc(n)}</a>`;
+  // slugify vem do shared.js (= pipeline/slugs.py) — sem mapa nome->slug à mão
+  const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
   // eixo do gráfico: forma curta sem ano ("6 set"), cabe melhor. MESES e
   // fmtData/fmtDataHora vêm do shared.js (carregado antes deste script).
   const dCurta = iso => { const [, m, d] = iso.split('-').map(Number); return `${d} ${MESES[m - 1]}`; };
