@@ -32,11 +32,14 @@ a:hover { text-decoration: underline; }
 .reg-rank td.n .pct { color: var(--fraco); font-weight: 400; margin-left: 6px; }
 .reg-rank .pos { color: var(--fraco); width: 22px; }
 .reg-rank .pos.p1 { color: var(--ouro); font-weight: 700; }
-.reg-rank .nome { display: flex; align-items: center; gap: 7px; }
+.reg-rank .nome { display: flex; align-items: center; }
 .reg-rank .nome a { color: var(--texto); font-weight: 700; text-decoration: none; }
 .reg-rank .nome a:hover { text-decoration: underline; }
+/* quadrado de cor do atleta — mesmo espaço até ao nome em todo o lado (feed,
+   ranking), igual ao historico.html. Sem isto, no feed "Eventos nesta região"
+   o quadrado ficava colado ao nome (o feed é HTML inline, não um flex com gap). */
 .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block;
-  background: var(--suave); flex: 0 0 auto; }
+  background: var(--suave); margin-right: 6px; vertical-align: middle; flex: 0 0 auto; }
 
 .reg-totais { font-size: 12.5px; color: var(--suave); }
 .reg-totais b { color: var(--texto); font-variant-numeric: tabular-nums; }
