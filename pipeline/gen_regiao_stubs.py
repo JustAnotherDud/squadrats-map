@@ -45,7 +45,7 @@ def main(repo_dir, dados_dir):
     for p in sorted(glob.glob(os.path.join(dados_dir, "regioes", "*.json"))):
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
-        key = d["key"]
+        key = os.path.splitext(os.path.basename(p))[0]  # <key>.json -> <key>
         with open(os.path.join(destino, key + ".html"), "w", encoding="utf-8", newline="\n") as f:
             f.write(STUB.format(nome=d["regiao"], key=key, nivel=d["nivel"]))
         escritos.add(key + ".html")
