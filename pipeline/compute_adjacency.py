@@ -2,7 +2,7 @@
 fronteira) e aplica greedy coloring, para vizinhos nunca partilharem cor.
 Corre uma vez, commita o output (data/adjacency.json). Nunca recalculado pelo
 pipeline. A paleta vai dentro do próprio adjacency.json (campo `palette`),
-o mapa.html lê-a de lá, não tem cópia inline.
+o analise.html lê-a de lá, não tem cópia inline.
 
 Uso: py compute_adjacency.py
 """

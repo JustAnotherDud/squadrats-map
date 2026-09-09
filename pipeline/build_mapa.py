@@ -1,11 +1,11 @@
-"""Constrói o mapa detalhado PESSOAL (mapa.html) a partir dos vector tiles
+"""Constrói o mapa detalhado PESSOAL (analise.html) a partir dos vector tiles
 do squadrats.com de UM uid, classifica cada square por concelho/distrito e
 escreve tile_info_*.json, stats.json, trophies.json, suggestions.json.
 
 Uso:
   py build_mapa.py --uid <firebase_uid> [pasta_saida]
 
-ATENÇÃO: correr este ficheiro directamente só actualiza o mapa.html. Não toca
+ATENÇÃO: correr este ficheiro directamente só actualiza o analise.html. Não toca
 em squadrats.json/club.json/daily_gains.json, os ficheiros que o
 folha-do-clube e o club.html lêem. Para actualizar tudo de uma vez (o que se
 quer quase sempre), usar `run_all.py`, não este ficheiro. Fora de emergência

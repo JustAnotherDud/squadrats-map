@@ -10,7 +10,7 @@ buscar: só reprocessa o que já está commitado.
      0 flips em ~310 mil tiles de fronteira dos municípios que o clube tocou).
      GADM guarda 15 casas decimais (precisão de nanómetro), é pura gordura.
 
-  2. data/ (cópias só para o mapa.html DESENHAR): derivadas de refdata/,
+  2. data/ (cópias só para o analise.html DESENHAR): derivadas de refdata/,
      simplificação Douglas-Peucker + 5 casas decimais. O mapa desenha isto a
      zoom de país, não se vê a diferença; nunca classifica com estes
      ficheiros. Mesmo padrão que o data/distritos_pt.geojson (45 KB) já usava,

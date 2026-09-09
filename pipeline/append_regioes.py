@@ -19,7 +19,7 @@ REPO = os.path.dirname(HERE)
 DATA_DIR = os.path.join(REPO, "data")
 # só se usa para o lookup concelho -> distrito (properties.parent), geometria
 # nenhuma; lê da fonte de precisão (refdata), não da cópia simplificada de
-# data/ que agora só serve para o mapa.html desenhar.
+# data/ que agora só serve para o analise.html desenhar.
 CONCELHOS_GEO = os.path.join(HERE, "refdata", "concelhos_pt.geojson")
 
 
