@@ -29,13 +29,13 @@
   var atual =
     /\/atletas\//.test(location.pathname) ? 'perfis' :
     /\/regioes\//.test(location.pathname) ? 'regioes' :
-    file === 'club.html' ? 'clube' :
+    file === 'club.html' ? 'mapa' :
     file === 'historico.html' ? 'historico' :
     (file === '' || file === 'index.html') ? 'hub' :
     null;  // analise.html, nada destacado
 
   var DEST = [
-    { id: 'clube', label: 'Clube', href: P + 'club.html' },
+    { id: 'mapa', label: 'Mapa', href: P + 'club.html' },
     { id: 'perfis', label: 'Perfis', href: P + 'atletas/' },
     { id: 'regioes', label: 'Regiões', href: P + 'regioes/' },
     { id: 'historico', label: 'Histórico', href: P + 'historico.html' },

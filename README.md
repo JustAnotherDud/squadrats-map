@@ -34,7 +34,7 @@ git checkout origin/data -- data/
 
 - `index.html`: the landing/hub: cards for the club map, profiles and history.
   GitHub Pages serves it at the root.
-- `nav.js`: the shared top nav bar (hub · Clube · Perfis · Regiões · Histórico),
+- `nav.js`: the shared top nav bar (hub · Mapa · Perfis · Regiões · Histórico),
   self-injecting, marks the current page. Loaded by every page **except**
   `analise.html`. Full-screen map pages set `<body data-nav="overlay">` so the bar
   is `position:fixed` and they offset their own layout by 38px. Also registers
