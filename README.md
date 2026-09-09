@@ -34,7 +34,7 @@ git checkout origin/data -- data/
 
 - `index.html`: the landing/hub: cards for the club map, profiles and history.
   GitHub Pages serves it at the root.
-- `nav.js`: the shared top nav bar (hub · Mapa · Perfis · Regiões · Histórico),
+- `nav.js`: the shared top nav bar (hub · Clube · Perfis · Regiões · Histórico),
   self-injecting, marks the current page. Loaded by every page **except**
   `analise.html`. Full-screen map pages set `<body data-nav="overlay">` so the bar
   is `position:fixed` and they offset their own layout by 38px. Also registers
@@ -142,7 +142,7 @@ git checkout origin/data -- data/
     world, with no fixed bbox to guess. Mandatory self-validation: the
     reconstructed count of `squadrats`/`squadratinhos` must match exactly the
     `size` the server itself reports, if it does not,
-    `build_mapa.py`/`fetch_club_totais.py` blow up instead of publishing wrong
+    `build_analise.py`/`fetch_club_totais.py` blow up instead of publishing wrong
     data.
     The cascade only runs when needed: each athlete's z10 coverage is stored
     in `data/scan_cache.json` (derived coordinates, never raw tiles; coarser
@@ -167,8 +167,8 @@ git checkout origin/data -- data/
     the yard, that is where the big gains are (isolated captures never go
     beyond +4/+5). The published gain always comes from recomputing the
     clusters, never from arithmetic on sizes.
-  - `build_mapa.py`: builds the owner's detailed personal map.
-    `py build_mapa.py --uid <firebase_uid> <out_dir>`
+  - `build_analise.py`: builds the owner's detailed personal map.
+    `py build_analise.py --uid <firebase_uid> <out_dir>`
   - `fetch_club_totais.py`: plain totals (all 8 layers) for the club athletes →
     `data/squadrats.json`. Also updates `data/daily_gains.json` (gains per
     day, see `daily_gains.py`, baseline is the `ultimo_total` stored in the
@@ -185,7 +185,7 @@ git checkout origin/data -- data/
     was born parsing hand-exported KML, that path removed 2026-08-18; only the
     geometry remained, shared by almost the whole pipeline
     (`compute_grid_totals`, `classify_club`, `fetch_club_squares`,
-    `fetch_club_totais`, `build_mapa`)
+    `fetch_club_totais`, `build_analise`)
   - `classify.py`: classifies each square into municipality/district
     (point-in-polygon with STRtree)
   - `compute_grid_totals.py`: **one-off**, run manually, never by the
@@ -213,7 +213,7 @@ git checkout origin/data -- data/
     country (`ES.geojson`). Adding a new country (e.g. France) = add
     `FR.geojson` in the same format (`properties.country` +
     `properties.region` per feature), add it to `prep.py`'s table, run
-    `prep.py`; zero code changes in `classify.py`/`build_mapa.py`.
+    `prep.py`; zero code changes in `classify.py`/`build_analise.py`.
   - `refdata/foreign_muni/<CC>.geojson`: fine (municipality) geometry, but
     **clipped to the area the club has already visited + 10 km**, not the
     whole country — `refdata/clip.py` does this and prunes
@@ -395,7 +395,7 @@ Gemeinden for the 3 cities anyone has ridden; clipped it is a few dozen.
 
 **Degradation is visible, not silent.** If a member captures squares in a
 country that *has* a `foreign_muni` file but outside the 10 km clip, those
-squares classify to region level only (no municipality). `build_mapa.py` and
+squares classify to region level only (no municipality). `build_analise.py` and
 `classify_club.py` count them and print
 `AVISO: <CC>: N square(s) ... fora do recorte de 10 km` at the end of every
 run, and the count is in `stats.foreign.<zkey>.muni_clip_misses`. That is the
@@ -407,7 +407,7 @@ only — so they are not counted as misses.)
 
 ```
 py -m pip install -r requirements.txt
-py pipeline/build_mapa.py --uid <FIREBASE_UID> data   # a club athlete, via vector tiles
+py pipeline/build_analise.py --uid <FIREBASE_UID> data   # a club athlete, via vector tiles
 py pipeline/fetch_club_totais.py data                 # totals for the club athletes
 ```
 
@@ -417,7 +417,7 @@ Produces `data/tile_info_squadrats.json`,
 
 `ATHLETES_JSON` (env) holds `{name: firebase_uid, ...}` for the club athletes,
 kept out of the code because it is third-party data (see
-`pipeline/athletes.py`). In CI it comes from a repo secret; locally, export it
+`pipeline/atletas.py`). In CI it comes from a repo secret; locally, export it
 by hand. The JSON order fixes the bitmask bit order, do not reorder without
 regenerating `data/club.json`.
 
@@ -436,7 +436,7 @@ regenerating `data/club.json`.
       +-------------+-------------+
       |                           |
       v                           v
-[build_mapa.py --uid]  [fetch_club_totais.py]
+[build_analise.py --uid]  [fetch_club_totais.py]
   map owner -> classify.py   club athletes -> plain totals (8 layers)
   -> tile_info_*.json,       -> data/squadrats.json
      data/stats.json
@@ -483,7 +483,7 @@ path.
   someone leaves the club, their historical events/gains still render (grey from
   `COR_FALLBACK`'s miss, name from the data, profile link slugified).
 - The pipeline's `ATLETAS_ORDEM` lives in `eventos.py`; `regioes.py` imports it
-  from there. `eventos.py` deliberately has no `athletes` import so it stays
+  from there. `eventos.py` deliberately has no `atletas` import so it stays
   usable/testable without `ATHLETES_JSON`.
 
 ## Debugging: "the map stopped updating"
