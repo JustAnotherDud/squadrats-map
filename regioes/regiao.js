@@ -1,16 +1,10 @@
-// Página de uma região (concelho/distrito PT). Lê data/regioes/<key>.json +
-// data/events.json da branch `data`. Sem dependências (nav.js à parte).
+// Página de uma região (concelho/distrito PT). Lê regioes/<key>.json +
+// events.json da branch `data`. Sem dependências (nav.js à parte).
 (function () {
   'use strict';
 
-  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
-  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  const U_REG = k => (LOCAL ? '../data/regioes/' : RAW + 'data/data/regioes/') + k + '.json';
-  const U_EVENTS = LOCAL ? '../data/events.json' : RAW + 'data/data/events.json';
-  const U_IDX = LOCAL ? '../data/regioes_index.json' : RAW + 'data/data/regioes_index.json';
-  const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
-  const NC = { cache: 'no-cache' };
-
+  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
+  // avisoDadosVelhos: shared.js
   const alvo = document.getElementById('regiao');
   const KEY = alvo.dataset.key, NIVEL = alvo.dataset.nivel, NOME = alvo.dataset.nome;
 
@@ -47,6 +41,7 @@
 
   function pintar(d, eventos, filhos) {
     const q = fmtDataHora(d.gerado);
+    avisoDadosVelhos(d.gerado);  // shared.js
     let ns = 0;
     const sec = t => `<div class="sec"><span class="n">${String(++ns).padStart(2, '0')}</span><span class="t">${t}</span></div>`;
 
@@ -137,32 +132,30 @@
   }
 
   async function carregar() {
-    await carregarCores(U_CORES, NC);
-    let d, eventos = [];
+    await carregarCores(mainUrl('membros_cores.json'), NC);
+    let d;
     try {
-      const [rr, re] = await Promise.all([fetch(U_REG(KEY), NC), fetch(U_EVENTS, NC)]);
-      if (!rr.ok) throw new Error(rr.status);
-      d = await rr.json();
-      if (re.ok) eventos = (await re.json()).eventos || [];
+      d = await carregarJson(dadosUrl(`regioes/${KEY}.json`));  // primário
     } catch (e) {
-      alvo.innerHTML = `<p class="reg-estado reg-erro">Não consegui carregar
-        ${esc(NOME || KEY)} (${esc(e.message)}).</p>`;
+      mostrarErroDados(alvo, e);
       return;
     }
+    // events.json = secção "Eventos"; se falhar, a secção fica vazia mas o
+    // resto da região aparece
+    const eventos = await carregarJson(dadosUrl('events.json'))
+      .then(j => j.eventos || [])
+      .catch(e => { console.warn('events.json:', e.message); return []; });
 
-    // distrito: buscar os concelhos filhos ao índice agregado
+    // distrito: concelhos filhos, do índice agregado (secundário)
     let filhos = [];
     if (NIVEL === 'distrito') {
-      try {
-        const ri = await fetch(U_IDX, NC);
-        if (ri.ok) {
-          filhos = ((await ri.json()).regioes || [])
-            .filter(x => x.nivel === 'concelho' && x.pai_key === KEY)
-            .map(x => ({ nome: x.regiao, key: x.key, uniao: x.uniao,
-                         pct: x.uniao_pct, lider: x.lider, n: x.n, disp: x.disp }))
-            .sort((a, b) => (b.uniao - a.uniao) || a.nome.localeCompare(b.nome, 'pt'));
-        }
-      } catch (e) { /* sem concelhos, secção não aparece */ }
+      filhos = await carregarJson(dadosUrl('regioes_index.json'))
+        .then(j => (j.regioes || [])
+          .filter(x => x.nivel === 'concelho' && x.pai_key === KEY)
+          .map(x => ({ nome: x.regiao, key: x.key, uniao: x.uniao,
+                       pct: x.uniao_pct, lider: x.lider, n: x.n, disp: x.disp }))
+          .sort((a, b) => (b.uniao - a.uniao) || a.nome.localeCompare(b.nome, 'pt')))
+        .catch(e => { console.warn('regioes_index.json:', e.message); return []; });
     }
 
     document.title = `${d.regiao} · Squadrats Club`;

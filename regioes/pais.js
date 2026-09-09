@@ -6,14 +6,8 @@
 (function () {
   'use strict';
 
-  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
-  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  const U_CR = LOCAL ? '../data/club_regioes.json' : RAW + 'data/data/club_regioes.json';
-  const U_STATS = LOCAL ? '../data/stats.json' : RAW + 'data/data/stats.json';
-  const U_ADJ = LOCAL ? '../data/adjacency.json' : RAW + 'main/data/adjacency.json';
-  const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
-  const NC = { cache: 'no-cache' };
-
+  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
+  // avisoDadosVelhos: shared.js
   const alvo = document.getElementById('pais');
   const CC = (alvo.dataset.cc || '').toUpperCase();
 
@@ -93,6 +87,7 @@
     const tot = stats[statKeyPais(CC)] || {};
     const z17 = (tot.z17 || {}).total || null;
     const q = fmtDataHora(cr.atualizado);
+    avisoDadosVelhos(cr.atualizado);  // shared.js
 
     const { pares, exc, uniPais } = rankingPais(cr, CC);
     const temExc = ((cr.uniao || {}).exclusivos || {}).by_pais != null;
@@ -162,22 +157,20 @@
   }
 
   async function carregar() {
-    await carregarCores(U_CORES, NC);
-    let cr, stats, adj = {};
+    await carregarCores(mainUrl('membros_cores.json'), NC);
+    let cr, stats;
     try {
-      const pedidos = [fetch(U_CR, NC), fetch(U_STATS, NC)];
-      if (CC !== 'PT') pedidos.push(fetch(U_ADJ, NC));
-      const [r1, r2, r3] = await Promise.all(pedidos);
-      if (!r1.ok) throw new Error('club_regioes ' + r1.status);
-      if (!r2.ok) throw new Error('stats ' + r2.status);
-      cr = await r1.json();
-      stats = await r2.json();
-      if (r3 && r3.ok) adj = await r3.json();
+      [cr, stats] = await Promise.all([
+        carregarJson(dadosUrl('club_regioes.json')),
+        carregarJson(dadosUrl('stats.json')),
+      ]);
     } catch (e) {
-      alvo.innerHTML = `<p class="reg-estado reg-erro">Não consegui carregar
-        ${esc(PAIS_NOME[CC] || CC)} (${esc(e.message)}).</p>`;
+      mostrarErroDados(alvo, e);
       return;
     }
+    // adjacency = vizinhos na expansão de província; secundário
+    const adj = CC === 'PT' ? {} : await carregarJson(mainUrl('adjacency.json'))
+      .catch(e => { console.warn('adjacency.json:', e.message); return {}; });
     pintar(cr, stats, adj);
   }
   carregar();

@@ -102,9 +102,7 @@
   (function () {
     'use strict';
     // cor / tile / tira / CORES / carregarCores / COR_FALLBACK / slugify: shared.js
-    var RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
-    var LOCAL = ['localhost', '127.0.0.1', ''].indexOf(location.hostname) >= 0;
-    var NC = { cache: 'no-cache' };
+    // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados: shared.js
 
     // plantel: nome + slug. Sai do club.json (já lido aqui para o leaderboard);
     // sem rede fica o único fallback à mão, o COR_FALLBACK do shared.js.
@@ -130,19 +128,22 @@
     }
 
     roster();
-    carregarCores(LOCAL ? 'data/membros_cores.json' : RAW + 'main/data/membros_cores.json', NC)
-      .then(roster);
-    fetch((LOCAL ? 'data/club.json' : RAW + 'data/data/club.json'), NC)
-      .then(function (r) { return r.ok ? r.json() : null; })
+    carregarCores(mainUrl('membros_cores.json'), NC)
+      .then(roster)
+      .catch(function (e) { console.warn('membros_cores.json:', e.message); });
+    carregarJson(dadosUrl('club.json'))
       .then(function (j) {
-        if (!j) return;
         if (j.atletas) {
           A = j.atletas.map(function (a) { return [a.nome, a.slug]; });
           roster();
         }
         leaderboard(j);
       })
-      .catch(function () {});
+      .catch(function (e) {
+        // o resto do hub é navegação estática e continua a servir; o ranking
+        // não pode falhar em silêncio
+        mostrarErroDados(document.getElementById('hub-lb'), e);
+      });
   })();
 </script>
 </body>

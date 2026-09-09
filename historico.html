@@ -14,11 +14,6 @@
 <link rel="stylesheet" href="site.css">
 <style>
   .wrap { max-width: 1000px; margin: 0 auto; padding: 22px 18px 72px; }
-  #aviso-stale {
-    display: none; background: #2c2513; border: 1px solid #574517; color: #e6bd63;
-    border-radius: 3px; padding: 10px 13px; font-size: 12.5px; margin: 14px 0;
-  }
-  #aviso-stale.on { display: block; }
   .rodape-nota {
     margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--rule);
     font-size: 11.5px; color: var(--tinta-3); line-height: 1.75; max-width: 78ch;
@@ -98,11 +93,6 @@
   <h1>Histórico do clube</h1>
   <dl class="meta" id="meta"></dl>
 
-  <div id="aviso-stale">
-    ⚠ Os dados têm mais de 6 h, o pipeline pode não ter corrido. O que está aqui pode
-    estar a repetir o dia anterior. <span id="aviso-idade"></span>
-  </div>
-
   <div class="filtros" id="filtros"></div>
 
   <p class="legenda">
@@ -140,12 +130,8 @@
 <script>
 (function () {
   'use strict';
-  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
-  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  const U_EVENTS = LOCAL ? '../data/events.json' : RAW + 'data/data/events.json';
-  const U_REGIOES = LOCAL ? '../data/club_regioes.json' : RAW + 'data/data/club_regioes.json';
-  const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
-  const NC = { cache: 'no-cache' };
+  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
+  // avisoDadosVelhos: shared.js
 
   // cor / esc / nfmt / tile / carregarCores / CORES / COR_FALLBACK: shared.js.
   // O plantel sai do club_regioes.json (atletas por ordem de bit); sem rede
@@ -305,18 +291,7 @@
     const m = document.getElementById('meta');
     const q = gerado ? fmtDataHora(gerado) : '?';
     m.innerHTML = `<dt>actualizado</dt><dd>${q}</dd><dt>histórico desde</dt><dd>26 jul 2026</dd>`;
-    // aviso de dados velhos
-    if (gerado) {
-      const idadeH = (Date.now() - Date.parse(gerado)) / 3.6e6;
-      const av = document.getElementById('aviso-stale');
-      if (idadeH > 6) {
-        av.classList.add('on');
-        document.getElementById('aviso-idade').textContent =
-          `Última actualização há ~${idadeH.toFixed(0)} h.`;
-      } else {
-        av.classList.remove('on');
-      }
-    }
+    avisoDadosVelhos(gerado);  // shared.js
   }
 
   function render() {
@@ -328,15 +303,21 @@
   }
 
   (async function () {
-    await carregarCores(U_CORES, NC);  // shared.js: funde membros_cores.json em CORES
+    await carregarCores(mainUrl('membros_cores.json'), NC);  // funde em CORES
+    let ev;
     try {
-      const [re, rr] = await Promise.all([fetch(U_EVENTS, NC), fetch(U_REGIOES, NC)]);
-      if (re.ok) { const j = await re.json(); eventos = j.eventos || []; gerado = j.gerado; }
-      if (rr.ok) { regioes = await rr.json(); if (!gerado) gerado = regioes.gerado; }
+      ev = await carregarJson(dadosUrl('events.json'));  // primário: erro visível
     } catch (e) {
-      document.getElementById('feed').innerHTML =
-        '<p class="vazio">Não consegui carregar events.json.</p>';
+      mostrarErroDados(document.querySelector('.wrap'), e);
+      return;
     }
+    eventos = ev.eventos || [];
+    gerado = ev.gerado;
+    // sidebar de regiões contestadas: secundário, degrada com aviso próprio
+    // ("club_regioes.json indisponível" em renderRankings)
+    regioes = await carregarJson(dadosUrl('club_regioes.json'))
+      .catch(e => { console.warn('club_regioes.json:', e.message); return null; });
+    if (regioes && !gerado) gerado = regioes.gerado;
     render();
   })();
 })();

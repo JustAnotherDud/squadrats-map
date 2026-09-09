@@ -11,7 +11,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<!-- shared.js: vocabulário comum ao mapa.html e às páginas de atleta (países,
+<!-- shared.js: vocabulário comum ao analise.html e às páginas de atleta (países,
      XYZ), síncrono de propósito, o script inline abaixo usa-o logo -->
 <script src="shared.js"></script>
 <link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/bricolage-grotesque.woff2">
@@ -103,7 +103,7 @@
 <script>
 // Página do club: só squadratinhos, só os três que têm conta Squadrats.
 // Sem classificação por concelho nem troféus, o assunto aqui é quem
-// partilha o quê. Deliberadamente sem link para o `mapa.html` (o mapa
+// partilha o quê. Deliberadamente sem link para o `analise.html` (o mapa
 // pessoal detalhado do dono): são dois sítios separados, e quem recebe este
 // link não deve cair no outro.
 // Liga sim para /atletas/<slug>.html, os perfis são info do clube (as mesmas
@@ -123,7 +123,7 @@
 // chega; sem membros_cores.json fica o COR_FALLBACK do shared.js.
 let COR_ATLETA = [];
 
-// bandeiras do shared.js (as mesmas do mapa.html), aqui em 13x10, um pouco
+// bandeiras do shared.js (as mesmas do analise.html), aqui em 13x10, um pouco
 // mais pequenas que no mapa pessoal. Estiveram copiadas à mão até 2026-08-18,
 // e a cópia já tinha divergido uma vez.
 const BANDEIRA = bandeiras(13, 10);
@@ -545,17 +545,18 @@ document.getElementById('painel-cabeca').onclick = function () {
 };
 
 (async function () {
-  // no-cache = revalidar sempre com o servidor (304 quando não mudou, por isso
-  // não custa tráfego). Sem isto o browser servia o JSON de ontem depois de um
-  // run do pipeline e a página parecia parada.
-  // club.json vive na branch `data`, não no master (2026-08-14), ver
-  // fetch-map-data.yml.
-  const r = await fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/club.json', { cache: 'no-cache' });
-  if (!r.ok) {
-    document.getElementById('painel-resumo').textContent = 'club.json não encontrado';
+  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados / avisoDadosVelhos:
+  // shared.js. club.json vive na branch `data`, não no main (2026-08-14), ver
+  // fetch-map-data.yml; dadosUrl trata disso.
+  try {
+    dados = await carregarJson(dadosUrl('club.json'));
+  } catch (e) {
+    // sem club.json a página não tem nada para mostrar; erro em ecrã cheio,
+    // igual ao resto do site
+    mostrarErroDados(document.body, e);
     return;
   }
-  dados = await r.json();
+  avisoDadosVelhos(dados.atualizado);  // shared.js
   dados.squares.forEach(([x, y, m]) => porCoord.set(x + ',' + y, m));
   activos = (1 << dados.atletas.length) - 1;
   // plantel e ordem de bit saem do club.json; a cor de cada um é o fallback
@@ -566,13 +567,10 @@ document.getElementById('painel-cabeca').onclick = function () {
   // partilhada com o club-koms). Remapeia COR_ATLETA por nome; se a fetch
   // falhar ou faltar um nome, fica o fallback do shared.js.
   try {
-    const rc = await fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/main/data/membros_cores.json', { cache: 'no-cache' });
-    if (rc.ok) {
-      const { cores } = await rc.json();
-      COR_ATLETA = dados.atletas.map((a, i) => cores[a.nome] || COR_ATLETA[i]);
-    }
+    const { cores } = await carregarJson(mainUrl('membros_cores.json'));
+    COR_ATLETA = dados.atletas.map((a, i) => cores[a.nome] || COR_ATLETA[i]);
   } catch (e) {
-    console.warn('membros_cores.json indisponível, a usar fallback:', e);
+    console.warn('membros_cores.json indisponível, a usar fallback:', e.message);
   }
 
   camadaSquares = new CamadaSquares().addTo(map);
@@ -582,17 +580,10 @@ document.getElementById('painel-cabeca').onclick = function () {
   // detalhe geográfico: opcional, carregado à parte e sem bloquear o resto,
   // club_regioes.json é mais recente que club.json (2026-08-15) e pode ainda
   // não existir num deploy fresco antes do primeiro run do cron
-  const BRANCH = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/';
-  try {
-    const [rg, rs] = await Promise.all([
-      fetch(BRANCH + 'club_regioes.json', { cache: 'no-cache' }),
-      fetch(BRANCH + 'stats.json', { cache: 'no-cache' }),
-    ]);
-    if (rg.ok) dadosGeo = await rg.json();
-    if (rs.ok) dadosStats = await rs.json();
-  } catch (e) {
-    console.warn('detalhe geográfico indisponível:', e);
-  }
+  dadosGeo = await carregarJson(dadosUrl('club_regioes.json'))
+    .catch(e => { console.warn('club_regioes.json:', e.message); return null; });
+  dadosStats = await carregarJson(dadosUrl('stats.json'))
+    .catch(e => { console.warn('stats.json:', e.message); return null; });
   renderPainel();
 })();
 </script>

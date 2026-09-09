@@ -32,7 +32,7 @@
     file === 'club.html' ? 'mapa' :
     file === 'historico.html' ? 'historico' :
     (file === '' || file === 'index.html') ? 'hub' :
-    null;  // mapa.html, nada destacado
+    null;  // analise.html, nada destacado
 
   var DEST = [
     { id: 'mapa', label: 'Mapa', href: P + 'club.html' },

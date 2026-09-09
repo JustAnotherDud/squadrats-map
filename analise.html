@@ -7,7 +7,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#14131b">
-<title>Mapa detalhado · Squadrats Club</title>
+<title>Análise · Squadrats Club</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
@@ -169,15 +169,16 @@
 </div>
 
 <script>
-// Prefixo dos ficheiros DINÂMICOS (o cron regenera 2x/dia): vivem na branch
-// `data`, não no master (2026-08-14), servidos via raw.githubusercontent,
-// sem passar pelo rebuild do Pages. Os geojsons de fronteiras e o
-// adjacency.json são estáticos, ficam no master, caminho relativo normal.
-const DADOS_BRANCH = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/';
+// Ficheiros DINÂMICOS (o cron regenera 6x/dia): vivem na branch `data`, não
+// no main (2026-08-14), servidos via raw.githubusercontent sem passar pelo
+// rebuild do Pages. dadosUrl (shared.js) trata do prefixo. Os geojsons de
+// fronteiras e o adjacency.json são estáticos, ficam no main, caminho
+// relativo normal.
+// dadosUrl / NC / carregarJson / mostrarErroDados: shared.js
 const DATA_URLS = {
-  squadrats: DADOS_BRANCH + 'tile_info_squadrats.json',
-  squadratinhos: DADOS_BRANCH + 'tile_info_squadratinhos.json',
-  stats: DADOS_BRANCH + 'stats.json',
+  squadrats: dadosUrl('tile_info_squadrats.json'),
+  squadratinhos: dadosUrl('tile_info_squadratinhos.json'),
+  stats: dadosUrl('stats.json'),
   concelhos: 'data/concelhos_pt.geojson',
   distritos: 'data/distritos_pt.geojson',
   portugal: 'data/portugal_outline.geojson',
@@ -193,8 +194,8 @@ const DATA_URLS = {
   cerclesMa: 'data/cercles_ma.geojson',
   morocco: 'data/morocco_outline.geojson',
   adjacency: 'data/adjacency.json',
-  trophies: DADOS_BRANCH + 'trophies.json',
-  suggestions: DADOS_BRANCH + 'suggestions.json',
+  trophies: dadosUrl('trophies.json'),
+  suggestions: dadosUrl('suggestions.json'),
 };
 const ZKEY = { squadrats: 'z14', squadratinhos: 'z17' };
 
@@ -411,14 +412,10 @@ const DATA_OPCIONAIS = new Set(['trophies', 'suggestions']);
 async function loadAll() {
   const entries = Object.entries(DATA_URLS);
   const results = await Promise.all(entries.map(([key, url]) =>
-    // no-cache = revalidar sempre com o servidor. Sem isto o browser servia
-    // JSON guardado e mostrava dados de ontem depois de um run do pipeline,
-    // não é "cache: none", é 304 quando não mudou, portanto não custa tráfego
-    fetch(url, { cache: 'no-cache' }).then(r => r.json())
-      .catch(err => {
-        if (DATA_OPCIONAIS.has(key)) return {};
-        throw err;
-      })));
+    carregarJson(url).catch(err => {
+      if (DATA_OPCIONAIS.has(key)) return {};
+      throw err;
+    })));
   entries.forEach(([key], i) => { cache[key] = results[i]; });
 }
 
@@ -1608,7 +1605,14 @@ map.on('click', (e) => {
 });
 
 (async function init() {
-  await loadAll();
+  try {
+    await loadAll();
+  } catch (e) {
+    // sem os ficheiros dinâmicos não há mapa; erro no lugar do "a carregar…",
+    // mesmo texto do resto do site
+    mostrarErroDados(document.getElementById('loading'), e);
+    return;
+  }
   updateColorToggleVisibility();
   render();
   document.getElementById('loading').style.display = 'none';

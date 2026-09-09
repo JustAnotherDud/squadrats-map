@@ -182,3 +182,80 @@ function tileNoroeste(x, y, z) {
     x / n * 360 - 180,
   ];
 }
+
+// --- URLs dos dados ---
+// Em produção os JSON dinâmicos lêem-se da branch `data` via
+// raw.githubusercontent (sem rebuild do Pages, ver fetch-map-data.yml); em
+// localhost/ficheiro lêem-se da cópia local em data/ (feita com
+// `git checkout origin/data -- data/`), para dar para testar sem publicar.
+// O membros_cores.json e o adjacency.json são a exceção: vivem no `main`,
+// não na branch `data`. Antes este bloco estava copiado em 8 sítios.
+const _RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
+const _LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+const _DATA_LOCAL = (/\/(atletas|regioes)\//.test(location.pathname) ? '../' : '') + 'data/';
+const NC = { cache: 'no-cache' };  // revalida sempre (304 quando não mudou)
+
+// ficheiro regenerado pelo cron (branch `data`): club.json, stats.json,
+// events.json, club_regioes.json, regioes_index.json, daily_gains.json,
+// gains_regioes.json, tile_info_*.json, trophies.json, suggestions.json,
+// atletas/<slug>.json, regioes/<key>.json.
+const dadosUrl = nome => _LOCAL ? _DATA_LOCAL + nome : _RAW + 'data/data/' + nome;
+// ficheiro estático do `main`: membros_cores.json, adjacency.json.
+const mainUrl = nome => _LOCAL ? _DATA_LOCAL + nome : _RAW + 'main/data/' + nome;
+
+// --- carregamento de dados com erro sempre visível ---
+// fetch + .json() com falha sempre lançada: rede em baixo OU status != 2xx.
+// Quem chama apanha e mostra com mostrarErroDados(). Nunca devolve null nem
+// {} em silêncio (era o que o index.html fazia com .catch(() => {})).
+async function carregarJson(url, opts) {
+  const nome = url.split('/').pop();
+  let r;
+  try {
+    r = await fetch(url, opts || NC);
+  } catch (e) {
+    throw new Error(`sem rede (${nome})`);
+  }
+  if (!r.ok) throw new Error(`${r.status} (${nome})`);
+  return r.json();
+}
+
+// Mensagem única de "não deu para carregar", no elemento indicado (ou no
+// <main>, ou no <body>). Formato igual em todas as páginas.
+function mostrarErroDados(alvo, e) {
+  const el = alvo || document.querySelector('main') || document.body;
+  const detalhe = e && e.message ? ` (${esc(String(e.message))})` : '';
+  el.innerHTML = `<p class="erro-dados">Não consegui carregar os dados${detalhe}. `
+    + `Tenta recarregar a página. Se persistir, o pipeline pode estar em baixo: `
+    + `vê o <a href="https://github.com/JustAnotherDud/squadrats-map/actions">estado das corridas</a>.</p>`;
+}
+
+// --- aviso de dados velhos ---
+// Se o snapshot tem mais de DADOS_VELHOS_H horas, o cron pode ter falhado e
+// os números estão a mostrar o dia anterior com ar de frescos. Injeta uma
+// barra no topo, igual em todas as páginas. Era só no historico.html.
+const DADOS_VELHOS_H = 6;
+function avisoDadosVelhos(iso) {
+  const antigo = document.getElementById('aviso-stale');
+  if (antigo) antigo.remove();
+  if (!iso) return false;
+  const h = (Date.now() - Date.parse(iso)) / 3.6e6;
+  if (!(h > DADOS_VELHOS_H)) return false;
+  const el = document.createElement('div');
+  el.id = 'aviso-stale';
+  el.textContent = `⚠ Os dados têm mais de ${DADOS_VELHOS_H} h. O pipeline pode não `
+    + `ter corrido, e os números aqui podem estar a repetir o dia anterior. `
+    + `Última actualização há ~${h.toFixed(0)} h.`;
+  const nav = document.getElementById('site-nav');
+  if (nav && document.body.dataset.nav !== 'overlay') {
+    // navbar sticky normal: a barra entra logo a seguir, o fluxo põe-na nos
+    // 46px certos e o sticky segura-a lá. Antes da navbar no DOM, o sticker
+    // (top:46px) e a navbar (top:0) sobrepunham-se e a navbar tapava-a.
+    nav.after(el);
+  } else {
+    // sem navbar (analise.html) ou navbar em overlay (club.html): a barra
+    // também tem de ser fixa (.overlay), senão fica por baixo do mapa absoluto.
+    el.classList.add('overlay');
+    document.body.insertBefore(el, document.body.firstChild);
+  }
+  return true;
+}

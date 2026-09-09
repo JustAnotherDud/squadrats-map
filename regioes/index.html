@@ -67,7 +67,7 @@
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
   <p class="idx-nota">Número e ordem: squadratinhos que o clube cobre na região
     (união dos membros, sem repetir os partilhados), e a seguir a fracção da
-    região que isso representa (só Portugal — no estrangeiro a % contra uma
+    região que isso representa (só Portugal: no estrangeiro a % contra uma
     província inteira não diz nada). Carrega num distrito ou país para ver as
     sub-regiões. Só regiões onde algum atleta tem pelo menos um squadratinho.
     Concelho ou distrito de Portugal têm página; as províncias/regiões
@@ -81,13 +81,8 @@
 <script>
 (function () {
   'use strict';
-  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
-  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  const U_IDX = LOCAL ? '../data/regioes_index.json' : RAW + 'data/data/regioes_index.json';
-  const U_CR = LOCAL ? '../data/club_regioes.json' : RAW + 'data/data/club_regioes.json';
-  const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
-  const NC = { cache: 'no-cache' };
-
+  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
+  // avisoDadosVelhos: shared.js
   // cor / esc / nfmt / carregarCores: shared.js; pctfmt: comum.js. O índice mantém o seu
   // render agrupado (distrito/país = cabeçalho, sub-regiões por baixo, agora
   // colapsáveis com ligarExpansao), não a tabela plana do tabelaSubRegioes.
@@ -176,6 +171,7 @@
       + `<dt>nível</dt><dd>${dist.length} distritos, ${conc} concelhos`
         + (estrN ? `, ${estrN} regiões estrangeiras (${estr.map(g => `${g.cc} ${g.filhos.length}`).join(', ')})` : '') + '</dd>'
       + `<dt>actualizado</dt><dd>${fmtDataHora(d.gerado)}</dd>`;
+    avisoDadosVelhos(d.gerado);  // shared.js
 
     let html = '';
     let i = 0;
@@ -209,21 +205,23 @@
 
     const lista = document.getElementById('lista');
     lista.innerHTML = html;
-    ligarExpansao(lista);  // comum.js — mesmo padrão das províncias na página de país
+    ligarExpansao(lista);  // comum.js, mesmo padrão das províncias na página de país
   }
 
   (async function () {
-    await carregarCores(U_CORES, NC);
+    await carregarCores(mainUrl('membros_cores.json'), NC);
+    let idx;
     try {
-      const [ri, rc] = await Promise.all([fetch(U_IDX, NC), fetch(U_CR, NC).catch(() => null)]);
-      if (!ri.ok) throw new Error(ri.status);
-      const idx = await ri.json();
-      const cr = rc && rc.ok ? await rc.json() : {};
-      pintar(idx, cr);
+      idx = await carregarJson(dadosUrl('regioes_index.json'));  // primário
     } catch (e) {
-      document.getElementById('lista').innerHTML =
-        `<p class="idx-estado idx-erro">Não consegui carregar o índice (${esc(e.message)}).</p>`;
+      mostrarErroDados(document.getElementById('regioes-idx'), e);
+      return;
     }
+    // club_regioes.json = só o estrangeiro; se falhar, o índice mostra PT na
+    // mesma (sem grupos estrangeiros)
+    const cr = await carregarJson(dadosUrl('club_regioes.json'))
+      .catch(e => { console.warn('club_regioes.json:', e.message); return {}; });
+    pintar(idx, cr);
   })();
 })();
 </script>

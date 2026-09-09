@@ -9,13 +9,8 @@
 (function () {
   'use strict';
 
-  const RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
-  // Em produção lê da branch `data` via raw (o mesmo que club.html faz). Em
-  // localhost/ficheiro lê da cópia local (`git checkout origin/data -- data/`),
-  // para dar para testar sem publicar nada.
-  const LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-  const DATA_ATLETAS = LOCAL ? '../data/atletas/' : RAW + 'data/data/atletas/';
-  const CORES_URL = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
+  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
+  // avisoDadosVelhos: shared.js
 
   const BANDEIRA = bandeiras(15, 11); // shared.js
   const NIVEL_NOME = {
@@ -35,8 +30,6 @@
     ['ubersquadratinho', 'Übersquadratinho', 'Lado do maior quadrado NxN totalmente preenchido, em squadratinhos.'],
   ];
 
-  const CACHE_BUST = { cache: 'no-cache' };
-
   // Países com página própria em regioes/pais-<cc>.html. Só se linka os que
   // existem, tal como as regiões/zonas.
   const PAIS_COM_PAGINA = new Set(['PT', 'ES']);
@@ -51,7 +44,7 @@
 
   // ---------- índice ----------
   async function renderIndice() {
-    await carregarCores(CORES_URL, CACHE_BUST);  // funde membros_cores.json em CORES
+    await carregarCores(mainUrl('membros_cores.json'), NC);  // funde membros_cores.json em CORES
     INDICE.querySelectorAll('.perfil-cor').forEach(el => {
       el.style.background = cor(el.dataset.nome);
     });
@@ -275,6 +268,7 @@
   function pintar(d, cor) {
     const mapaUrl = `https://squadrats.com/map/${encodeURIComponent(d.uid)}/17`;
     const quando = fmtDataHora(d.atualizado);
+    avisoDadosVelhos(d.atualizado);  // shared.js
     let estado = {
       soDisputadas: false, sort: { k: 'captured', dir: 'desc' },
       ganhoAberto: null, ganhosExpandido: false,
@@ -342,18 +336,14 @@
 
   async function renderPerfil() {
     const slug = alvo.dataset.slug;
+    await carregarCores(mainUrl('membros_cores.json'), NC);
     let dados;
     try {
-      const r = await fetch(DATA_ATLETAS + encodeURIComponent(slug) + '.json', CACHE_BUST);
-      if (!r.ok) throw new Error(r.status);
-      dados = await r.json();
+      dados = await carregarJson(dadosUrl('atletas/' + encodeURIComponent(slug) + '.json'));
     } catch (e) {
-      alvo.innerHTML = `<p><a class="voltar" href="index.html">todos os perfis</a></p>
-        <p class="perfil-estado perfil-erro">Não consegui carregar o perfil (${esc(e.message)}).
-        Talvez o build ainda não tenha corrido para este atleta.</p>`;
+      mostrarErroDados(alvo, e);
       return;
     }
-    await carregarCores(CORES_URL, CACHE_BUST);
     document.title = `${dados.nome} · Squadrats Club`;
     pintar(dados, cor(dados.nome));
   }
