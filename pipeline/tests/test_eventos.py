@@ -75,6 +75,31 @@ def test_ultrapassagem_entre_estabelecidos():
     assert _tipos(evs) == ["novo_lider"]
     e = evs[0]
     assert e["quem"] == "Carolina" and e["sobre"] == "Zé"
+    assert e["cc"] == "PT"  # niveis_de só lê buckets PT por agora
+
+
+# --- identidade inclui o país -------------------------------------------------
+
+def test_chave_separa_por_pais():
+    """Dois eventos iguais em tudo menos o cc não colapsam no append."""
+    base = {"data": "2026-09-05", "nivel": "distrito", "regiao": "Madrid",
+            "tipo": "primeira_presenca", "quem": "Zé", "sobre": None, "valores": [3]}
+    pt = {**base, "cc": "PT"}
+    es = {**base, "cc": "ES"}
+    assert eventos.chave(pt) != eventos.chave(es)
+
+
+def test_colapsar_marcos_nao_mistura_paises():
+    """Um marco 50 em Madrid/ES e um marco 25 em Madrid/PT no mesmo dia: cada
+    um sobrevive, não é o 50 a absorver o 25 do outro país."""
+    evs = [
+        {"data": "2026-09-05", "cc": "ES", "nivel": "distrito", "regiao": "Madrid",
+         "tipo": "marco", "quem": "Zé", "sobre": None, "valores": [50, 60]},
+        {"data": "2026-09-05", "cc": "PT", "nivel": "distrito", "regiao": "Madrid",
+         "tipo": "marco", "quem": "Zé", "sobre": None, "valores": [25, 30]},
+    ]
+    out = eventos.colapsar_marcos(evs)
+    assert {(e["cc"], e["valores"][0]) for e in out} == {("ES", 50), ("PT", 25)}
 
 
 def test_ultrapassagem_fora_do_topo():

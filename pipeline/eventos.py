@@ -109,13 +109,20 @@ def _idx(nome):
 
 
 def niveis_de(club_regioes):
-    """{(nivel, regiao): {atleta: captured}} para concelho e distrito (PT)."""
+    """{(cc, nivel, regiao): {atleta: captured}}.
+
+    Hoje só lê os buckets PT (by_concelho/by_distrito), por isso cc é sempre
+    "PT". O cc está na chave desde já para a detecção estrangeira ser um
+    switch e não uma mudança de forma: quando ligar, by_region entra como
+    nivel "distrito" e by_municipio como "concelho" (os MARCOS e o frase()
+    do front-end servem os dois), com o cc a separar nomes iguais entre
+    países."""
     out = {}
     for nome, info in club_regioes.get("atletas", {}).items():
         for reg, n in (info.get("by_concelho") or {}).items():
-            out.setdefault(("concelho", reg), {})[nome] = n
+            out.setdefault(("PT", "concelho", reg), {})[nome] = n
         for reg, n in (info.get("by_distrito") or {}).items():
-            out.setdefault(("distrito", reg), {})[nome] = n
+            out.setdefault(("PT", "distrito", reg), {})[nome] = n
     return out
 
 
@@ -155,7 +162,7 @@ def detectar(anterior, atual, data):
                   - set((anterior or {}).get("atletas", {})))
 
     for chave, cb in nb.items():
-        nivel, reg = chave
+        cc, nivel, reg = chave
         ca = na.get(chave, {})
         ra = ranking(ca)
         rb = ranking(cb)
@@ -164,7 +171,7 @@ def detectar(anterior, atual, data):
         for atl, agora in cb.items():
             T = _marco_cruzado(nivel, ca.get(atl, 0), agora)
             if T is not None:
-                eventos.append(_ev(data, nivel, reg, "marco", atl, None, [T, agora]))
+                eventos.append(_ev(data, cc, nivel, reg, "marco", atl, None, [T, agora]))
 
         if ra == rb:
             continue
@@ -177,7 +184,7 @@ def detectar(anterior, atual, data):
         if ra and rb and ra[0] != rb[0]:
             novo, ex = rb[0], ra[0]
             par_lideranca = (novo, ex)
-            eventos.append(_ev(data, nivel, reg, "novo_lider", novo, ex,
+            eventos.append(_ev(data, cc, nivel, reg, "novo_lider", novo, ex,
                                [cb.get(novo, 0), cb.get(ex, 0)]))
 
         # --- ultrapassagens (pares que trocaram), menos o par da liderança ---
@@ -189,35 +196,35 @@ def detectar(anterior, atual, data):
                     continue  # já saiu como novo_lider
                 era_abaixo = (x not in pos_a) or (y in pos_a and pos_a[x] > pos_a[y])
                 if era_abaixo:
-                    eventos.append(_ev(data, nivel, reg, "ultrapassagem", x, y,
+                    eventos.append(_ev(data, cc, nivel, reg, "ultrapassagem", x, y,
                                        [cb.get(x, 0), cb.get(y, 0)]))
 
         # --- primeira presença (região que já tinha outro atleta) ---
         for n in rb:
             if ca.get(n, 0) == 0 and len(ra) >= 1:
-                eventos.append(_ev(data, nivel, reg, "primeira_presenca", n, None,
+                eventos.append(_ev(data, cc, nivel, reg, "primeira_presenca", n, None,
                                    [cb.get(n, 0)]))
 
     # "capturou o 1º square" é implícito quando o mesmo atleta, na mesma
     # região e dia, já assumiu a liderança ou passou alguém, tira-se para o
     # feed não repetir o mesmo movimento com duas frases.
     fortes = {
-        (e["quem"], e["nivel"], e["regiao"])
+        (e["quem"], e["cc"], e["nivel"], e["regiao"])
         for e in eventos if e["tipo"] in ("novo_lider", "ultrapassagem")
     }
     return [
         e for e in eventos
         if e["quem"] not in estreantes
         and not (e["tipo"] == "primeira_presenca"
-                 and (e["quem"], e["nivel"], e["regiao"]) in fortes)
+                 and (e["quem"], e["cc"], e["nivel"], e["regiao"]) in fortes)
     ]
 
 
-def _ev(data, nivel, reg, tipo, quem, sobre, valores):
+def _ev(data, cc, nivel, reg, tipo, quem, sobre, valores):
     return {
         "data": data,
         "nivel": nivel,
-        "cc": "PT",
+        "cc": cc,
         "regiao": reg,
         "tipo": tipo,
         "quem": quem,
@@ -230,7 +237,8 @@ def chave(ev):
     """Identidade por DIA, o que torna o append idempotente entre os 6 runs
     do mesmo dia. Um marco inclui o patamar; os outros o par de atletas."""
     extra = ev["valores"][0] if ev["tipo"] == "marco" else (ev.get("sobre") or "")
-    return (ev["data"], ev["nivel"], ev["regiao"], ev["tipo"], ev["quem"], str(extra))
+    return (ev["data"], ev.get("cc", "PT"), ev["nivel"], ev["regiao"],
+            ev["tipo"], ev["quem"], str(extra))
 
 
 # ordem de leitura dentro de um dia: primeiro os movimentos de ranking, depois
@@ -240,22 +248,23 @@ ORDEM_TIPO = {"novo_lider": 0, "ultrapassagem": 1, "primeira_presenca": 2, "marc
 
 
 def ordenar_feed(evs):
-    """Ordena para o feed: dia desc, depois nivel, região, tipo (ver ORDEM_TIPO)."""
+    """Ordena para o feed: dia desc, depois país, nivel, região, tipo (ver
+    ORDEM_TIPO)."""
     return sorted(evs, key=lambda e: (
-        e["data"], e["nivel"], e["regiao"], ORDEM_TIPO.get(e["tipo"], 9),
-        str(e.get("sobre") or ""),
+        e["data"], e.get("cc", "PT"), e["nivel"], e["regiao"],
+        ORDEM_TIPO.get(e["tipo"], 9), str(e.get("sobre") or ""),
     ))
 
 
 def colapsar_marcos(evs):
-    """Por (data, nivel, regiao, quem) mantém só o marco de patamar mais alto.
-    Um sync grande pode gerar 25 e 50 de uma vez, ou runs sucessivos do mesmo
-    dia tê-los acrescentado em separado, o 50 já implica o 25."""
+    """Por (data, cc, nivel, regiao, quem) mantém só o marco de patamar mais
+    alto. Um sync grande pode gerar 25 e 50 de uma vez, ou runs sucessivos do
+    mesmo dia tê-los acrescentado em separado, o 50 já implica o 25."""
     melhor = {}
     for i, e in enumerate(evs):
         if e["tipo"] != "marco":
             continue
-        k = (e["data"], e["nivel"], e["regiao"], e["quem"])
+        k = (e["data"], e.get("cc", "PT"), e["nivel"], e["regiao"], e["quem"])
         if k not in melhor or e["valores"][0] > evs[melhor[k]]["valores"][0]:
             melhor[k] = i
     manter = set(melhor.values())

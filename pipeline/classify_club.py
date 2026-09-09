@@ -40,16 +40,20 @@ def classify_uniao(classifier, squares, atletas):
     contrário do total da região (só tamanho) ou do capturado pelo líder (um
     atleta só).
 
-    `exclusivos`: por concelho/distrito/país/região, quantos squadratinhos
-    cada atleta tem que mais nenhum membro do clube tem (bitmask com um único
-    bit). `by_pais`: união por país (PT, ES, ...). `by_region`: união por
-    região estrangeira (província ES, land DE, região MA), cc minúsculo ->
-    nome -> n; o equivalente ao by_distrito fora de PT, para as páginas
-    pais-*. `atletas` = nomes por ordem de bit."""
+    `exclusivos`: por concelho/distrito/país/região/município, quantos
+    squadratinhos cada atleta tem que mais nenhum membro do clube tem (bitmask
+    com um único bit). `by_pais`: união por país (PT, ES, ...). `by_region`:
+    união por região estrangeira (província ES, land DE, região MA), cc
+    minúsculo -> nome -> n; o equivalente ao by_distrito fora de PT.
+    `by_municipio`: o mesmo um nível abaixo (município/cercle), o equivalente
+    ao by_concelho fora de PT, para as páginas de zona estrangeira. `atletas`
+    = nomes por ordem de bit."""
     by_distrito, by_concelho, by_pais = {}, {}, {}
     by_region = {}  # cc -> {regiao: n}, estrangeiro
+    by_municipio = {}  # cc -> {municipio: n}, estrangeiro
     exc_distrito, exc_concelho, exc_pais = {}, {}, {}  # regiao/cc -> {atleta: n}
     exc_region = {}  # cc -> {regiao: {atleta: n}}, estrangeiro
+    exc_municipio = {}  # cc -> {municipio: {atleta: n}}, estrangeiro
     # centróide dos squares de cada região, para o club.html poder saltar o
     # mapa até lá quando se carrega numa linha do leaderboard (senão uma
     # região estrangeira com 1 square é impossível de encontrar). chave ->
@@ -95,7 +99,12 @@ def classify_uniao(classifier, squares, atletas):
                 if not info["municipio"] and cc in muni_countries_geo:
                     clip_misses[cc] = clip_misses.get(cc, 0) + 1
             if cc and info["municipio"]:
+                mm = by_municipio.setdefault(cc.lower(), {})
+                mm[info["municipio"]] = mm.get(info["municipio"], 0) + 1
                 _centro(f"municipio|{cc.lower()}|{info['municipio']}", x, y)
+                if solo:
+                    em = exc_municipio.setdefault(cc.lower(), {}).setdefault(info["municipio"], {})
+                    em[solo] = em.get(solo, 0) + 1
             continue
         d, c = info["district"], info["concelho"]
         if d:
@@ -114,9 +123,10 @@ def classify_uniao(classifier, squares, atletas):
     centros = {k: [round(sx / n), round(sy / n)] for k, (sx, sy, n) in acc.items()}
     return {
         "by_distrito": by_distrito, "by_concelho": by_concelho,
-        "by_pais": by_pais, "by_region": by_region,
+        "by_pais": by_pais, "by_region": by_region, "by_municipio": by_municipio,
         "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho,
-                       "by_pais": exc_pais, "by_region": exc_region},
+                       "by_pais": exc_pais, "by_region": exc_region,
+                       "by_municipio": exc_municipio},
         "centros": centros,
     }, clip_misses
 

@@ -23,8 +23,23 @@ CHAVE_ADJ = {"concelho": "concelhos", "distrito": "distritos"}
 CHAVE_STATS = {"concelho": "by_concelho", "distrito": "by_distrito"}
 
 
-def key_de(nivel, nome):
-    return ("c-" if nivel == "concelho" else "d-") + slugify(nome)
+def key_de(cc, nivel, nome):
+    """<key> do ficheiro de um lugar, base do nome regioes/<key>.html|json e
+    do regiaoHref no front-end.
+
+    PT mantém c-/d- (uma centena de ficheiros e todos os links do histórico,
+    perfis e club.html já assim; mudar isso partia bookmarks). País:
+    pais-<ccl>, a convenção que as pais-*.html já usam. Estrangeiro fora do
+    nível país: <ccl>-r- (região/nível 2) e <ccl>-z- (zona/nível 3), com o cc
+    a desambiguar nomes repetidos entre países (Madrid província vs Madrid
+    município)."""
+    ccl = cc.lower()
+    if nivel == "pais":
+        return f"pais-{ccl}"
+    if cc == "PT":
+        return ("c-" if nivel == "concelho" else "d-") + slugify(nome)
+    pref = "z-" if nivel in ("concelho", "zona", "municipio") else "r-"
+    return f"{ccl}-{pref}{slugify(nome)}"
 
 
 def regioes_ativas(club_regioes):
@@ -91,7 +106,7 @@ def construir(nivel, nome, snapshot_atual, stats, adjacency,
 
     viz = []
     for vn in (adjacency.get(CHAVE_ADJ[nivel], {}).get(nome, {}) or {}).get("neighbors", []):
-        viz.append({"nome": vn, "key": key_de(nivel, vn),
+        viz.append({"nome": vn, "key": key_de("PT", nivel, vn),
                     "tem_pagina": vn in ativas[nivel]})
 
     pai = _distrito_pai(concelhos_geojson_path, nome) if nivel == "concelho" else None
@@ -100,11 +115,11 @@ def construir(nivel, nome, snapshot_atual, stats, adjacency,
     # o JSON (é o próprio nome do ficheiro). `cc` era sempre "PT", `slug` é
     # derivável, `desde` é constante, nada disso era lido pelo regiao.js.
     return {
-        "key": key_de(nivel, nome),
+        "key": key_de("PT", nivel, nome),
         "nivel": nivel,
         "regiao": nome,
         "distrito_pai": pai,
-        "distrito_pai_key": key_de("distrito", pai) if pai else None,
+        "distrito_pai_key": key_de("PT", "distrito", pai) if pai else None,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
         "ranking": ranking,
