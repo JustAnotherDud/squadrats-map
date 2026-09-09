@@ -67,6 +67,9 @@ function tabelaSubRegioes(linhas, opts) {
 function ligarExpansao(tabela) {
   if (!tabela) return;
   tabela.addEventListener('click', e => {
+    // clique num link dentro da linha (ex: o nome do distrito, que também
+    // liga à página) navega, não expande.
+    if (e.target.closest('a')) return;
     const row = e.target.closest('.sr-row.exp');
     if (!row || !tabela.contains(row)) return;
     const det = tabela.querySelector(`.sr-det[data-i="${row.dataset.i}"]`);
