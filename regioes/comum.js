@@ -19,6 +19,24 @@ const pctfmt = (p, opts) => {
   if (opts.compacto && p >= 9.5) return Math.round(p) + '%';
   return p.toFixed(opts.casas != null ? opts.casas : 1) + '%';
 };
+// Medidor de profundidade da cobertura do clube numa região (a primitiva
+// .cobertura do site.css). NÃO é uma barra proporcional: das 100 regiões com
+// actividade, 61 estão abaixo de 1% e 47 abaixo de 0,5%, uma barra linear de
+// 0 a 100% estaria quase sempre vazia. É uma escada de patamares ~x3, cada
+// célula acesa = passou esse patamar. Com estes seis, a contagem de células
+// espalha-se bem pela distribuição real (0..6 células, todas povoadas).
+const COBERTURA_PATAMARES = [0.05, 0.2, 0.7, 2, 6, 18];
+function barraCobertura(pct) {
+  if (pct == null) return '';
+  const n = COBERTURA_PATAMARES.filter(t => pct >= t).length;
+  const cels = COBERTURA_PATAMARES
+    .map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+  return `<span class="cobertura" role="img" aria-label="profundidade da `
+    + `cobertura: ${n} de ${COBERTURA_PATAMARES.length}" style="grid-template-`
+    + `columns:repeat(${COBERTURA_PATAMARES.length},6px);color:var(--ganho)">`
+    + `${cels}</span>`;
+}
+
 // Tabela de sub-regiões: nome (link opcional) | união do clube | líder | %.
 // É o mesmo componente nos concelhos de uma página de distrito e nas
 // províncias de uma página de país.

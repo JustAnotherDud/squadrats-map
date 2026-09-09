@@ -71,8 +71,9 @@
       <th>%</th></tr></thead>`;
 
     const uni = d.uniao && d.uniao.z17 != null ? d.uniao : null;
+    const medidor = uni && uni.pct != null ? ' ' + barraCobertura(uni.pct) : '';
     const cobre = `<p class="reg-cobre">Região com <b>${nfmt(d.totais.z17)}</b>
-      squadratinhos${uni ? `, o clube cobre <b>${nfmt(uni.z17)}</b>${uni.pct != null ? ` (${pctfmt(uni.pct)})` : ''}` : ''}.</p>`;
+      squadratinhos${uni ? `, o clube cobre <b>${nfmt(uni.z17)}</b>${uni.pct != null ? ` (${pctfmt(uni.pct)})` : ''}` : ''}.${medidor}</p>`;
 
     const evReg = eventos.filter(e => e.nivel === d.nivel && e.regiao === d.regiao)
       .sort((a, b) => b.data.localeCompare(a.data));
@@ -126,7 +127,9 @@
       <p class="reg-rodape">
         <a class="voltar" href="index.html">todas as regiões</a><br>
         ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m). <b>únicos</b> =
-        sem mais nenhum membro do clube. Dados 6×/dia, mesmo processo que o
+        sem mais nenhum membro do clube. O medidor a seguir à % é uma escada de
+        patamares (0,05% a 18%), não uma barra proporcional: quase toda a gente
+        cobre menos de 1% de uma região. Dados 6×/dia, mesmo processo que o
         <a href="../club.html">mapa do clube</a>. O
         <a href="../historico.html">histórico</a> tem o feed completo.</p>`;
   }
