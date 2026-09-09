@@ -11,7 +11,7 @@ Uso: py gen_profile_stubs.py [pasta_repo]
 import argparse
 import os
 
-from athletes import ATHLETES
+from atletas import ATHLETES
 from slugs import slug_map
 
 HERE = os.path.dirname(os.path.abspath(__file__))

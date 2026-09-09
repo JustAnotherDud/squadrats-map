@@ -303,7 +303,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
                  with_trophy_geometry=False, known_squadratinhos=None):
     """Varre o atleta uma vez por processo e guarda o resultado.
 
-    Há três consumidores dos mesmos UIDs (`build_mapa.py`, `fetch_club_totais.py`,
+    Há três consumidores dos mesmos UIDs (`build_analise.py`, `fetch_club_totais.py`,
     `fetch_club_squares.py`). Corridos em processos separados, cada um varria
     tudo outra vez, o primeiro atleta era varrido três vezes por run. Com esta cache e o
     `run_all.py` a chamá-los no mesmo processo, é um varrimento por atleta.
@@ -311,7 +311,7 @@ def scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch_
     Varre-se sempre com a geometria de troféus (é um superconjunto e não custa
     pedidos nenhuns a mais), e devolve-se conforme o que o chamador pediu.
 
-    `known_squadratinhos` (opcional, ver `athletes.known_squadratinhos`):
+    `known_squadratinhos` (opcional, ver `atletas.known_squadratinhos`):
     último total publicado. Se um probe de 1 pedido confirmar que continua
     igual, devolve-se `None` em vez do tuplo, o chamador tem de reaproveitar
     a publicação anterior (nenhuma geometria nova foi buscada). Sem isto,
@@ -473,7 +473,7 @@ def _scan_athlete(uid, bbox=WORLD_BBOX, discovery_levels=DISCOVERY_LEVELS, fetch
     Devolve `None` (em vez do tuplo) quando `known_squadratinhos` é dado e o
     probe de 1 pedido confirma que continua igual, nada foi buscado, o
     chamador tem de reaproveitar a publicação anterior (ver
-    `athletes.known_squadratinhos`).
+    `atletas.known_squadratinhos`).
 
     Caminho normal: cobertura z10 vem de data/scan_cache.json (corrida
     anterior), salta-se a cascata de descoberta e valida-se o resultado

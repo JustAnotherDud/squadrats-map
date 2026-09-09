@@ -18,7 +18,7 @@ import datetime
 import json
 import os
 
-from athletes import ATLETAS, known_squadratinhos
+from atletas import ATLETAS, known_squadratinhos
 from kml_parse import reconstruct_squares
 from slugs import slugify
 from tiles_fetch import scan_athlete

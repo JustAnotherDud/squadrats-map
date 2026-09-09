@@ -20,7 +20,7 @@ lá vai a sério.
 
 Degradação, se um membro sair fora do buffer numa visita seguinte: os squares
 novos ficam a nível de região (Land/província) até se voltar a correr isto.
-É VISÍVEL: build_mapa.py e classify_club.py contam esses squares e imprimem
+É VISÍVEL: build_analise.py e classify_club.py contam esses squares e imprimem
 `AVISO: <CC>: N square(s) ... fora do recorte de 10 km` no fim do run, e o
 número fica em stats.foreign.*.muni_clip_misses. É o sinal de "correr o clip
 outra vez".

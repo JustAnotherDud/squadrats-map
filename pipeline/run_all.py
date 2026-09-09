@@ -1,7 +1,7 @@
 """Orquestrador do pipeline: corre todos os passos no mesmo processo, para
 cada atleta ser varrido do Squadrats uma vez só.
 
-Os três que tocam a rede (build_mapa, fetch_club_totais, fetch_club_squares)
+Os três que tocam a rede (build_analise, fetch_club_totais, fetch_club_squares)
 partilhavam os mesmos UIDs; em passos separados do workflow cada um varria-os
 de novo, ~1200 pedidos de tiles em duplicado por run, sem ganho, contra um
 servidor que não é API pública. A cache vive no `tiles_fetch.scan_athlete`;
@@ -19,12 +19,12 @@ import time
 import append_events
 import append_gains_regioes
 import append_regioes
-import build_mapa
+import build_analise
 import build_profiles
 import classify_club
 import fetch_club_squares
 import fetch_club_totais
-from athletes import JOSE_UID
+from atletas import JOSE_UID
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
@@ -33,7 +33,7 @@ DATA_DIR = os.path.join(os.path.dirname(HERE), "data")
 def main(out_dir):
     inicio = time.time()
     passos = [
-        ("mapa detalhado", lambda: build_mapa.run_from_tiles(JOSE_UID, out_dir)),
+        ("análise pessoal", lambda: build_analise.run_from_tiles(JOSE_UID, out_dir)),
         ("totais do clube", lambda: fetch_club_totais.main(out_dir)),
         ("squares do club", lambda: fetch_club_squares.main(out_dir)),
         # depende do club.json escrito no passo anterior (mesma corrida),

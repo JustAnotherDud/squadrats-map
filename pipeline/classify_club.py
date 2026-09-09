@@ -12,7 +12,7 @@ Escreve dois blocos: "atletas" (captured por região, por atleta) e "uniao"
 (squadratinhos que o clube cobre por região, partilhados contados uma vez;
 usado como número e ordenação do regioes/index.html via regioes.py). Os
 totais (denominador) são os mesmos para toda a gente, já em stats.json (via
-grid_totals.json, ver build_mapa.py): o frontend combina os dois.
+grid_totals.json, ver build_analise.py): o frontend combina os dois.
 
 Uso: py classify_club.py [pasta_saida]
 """
@@ -21,7 +21,7 @@ import datetime
 import json
 import os
 
-from athletes import ATLETAS
+from atletas import ATLETAS
 from classify import Classifier
 from kml_parse import tile_bounds
 

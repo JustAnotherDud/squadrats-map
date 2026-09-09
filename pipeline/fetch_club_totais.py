@@ -15,7 +15,7 @@ import json
 import os
 
 import daily_gains
-from athletes import ATHLETES, known_squadratinhos
+from atletas import ATHLETES, known_squadratinhos
 from kml_parse import reconstruct_squares
 from tiles_fetch import GEOMETRY_LAYERS, scan_athlete
 
@@ -73,7 +73,7 @@ def main(out_dir):
 
     # totais/probe-tile já publicados (branch 'data', carregados no out_dir
     # antes desta corrida), fonte do probe barato e do "reaproveitar" quando
-    # ele confirma que nada mudou (ver tiles_fetch.py, athletes.py).
+    # ele confirma que nada mudou (ver tiles_fetch.py, atletas.py).
     known = known_squadratinhos(out_dir)
     anteriores = {}
     try:

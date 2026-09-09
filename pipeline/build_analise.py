@@ -1,9 +1,9 @@
-"""Constrói o mapa detalhado PESSOAL (analise.html) a partir dos vector tiles
+"""Constrói a análise pessoal detalhada (analise.html) a partir dos vector tiles
 do squadrats.com de UM uid, classifica cada square por concelho/distrito e
 escreve tile_info_*.json, stats.json, trophies.json, suggestions.json.
 
 Uso:
-  py build_mapa.py --uid <firebase_uid> [pasta_saida]
+  py build_analise.py --uid <firebase_uid> [pasta_saida]
 
 ATENÇÃO: correr este ficheiro directamente só actualiza o analise.html. Não toca
 em squadrats.json/club.json/daily_gains.json, os ficheiros que o
@@ -29,7 +29,7 @@ REFDATA_DIR = os.path.join(HERE, "refdata")  # fronteiras não-simplificadas, s�
 def run_from_tiles(uid, out_dir, bbox=None):
     """Fonte principal: fetch directo aos vector tiles da Squadrats (ver
     tiles_fetch.py). Substitui o export manual de KML."""
-    from athletes import known_squadratinhos
+    from atletas import known_squadratinhos
     from tiles_fetch import scan_athlete
 
     kwargs = {"bbox": bbox} if bbox else {}
@@ -377,7 +377,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(
-        "AVISO: a correr build_mapa.py directamente, só actualiza o mapa pessoal "
+        "AVISO: a correr build_analise.py directamente, só actualiza a análise pessoal "
         "(tile_info_*.json/stats.json/trophies.json). squadrats.json/club.json/"
         "daily_gains.json (folha-do-clube, club.html) ficam por actualizar. "
         "Para tudo: `py run_all.py` ou `gh workflow run fetch-map-data.yml`.",
