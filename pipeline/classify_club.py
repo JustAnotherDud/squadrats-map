@@ -50,6 +50,15 @@ def classify_uniao(classifier, squares, atletas):
     by_region = {}  # cc -> {regiao: n}, estrangeiro
     exc_distrito, exc_concelho, exc_pais = {}, {}, {}  # regiao/cc -> {atleta: n}
     exc_region = {}  # cc -> {regiao: {atleta: n}}, estrangeiro
+    # centróide dos squares de cada região, para o club.html poder saltar o
+    # mapa até lá quando se carrega numa linha do leaderboard (senão uma
+    # região estrangeira com 1 square é impossível de encontrar). chave ->
+    # [somaX, somaY, n]; no fim vira [x, y] médio, em tile z17.
+    acc = {}
+
+    def _centro(chave, x, y):
+        a = acc.setdefault(chave, [0, 0, 0])
+        a[0] += x; a[1] += y; a[2] += 1
     # países com ficheiro de município no disco (após clip.py, só a zona
     # visitada + 10 km): um square lá com região mas sem município = recorte
     # curto, precisa de correr o clip outra vez.
@@ -79,17 +88,22 @@ def classify_uniao(classifier, squares, atletas):
                 # cc minúsculo, como o by_region por atleta (classify_athlete)
                 mr = by_region.setdefault(cc.lower(), {})
                 mr[reg] = mr.get(reg, 0) + 1
+                _centro(f"region|{cc.lower()}|{reg}", x, y)
                 if solo:
                     er = exc_region.setdefault(cc.lower(), {}).setdefault(reg, {})
                     er[solo] = er.get(solo, 0) + 1
                 if not info["municipio"] and cc in muni_countries_geo:
                     clip_misses[cc] = clip_misses.get(cc, 0) + 1
+            if cc and info["municipio"]:
+                _centro(f"municipio|{cc.lower()}|{info['municipio']}", x, y)
             continue
         d, c = info["district"], info["concelho"]
         if d:
             by_distrito[d] = by_distrito.get(d, 0) + 1
+            _centro(f"distrito|{d}", x, y)
         if c:
             by_concelho[c] = by_concelho.get(c, 0) + 1
+            _centro(f"concelho|{c}", x, y)
         if solo:
             if d:
                 md = exc_distrito.setdefault(d, {})
@@ -97,11 +111,13 @@ def classify_uniao(classifier, squares, atletas):
             if c:
                 mc = exc_concelho.setdefault(c, {})
                 mc[solo] = mc.get(solo, 0) + 1
+    centros = {k: [round(sx / n), round(sy / n)] for k, (sx, sy, n) in acc.items()}
     return {
         "by_distrito": by_distrito, "by_concelho": by_concelho,
         "by_pais": by_pais, "by_region": by_region,
         "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho,
                        "by_pais": exc_pais, "by_region": exc_region},
+        "centros": centros,
     }, clip_misses
 
 

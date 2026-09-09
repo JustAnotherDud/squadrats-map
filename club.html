@@ -40,6 +40,8 @@
   #painel.aberto #painel-corpo { display:block; }
   .linha-stat { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--hair); font-size:12.5px; }
   .linha-stat b { color:var(--tinta); font-family:var(--f-mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .linha-stat.saltavel { cursor:pointer; }
+  .linha-stat.saltavel:hover .txt { text-decoration:underline; text-decoration-color:var(--marca); }
   a.lnome { color:var(--tinta); text-decoration:none; }
   a.lnome:hover { text-decoration:underline; text-decoration-color:var(--marca); }
   .esq { display:flex; align-items:center; gap:8px; overflow:hidden; }
@@ -383,6 +385,21 @@ function renderPainel() {
   corpo.querySelectorAll('[data-leaderboard-nivel]').forEach(b => {
     b.onclick = () => { leaderboardNivel = b.dataset.leaderboardNivel; renderPainel(); };
   });
+  // carregar numa região do leaderboard salta o mapa até lá (o centróide vem
+  // do classify_club.py). Clique num link de atleta dentro da linha navega,
+  // não salta.
+  corpo.querySelectorAll('.linha-stat[data-centro]').forEach(el => {
+    const saltar = () => {
+      const [cx, cy] = el.dataset.centro.split(',').map(Number);
+      map.setView(tileNoroeste(cx, cy, dados.zoom), 11);  // shared.js
+      painel.classList.remove('aberto');
+      hover.classList.remove('visivel');
+    };
+    el.onclick = e => { if (!e.target.closest('a')) saltar(); };
+    el.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); saltar(); }
+    };
+  });
 }
 
 // club_regioes.json só tem "captured" por região (ver classify_club.py); o
@@ -435,6 +452,20 @@ function bucketDe(nivel, cc) {
   if (nivel === 'pais') return `country_${cc.toLowerCase()}`;
   if (nivel === 'distrito') return cc === 'PT' ? 'by_distrito' : `by_region_${cc.toLowerCase()}`;
   return cc === 'PT' ? 'by_concelho' : `by_municipio_${cc.toLowerCase()}`;
+}
+
+// centróide (tile x/y z17) dos squares de uma região, para saltar o mapa até
+// lá. Vem de club_regioes.json uniao.centros (classify_club.py); ausente em
+// dados antigos -> devolve null e a linha não fica clicável. País não salta
+// (é grande de mais para o centróide dizer alguma coisa).
+function centroDe(nivel, cc, nome) {
+  if (nivel === 'pais') return null;
+  const centros = (dadosGeo && dadosGeo.uniao && dadosGeo.uniao.centros) || {};
+  const ccl = cc.toLowerCase();
+  const chave = nivel === 'distrito'
+    ? (cc === 'PT' ? `distrito|${nome}` : `region|${ccl}|${nome}`)
+    : (cc === 'PT' ? `concelho|${nome}` : `municipio|${ccl}|${nome}`);
+  return centros[chave] || null;
 }
 
 // chaves internas antigas (distrito/concelho), rótulos do shared.js
@@ -498,7 +529,11 @@ function renderLeaderboard() {
     // genérica e o nome de PAIS_NOME (shared.js, alargado à Europa).
     const flag = BANDEIRA[r.cc] || bandeiraSvg(r.cc, 13, 10);
     const np = r.entradas.length;
-    linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
+    const centro = centroDe(leaderboardNivel, r.cc, r.nome);
+    const salt = centro
+      ? ` data-centro="${centro[0]},${centro[1]}" tabindex="0" role="button" aria-label="ver ${esc(r.nome)} no mapa"`
+      : '';
+    linhas.push(`<div class="grupo"><div class="linha-stat${centro ? ' saltavel' : ''}" style="font-weight:600"${salt}>
       <span class="esq"><span class="txt">${flag} ${nomeReg}</span></span>
       <b class="fraco">${np} pessoa${np === 1 ? '' : 's'}</b></div>${linhasAtletas}</div>`);
   });
