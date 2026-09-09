@@ -38,19 +38,21 @@ def snapshots_club_por_dia(repo, branch):
     """{data_utc: club_dict}, o último club.json commitado de cada dia UTC,
     pela data do campo `atualizado` (mesma regra do backfill_daily_gains.py)."""
     shas = _git(repo, "log", branch, "--format=%H", "--", "data/club.json").split()
-    por_dia, ts_por_dia = {}, {}
+    por_dia, ts_por_dia, saltados = {}, {}, 0
     for sha in shas:
         try:
             d = json.loads(_git(repo, "show", f"{sha}:data/club.json"))
-        except (subprocess.CalledProcessError, json.JSONDecodeError):
+            raw = d["atualizado"]
+            ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError,
+                AttributeError, ValueError):
+            saltados += 1
             continue
-        raw = d.get("atualizado")
-        if not raw:
-            continue
-        ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         dia = ts.date().isoformat()
         if dia not in ts_por_dia or ts > ts_por_dia[dia]:
             por_dia[dia], ts_por_dia[dia] = d, ts
+    if saltados:
+        print(f"snapshots_club_por_dia: {saltados}/{len(shas)} commit(s) de club.json saltado(s)")
     return por_dia
 
 
@@ -100,7 +102,7 @@ def snapshots_estendidos(repo=REPO, branch="origin/data", desde=None):
     15 ago real) recupera eventos que o backfill original perdia por não ter
     nada antes de 15 ago."""
     desde = desde or eventos.DESDE
-    reais = eventos.snapshots_por_dia(repo, branch, desde=max(desde, CORTE))
+    reais, _saltados = eventos.snapshots_por_dia(repo, branch, desde=max(desde, CORTE))
 
     fora = dict(reais)
     if desde < CORTE:

@@ -44,10 +44,15 @@ def main(out_dir):
     ultimo = max(por_data, default=gains_regioes.DESDE)
 
     try:
-        snaps = eventos.snapshots_por_dia(REPO, "origin/data", desde=ultimo)
+        snaps, saltados = eventos.snapshots_por_dia(REPO, "origin/data", desde=ultimo)
     except Exception as e:
-        print(f"append_gains_regioes: git log de origin/data indisponível ({e})")
-        snaps = {}
+        print(f"append_gains_regioes: histórico de origin/data indisponível ({e})")
+        snaps, saltados = {}, []
+    if saltados:
+        # aqui o fallback shallow não escreve datas erradas (só evita mexer no
+        # que já lá está), por isso basta o aviso; ver append_events para o
+        # tratamento estrito do mesmo padrão.
+        print(f"append_gains_regioes: {len(saltados)} snapshot(s) do histórico ilegível(is)")
     snaps[hoje] = novo
     dias = [d for d in sorted(snaps) if d <= hoje]
 

@@ -37,8 +37,21 @@ DESDE = "2026-07-26"  # 1.º dia com club.json (o histórico < 15 ago é
 
 
 def snapshots_por_dia(repo, branch="origin/data", desde=None):
-    """{data_utc: club_regioes_dict}, o ÚLTIMO snapshot commitado de cada dia
-    UTC na branch dada. Mesma regra que o backfill_daily_gains.py.
+    """(por_dia, saltados).
+
+    `por_dia` = {data_utc: club_regioes_dict}, o ÚLTIMO snapshot commitado de
+    cada dia UTC na branch dada. Mesma regra que o backfill_daily_gains.py.
+
+    `saltados` = [(sha, motivo), ...] dos commits que o `git log` listou mas
+    que não deu para ler (blob em falta num checkout shallow, ou JSON/formato
+    inesperado). Vazio no caminho feliz. Quem chama decide o que fazer com
+    ele; um commit saltado no meio do histórico faz um dia colapsar no
+    anterior, por isso não deve passar despercebido.
+
+    Levanta RuntimeError se o `git log` listou commits e NENHUM deu para ler
+    (histórico presente na branch mas inacessível no clone — quase sempre um
+    `git fetch --depth` curto demais). Um clone sem qualquer commit do
+    ficheiro devolve ({}, []) sem erro: é o primeiro run, não uma anomalia.
 
     `desde` (YYYY-MM-DD) limita a leitura aos commits desse dia em diante, o
     passo incremental passa aqui o último dia já coberto para não ler o
@@ -54,22 +67,41 @@ def snapshots_por_dia(repo, branch="origin/data", desde=None):
     shas = subprocess.run(args, capture_output=True, text=True,
                           encoding="utf-8", check=True).stdout.split()
 
-    por_dia, ts_por_dia = {}, {}
+    por_dia, ts_por_dia, saltados = {}, {}, []
     for sha in shas:
-        try:
-            raw = subprocess.run(
-                ["git", "-C", repo, "show", f"{sha}:data/club_regioes.json"],
-                capture_output=True, text=True, encoding="utf-8", check=True,
-            ).stdout
-            d = __import__("json").loads(raw)
-        except Exception:
+        r = subprocess.run(
+            ["git", "-C", repo, "show", f"{sha}:data/club_regioes.json"],
+            capture_output=True, text=True, encoding="utf-8",
+        )
+        if r.returncode != 0:
+            err = " ".join((r.stderr or "").split())[:120]
+            hint = "blob em falta (checkout shallow?)" if not err else f"git show falhou: {err}"
+            saltados.append((sha, hint))
             continue
-        ts = datetime.fromisoformat(d["atualizado"].replace("Z", "+00:00"))
+        try:
+            d = __import__("json").loads(r.stdout)
+            ts = datetime.fromisoformat(d["atualizado"].replace("Z", "+00:00"))
+        except Exception as e:
+            saltados.append((sha, f"club_regioes.json inesperado: {type(e).__name__}: {e}"))
+            continue
         dia = ts.date().isoformat()
         if dia not in ts_por_dia or ts > ts_por_dia[dia]:
             por_dia[dia] = d
             ts_por_dia[dia] = ts
-    return por_dia
+
+    if saltados:
+        from collections import Counter
+        resumo = Counter(m for _, m in saltados)
+        print(f"snapshots_por_dia: {len(saltados)}/{len(shas)} commit(s) saltado(s) — "
+              + "; ".join(f"{n}x {m}" for m, n in resumo.most_common()))
+
+    if shas and not por_dia:
+        raise RuntimeError(
+            f"snapshots_por_dia: {len(shas)} commit(s) de data/club_regioes.json em "
+            f"{branch}, nenhum legível. Clone shallow demais? "
+            "(o workflow faz `git fetch origin data --depth=500`)."
+        )
+    return por_dia, saltados
 
 
 def _idx(nome):

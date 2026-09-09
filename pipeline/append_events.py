@@ -18,6 +18,7 @@ Uso: py append_events.py [pasta_saida]
 import argparse
 import json
 import os
+import subprocess
 from datetime import datetime, timezone
 
 import eventos
@@ -25,6 +26,18 @@ import eventos
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 DATA_DIR = os.path.join(REPO, "data")
+
+
+def _n_commits_club_regioes(repo=REPO, branch="origin/data"):
+    """Quantos commits de data/club_regioes.json existem em `branch`. 0 se a
+    ref ou o ficheiro ainda não existem lá. Serve para distinguir 'nunca
+    houve snapshot' (primeiro run, normal) de 'o histórico devia estar cá'
+    (checkout shallow — anomalia)."""
+    r = subprocess.run(
+        ["git", "-C", repo, "log", branch, "--format=%H", "--", "data/club_regioes.json"],
+        capture_output=True, text=True, encoding="utf-8",
+    )
+    return len(r.stdout.split()) if r.returncode == 0 else 0
 
 
 def main(out_dir):
@@ -50,29 +63,54 @@ def main(out_dir):
     ultimo = max((e["data"] for e in atual["eventos"]), default=eventos.DESDE)
 
     # caminho preferido: walk dia-a-dia sobre o histórico de origin/data (precisa
-    # de profundidade, o workflow faz `git fetch origin data --depth=...`).
+    # de profundidade, o workflow faz `git fetch origin data --depth=500`).
+    saltados = []
     try:
-        por_dia = eventos.snapshots_por_dia(REPO, "origin/data", desde=ultimo)
+        por_dia, saltados = eventos.snapshots_por_dia(REPO, "origin/data", desde=ultimo)
     except Exception as e:
-        print(f"append_events: git log de origin/data indisponível ({e})")
+        print(f"append_events: histórico de origin/data indisponível ({e})")
         por_dia = {}
     por_dia[hoje] = novo  # o run actual manda no seu próprio dia
     dias = [d for d in sorted(por_dia) if d <= hoje]
 
-    # fallback (checkout shallow sem histórico): compara só o topo de
-    # origin/data com o novo, tudo atribuído ao dia de hoje. Menos preciso num
-    # gap de vários dias, mas nunca perde eventos num run normal.
+    # Só temos o snapshot de hoje. Duas situações MUITO diferentes:
+    #   - events.json ainda vazio  -> primeiro run / arranque. Não há histórico
+    #     de eventos a proteger; compara só o topo de origin/data com o novo
+    #     (1 par, tudo em `hoje`). É o backfill_events.py quem seeda a sério.
+    #   - events.json já com eventos -> já publicámos snapshots antes, logo o
+    #     histórico DEVIA estar acessível e não está: checkout shallow demais,
+    #     branch reescrita, ou blobs em falta. Abortar — o fallback do topo
+    #     atribuiria dias de mudanças todos a hoje, com datas erradas, e o run
+    #     passava como sucesso. Antes um job vermelho (que se cura sozinho no
+    #     run seguinte) do que um feed silenciosamente errado.
     if len(dias) < 2:
+        if atual["eventos"]:
+            n_commits = _n_commits_club_regioes()
+            raise SystemExit(
+                "append_events: ANOMALIA — origin/data devia trazer o histórico de "
+                f"club_regioes.json e não traz (ultimo={ultimo}, hoje={hoje}; "
+                f"{n_commits} commit(s) do ficheiro na branch, {len(saltados)} ilegível(is); "
+                f"events.json com {len(atual['eventos'])} evento(s)). "
+                "Checkout shallow demais? O workflow faz `git fetch origin data --depth=500`. "
+                "Abortado para não escrever eventos com datas erradas."
+            )
         try:
-            raw = __import__("subprocess").run(
+            raw = subprocess.run(
                 ["git", "-C", REPO, "show", "origin/data:data/club_regioes.json"],
                 capture_output=True, text=True, encoding="utf-8", check=True,
             ).stdout
             por_dia = {"_prev": json.loads(raw), hoje: novo}
             dias = ["_prev", hoje]
-            print("append_events: sem histórico, a comparar só topo de origin/data vs novo")
+            print("append_events: arranque (events.json vazio), a comparar só topo de origin/data vs novo")
         except Exception:
-            print("append_events: sem snapshot anterior, só actualiza 'gerado'")
+            print("append_events: arranque sem snapshot anterior, só actualiza 'gerado'")
+
+    # histórico lido em parte (uns commits ilegíveis, mas >=2 dias no total):
+    # não aborta — um único commit corrompido lá atrás não deve travar o
+    # pipeline diário para sempre — mas fica dito, pode ter colapsado um dia.
+    if saltados and len(dias) >= 2:
+        print(f"append_events: AVISO — {len(saltados)} snapshot(s) do histórico "
+              "ilegível(is); um dia pode ter colapsado no anterior (ver snapshots_por_dia acima)")
 
     novos = []
     if len(dias) >= 2:
