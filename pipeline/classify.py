@@ -173,18 +173,25 @@ class Classifier:
         return None, None
 
     def _foreign_municipio(self, country, tile_poly):
-        """Município/concelho equivalente estrangeiro, só quando há fonte
-        para esse país (refdata/foreign_muni/*.geojson; hoje só ES). Sem
-        fallback de proximidade ao contrário do concelho PT: prefere-se
-        None a arriscar atribuir a um município de outro país por estar
-        perto a mais na fronteira."""
+        """Município/concelho equivalente estrangeiro, quando há fonte para
+        esse país (refdata/foreign_muni/*.geojson).
+
+        Se nada intersecta, fallback de proximidade dentro de
+        COASTAL_BUFFER_DEG, mas SÓ a municípios do MESMO país (o `country` já
+        foi resolvido pela camada de região) — assim não cruza fronteira, e
+        apanha os squares na orla marítima logo a seguir ao limite terrestre
+        de um município costeiro (a praia/porto de València, p.ex.), como o
+        `_concelho` faz em PT."""
         if self.foreign_muni is None:
             return None
         label, area = self.foreign_muni.best_match(tile_poly)
-        if area <= 0.0 or label is None:
-            return None
-        muni_country, muni_name = label
-        return muni_name if muni_country == country else None
+        if label is not None and area > 0.0:
+            muni_country, muni_name = label
+            return muni_name if muni_country == country else None
+        near, dist = self.foreign_muni.nearest(tile_poly)
+        if near is not None and dist <= COASTAL_BUFFER_DEG and near[0] == country:
+            return near[1]
+        return None
 
     def classify(self, tile_poly):
         """`tile_poly`: polígono shapely do square (ver kml_parse.tile_bounds).

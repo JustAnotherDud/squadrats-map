@@ -364,11 +364,12 @@ regardless: no municipal adjacency, and the pages would be trivially thin.
 
 `refdata/foreign_muni/<CC>.geojson` holds the **municipality** (GADM level 4:
 Gemeinde, municipio, cercle) geometry for the fine "Zona" view and the club's
-`by_municipio` breakdown. It is **not** the whole country — it is clipped to
-every municipality within **10 km** of anywhere a member has actually
-captured squares. Full Germany is ~11 k Gemeinden / 20 MB for the 3 cities
-anyone has ridden; clipped it is ~200 KB, and it still covers a return trip
-to the same region.
+`by_municipio` breakdown. It is **not** the whole country — `clip.py` keeps
+only the municipalities within **10 km of an actual captured square**
+(`data/club.json` points, via `STRtree` `dwithin` — not around whole
+municipality polygons, which was circular: a square with no municipality
+match never seeded the clip and stayed excluded). Full Germany is ~11 k
+Gemeinden for the 3 cities anyone has ridden; clipped it is a few dozen.
 
 **When a member rides somewhere new:**
 
@@ -386,20 +387,20 @@ to the same region.
    currently holds, so first `git checkout <commit-before-clip> --
    pipeline/refdata/foreign_muni/<CC>.geojson` (or re-download from GADM) to
    get the full set back, then clip.
-3. **Run the clip:** `git checkout origin/data -- data/club_regioes.json`
-   (the seed list of captured municipalities lives there), then
-   `py pipeline/refdata/clip.py CH` (or no argument for all). It rewrites
-   `foreign_muni/<CC>.geojson` to visited + 10 km and prunes
-   `grid_totals.json` to match. Commit both. Re-running is idempotent.
+3. **Run the clip:** `git checkout origin/data -- data/club.json` (the seed
+   points live there), then `py pipeline/refdata/clip.py CH` (or no argument
+   for all). It rewrites `foreign_muni/<CC>.geojson` to squares + 10 km and
+   prunes `grid_totals.json` to match. Commit both. Idempotent.
 
 **Degradation is visible, not silent.** If a member captures squares in a
 country that *has* a `foreign_muni` file but outside the 10 km clip, those
 squares classify to region level only (no municipality). `build_mapa.py` and
 `classify_club.py` count them and print
-`AVISO: <CC>: N square(s) ... fora do recorte de 10 km — correr
-`py pipeline/refdata/clip.py <CC>`` at the end of every run, and the count is
-in `stats.foreign.<zkey>.muni_clip_misses`. That is the signal to re-run the
-clip.
+`AVISO: <CC>: N square(s) ... fora do recorte de 10 km` at the end of every
+run, and the count is in `stats.foreign.<zkey>.muni_clip_misses`. That is the
+signal to re-run the clip. (Coastal squares just off a municipality's land
+edge get that municipality by proximity — `_foreign_municipio`, same-country
+only — so they are not counted as misses.)
 
 ## Running the pipeline manually
 
