@@ -50,6 +50,12 @@ def classify_uniao(classifier, squares, atletas):
     by_region = {}  # cc -> {regiao: n}, estrangeiro
     exc_distrito, exc_concelho, exc_pais = {}, {}, {}  # regiao/cc -> {atleta: n}
     exc_region = {}  # cc -> {regiao: {atleta: n}}, estrangeiro
+    # países com ficheiro de município no disco (após clip.py, só a zona
+    # visitada + 10 km): um square lá com região mas sem município = recorte
+    # curto, precisa de correr o clip outra vez.
+    muni_countries_geo = ({c for c, _ in classifier.foreign_muni.names}
+                          if classifier.foreign_muni else set())
+    clip_misses = {}
     for x, y, mask in squares:
         if not mask:
             continue
@@ -76,6 +82,8 @@ def classify_uniao(classifier, squares, atletas):
                 if solo:
                     er = exc_region.setdefault(cc.lower(), {}).setdefault(reg, {})
                     er[solo] = er.get(solo, 0) + 1
+                if not info["municipio"] and cc in muni_countries_geo:
+                    clip_misses[cc] = clip_misses.get(cc, 0) + 1
             continue
         d, c = info["district"], info["concelho"]
         if d:
@@ -94,7 +102,7 @@ def classify_uniao(classifier, squares, atletas):
         "by_pais": by_pais, "by_region": by_region,
         "exclusivos": {"by_distrito": exc_distrito, "by_concelho": exc_concelho,
                        "by_pais": exc_pais, "by_region": exc_region},
-    }
+    }, clip_misses
 
 
 def classify_athlete(classifier, squares):
@@ -141,6 +149,7 @@ def main(out_dir):
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
         foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
         foreign_muni_dir=os.path.join(REFDATA_DIR, "foreign_muni"),
+        outlines_path=os.path.join(REFDATA_DIR, "outlines", "europe.geojson"),
     )
 
     squares_por_atleta = {nome: [] for nome, _uid in ATLETAS}
@@ -154,8 +163,13 @@ def main(out_dir):
         atletas_out[nome] = classify_athlete(classifier, squares)
         print(f"{nome}: {len(squares)} squares classificados")
 
-    uniao = classify_uniao(classifier, club["squares"], [nome for nome, _uid in ATLETAS])
+    uniao, clip_misses = classify_uniao(classifier, club["squares"], [nome for nome, _uid in ATLETAS])
     print(f"união: {len(club['squares'])} squares distintos classificados")
+    if clip_misses:
+        detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(clip_misses.items()))
+        print(f"AVISO: {detalhe} square(s) num país COM ficheiro de município mas "
+              f"fora do recorte de 10 km — correr `py pipeline/refdata/clip.py "
+              f"{' '.join(sorted(clip_misses))}` (ver README, secção do clip)")
 
     resultado = {
         "atualizado": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

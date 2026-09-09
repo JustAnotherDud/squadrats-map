@@ -1,8 +1,10 @@
 """Classifica squares (o polígono do tile, não só o centro) em concelho e
 distrito de Portugal, e, quando houver geometria disponível, região
-estrangeira (ex: província espanhola). Sem geometria disponível para o país
-em causa, cai no fallback genérico (in_portugal=False, country=None,
-region=None).
+estrangeira (ex: província espanhola). Sem geometria de região para o país,
+mas com `outlines_path` (Natural Earth, refdata/outlines/europe.geojson),
+devolve pelo menos country=<CC> com region=None — o square passa a aparecer
+no mapa/club com bandeira e "sem dados por região". Sem nada, fica tudo None
+(in_portugal=False, country=None, region=None).
 
 Critério: maior área de intersecção ganha, sem limiar mínimo (não é
 "maioria" >50%). Um square costeiro com 60% mar / 40% terra continua a
@@ -91,7 +93,8 @@ class _Layer:
 
 
 class Classifier:
-    def __init__(self, distritos_path, concelhos_path, foreign_dir=None, foreign_muni_dir=None):
+    def __init__(self, distritos_path, concelhos_path, foreign_dir=None,
+                 foreign_muni_dir=None, outlines_path=None):
         with open(distritos_path, encoding="utf-8") as f:
             distritos = json.load(f)
         with open(concelhos_path, encoding="utf-8") as f:
@@ -119,6 +122,28 @@ class Classifier:
         # dentro do mesmo país já vêm desambiguados no próprio ficheiro
         # (ex: "Sada (Province)"), mesmo padrão do Calheta Açores/Madeira.
         self.foreign_muni = self._load_foreign(foreign_muni_dir)
+
+        # contornos de país (Natural Earth, refdata/outlines/europe.geojson):
+        # último recurso para DAR PAÍS a um square capturado num país sem
+        # ficheiro de região. Sem isto, esse square ficava country=None e
+        # sumia da vista (contava só em stats.foreign.unclassified). Aqui
+        # passa a country=<CC>, region=None: aparece no mapa/club com bandeira
+        # e "sem dados por região", à espera que se construa a divisão fina
+        # (ver clip.py). Precisão de km, chega para "que país".
+        self.outlines = None
+        if outlines_path and os.path.isfile(outlines_path):
+            with open(outlines_path, encoding="utf-8") as f:
+                oc = json.load(f)
+            names = [(feat["properties"]["country"], feat["properties"].get("nome"))
+                     for feat in oc["features"]]
+            geoms = [_clean(shape(feat["geometry"])) for feat in oc["features"]]
+            self.outlines = _Layer(names, geoms) if geoms else None
+
+        # países que já têm geometria de região (foreign/*.geojson) + PT: o
+        # contorno de país nunca os classifica, é só para os que faltam.
+        self._paises_com_regiao = {"PT"}
+        if self.foreign is not None:
+            self._paises_com_regiao |= {cc for cc, _ in self.foreign.names}
 
     @staticmethod
     def _load_foreign(dir_path):
@@ -186,6 +211,21 @@ class Classifier:
             foreign_label, f_area = self.foreign.best_match(tile_poly)
 
         on_land = d_area > 0.0 or f_area > 0.0
+
+        # Nenhuma região conhecida apanha o tile: antes de desistir, ver se
+        # cai dentro de um contorno de país (Natural Earth). Só para países
+        # SEM camada de região própria — em PT/ES/DE/MA/AD a geometria fina é
+        # que manda, e um tile sobre água ali deve ir ao fallback de
+        # proximidade, não ao contorno grosso.
+        if self.outlines is not None and d_area == 0.0 and f_area == 0.0:
+            lbl, o_area = self.outlines.best_match(tile_poly)
+            if lbl and o_area > 0.0 and lbl[0] not in self._paises_com_regiao:
+                return {
+                    "in_portugal": False, "district": None, "concelho": None,
+                    "country": lbl[0], "region": None, "municipio": None,
+                    "on_land": True, "country_fallback_deg": None,
+                    "concelho_fallback_deg": None,
+                }
 
         if not on_land:
             d_name, d_dist = self.distritos.nearest(tile_poly)

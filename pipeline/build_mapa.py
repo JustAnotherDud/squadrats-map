@@ -147,6 +147,7 @@ def run_from_geoms(geoms, out_dir, counts=None):
         os.path.join(REFDATA_DIR, "concelhos_pt.geojson"),
         foreign_dir=os.path.join(REFDATA_DIR, "foreign"),
         foreign_muni_dir=os.path.join(REFDATA_DIR, "foreign_muni"),
+        outlines_path=os.path.join(REFDATA_DIR, "outlines", "europe.geojson"),
     )
 
     with open(os.path.join(REFDATA_DIR, "grid_totals.json"), encoding="utf-8") as f:
@@ -179,6 +180,13 @@ def run_from_geoms(geoms, out_dir, counts=None):
     not_on_land = 0
     fallback_events = []  # squares resolvidos por proximidade (país e/ou concelho), não por área
 
+    # países que TÊM geometria de município no disco (após o clip da
+    # refdata/clip.py, isto é só a zona já visitada + 10 km). Se um square
+    # cair num destes países com região mas sem município, o clip ficou curto.
+    muni_countries_geo = ({cc for cc, _ in classifier.foreign_muni.names}
+                          if classifier.foreign_muni else set())
+    clip_misses_total = {}  # {cc: n} acumulado nas duas grelhas, para o aviso
+
     for type_name, zoom in ZOOM_BY_TYPE.items():
         if type_name not in geoms:
             print(f"aviso: camada '{type_name}' não encontrada", file=sys.stderr)
@@ -201,6 +209,8 @@ def run_from_geoms(geoms, out_dir, counts=None):
         by_concelho_captured, by_distrito_captured = {}, {}
         by_foreign_captured = {}  # {country: {region: count}}
         by_foreign_municipio_captured = {}  # {country: {municipio: count}}
+        by_country_nodata = {}  # {country: count} — país detetado por contorno, sem dados de região
+        muni_clip_misses = {}   # {country: count} — tem ficheiro de município mas o clip não apanhou o square
         unclassified_foreign = 0
         pt_captured = foreign_captured = 0
         for x, y, lon, lat in squares:
@@ -240,19 +250,27 @@ def run_from_geoms(geoms, out_dir, counts=None):
                 by_distrito_captured[info["district"]] = by_distrito_captured.get(info["district"], 0) + 1
             else:
                 foreign_captured += 1
-                if info["country"] and info["region"]:
-                    by_foreign_captured.setdefault(info["country"], {})
-                    by_foreign_captured[info["country"]][info["region"]] = (
-                        by_foreign_captured[info["country"]].get(info["region"], 0) + 1
+                cc = info["country"]
+                if cc and info["region"]:
+                    by_foreign_captured.setdefault(cc, {})
+                    by_foreign_captured[cc][info["region"]] = (
+                        by_foreign_captured[cc].get(info["region"], 0) + 1
                     )
                     if info["municipio"]:
-                        by_foreign_municipio_captured.setdefault(info["country"], {})
-                        by_foreign_municipio_captured[info["country"]][info["municipio"]] = (
-                            by_foreign_municipio_captured[info["country"]].get(info["municipio"], 0) + 1
+                        by_foreign_municipio_captured.setdefault(cc, {})
+                        by_foreign_municipio_captured[cc][info["municipio"]] = (
+                            by_foreign_municipio_captured[cc].get(info["municipio"], 0) + 1
                         )
+                    elif cc in muni_countries_geo:
+                        # há ficheiro de município para este país mas nenhum
+                        # apanhou o square: o clip (buffer 10 km) ficou curto
+                        muni_clip_misses[cc] = muni_clip_misses.get(cc, 0) + 1
+                elif cc:
+                    # país detetado por contorno (Natural Earth), sem geometria
+                    # de região: aparece no mapa/club com bandeira e "sem dados"
+                    by_country_nodata[cc] = by_country_nodata.get(cc, 0) + 1
                 else:
-                    # sem geometria disponível para este país, fallback genérico
-                    # (mesmo comportamento de antes desta iteração)
+                    # nem contorno apanhou (fora da Europa, ou pleno oceano)
                     unclassified_foreign += 1
 
         visitados_por_grelha[type_name] = ({(s["x"], s["y"]) for s in out}, zoom)
@@ -319,6 +337,12 @@ def run_from_geoms(geoms, out_dir, counts=None):
                     "captured": captured, "total": total, "pct": pct(captured, total),
                 }
         stats["foreign"][zkey] = {**by_foreign_captured, "unclassified": unclassified_foreign}
+        if by_country_nodata:
+            stats["foreign"][zkey]["by_country_nodata"] = by_country_nodata
+        if muni_clip_misses:
+            stats["foreign"][zkey]["muni_clip_misses"] = muni_clip_misses
+            for cc, n in muni_clip_misses.items():
+                clip_misses_total[cc] = clip_misses_total.get(cc, 0) + n
 
     if counts:
         write_suggestions(visitados_por_grelha, counts, out_dir)
@@ -335,6 +359,13 @@ def run_from_geoms(geoms, out_dir, counts=None):
     print(f"classificação: {not_on_land}/{total_squares} squares não estão em terra "
           f"nenhuma (resolvidos por proximidade ou sem classificação); "
           f"{len(fallback_events)} campos (país/concelho) resolvidos por proximidade")
+
+    if clip_misses_total:
+        detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(clip_misses_total.items()))
+        print(f"AVISO: {detalhe} square(s) num país COM ficheiro de município mas "
+              f"fora do recorte de 10 km — correr `py pipeline/refdata/clip.py "
+              f"{' '.join(sorted(clip_misses_total))}` para acrescentar as zonas novas "
+              f"(ver stats.foreign.*.muni_clip_misses)")
 
     return summary
 

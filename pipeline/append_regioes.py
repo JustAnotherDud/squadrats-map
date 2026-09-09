@@ -17,7 +17,10 @@ import regioes
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 DATA_DIR = os.path.join(REPO, "data")
-CONCELHOS_GEO = os.path.join(REPO, "data", "concelhos_pt.geojson")
+# só se usa para o lookup concelho -> distrito (properties.parent), geometria
+# nenhuma; lê da fonte de precisão (refdata), não da cópia simplificada de
+# data/ que agora só serve para o mapa.html desenhar.
+CONCELHOS_GEO = os.path.join(HERE, "refdata", "concelhos_pt.geojson")
 
 
 def _carrega(path, default=None):
