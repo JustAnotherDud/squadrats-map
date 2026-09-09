@@ -454,7 +454,12 @@ function renderLeaderboard() {
   </div>`);
 
   let entradas = [...pivotRegioes(leaderboardNivel).values()];
-  if (leaderboardSoDisputadas) entradas = entradas.filter(r => r.entradas.length >= 2);
+  // "Só disputadas" corta os concelhos/distritos de Portugal, que são dezenas;
+  // as regiões estrangeiras são poucas e raras, mostram-se sempre (senão a
+  // actividade DE/MA, toda de um atleta só, ficava invisível por defeito).
+  if (leaderboardSoDisputadas) {
+    entradas = entradas.filter(r => r.entradas.length >= 2 || r.cc !== 'PT');
+  }
   entradas.forEach(r => {
     r.entradas.sort((a, b) => b.captured - a.captured);
     r.melhor = r.entradas[0].captured;
@@ -492,13 +497,15 @@ function renderLeaderboard() {
     // (ver classify.py) entra na mesma via pivotRegioes, com bandeira
     // genérica e o nome de PAIS_NOME (shared.js, alargado à Europa).
     const flag = BANDEIRA[r.cc] || bandeiraSvg(r.cc, 13, 10);
+    const np = r.entradas.length;
     linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
       <span class="esq"><span class="txt">${flag} ${nomeReg}</span></span>
-      <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}</div>`);
+      <b class="fraco">${np} pessoa${np === 1 ? '' : 's'}</b></div>${linhasAtletas}</div>`);
   });
 
   linhas.push(`<div class="nota">Ranking por squares capturados (não por %) dentro de cada região.
-    "Disputada" = 2 ou mais pessoas com pelo menos 1 square lá.</div>`);
+    "Só disputadas" mostra os concelhos/distritos de Portugal com 2+ pessoas;
+    as regiões estrangeiras aparecem sempre, mesmo com uma pessoa só.</div>`);
 
   return linhas.join('');
 }
