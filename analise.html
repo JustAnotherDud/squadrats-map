@@ -121,6 +121,18 @@
   .detail-item .value { font-size:16px; font-weight:700; color:#fff; }
 
   a { color:#7ab8ff; }
+  /* saída mínima: esta página não tem o nav.js (é análise pessoal, fica fora
+     da navegação do clube de propósito), mas dentro da PWA instalada não
+     havia forma de voltar. Um único link, canto, por cima do #loading para
+     continuar a funcionar mesmo num erro de carregamento. */
+  #sair-clube { position:absolute; top:8px; right:10px; z-index:2001;
+    font-size:11.5px; color:#9aa2b1; background:rgba(21,24,33,.92);
+    border:1px solid #2c3242; border-radius:7px; padding:5px 9px;
+    text-decoration:none; backdrop-filter:blur(4px); line-height:1; }
+  #sair-clube:hover, #sair-clube:focus-visible { color:#e7e9ee; }
+  /* a 1.ª linha de controlos partilha o topo com o #sair-clube; abre-lhe
+     espaço só a ela (a linha de baixo já passa por baixo do link) */
+  #topbar .seg-grelha { padding-right:66px; }
   #loading { position:absolute; inset:0; z-index:2000; background:#0f1115; display:flex; align-items:center; justify-content:center; font-size:13px; color:#9aa2b1; }
   /* levantar o zoom acima do sheet colapsado (54px) */
   .leaflet-bottom.leaflet-right { bottom:60px; }
@@ -128,6 +140,7 @@
 </head>
 <body>
 <div id="loading">a carregar…</div>
+<a href="index.html" id="sair-clube">← clube</a>
 <div id="map"></div>
 
 <div id="topbar">
