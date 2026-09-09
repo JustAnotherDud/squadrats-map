@@ -32,10 +32,9 @@
   .seg button { background:rgba(27,25,38,.92); color:var(--tinta-2); border:1px solid var(--rule); border-radius:3px; padding:6px 10px; font-size:11.5px; font-family:var(--f-mono); cursor:pointer; backdrop-filter: blur(4px); display:flex; align-items:center; gap:6px; }
   .seg button.off { opacity:.4; }
   .seg button.on { color:var(--tinta); border-color:var(--marca); }
-  .dot { display:inline-block; width:10px; height:10px; border-radius:1px; flex-shrink:0; }
 
   #painel { position:absolute; left:0; right:0; bottom:0; z-index:1000; background:var(--ch-1); border-top:1px solid var(--rule); border-radius:6px 6px 0 0; box-shadow:0 -1px 0 rgba(0,0,0,.5); max-height:58vh; display:flex; flex-direction:column; }
-  #painel-cabeca { padding:11px 15px; display:flex; justify-content:space-between; align-items:center; font-size:13px; cursor:pointer; user-select:none; }
+  #painel-cabeca { width:100%; padding:11px 15px; display:flex; justify-content:space-between; align-items:center; font-size:13px; cursor:pointer; user-select:none; background:var(--ch-1); border:0; color:inherit; font-family:inherit; text-align:left; border-radius:6px 6px 0 0; }
   #painel-cabeca b { color:var(--tinta); font-family:var(--f-mono); }
   #painel-corpo { padding:0 15px 18px; overflow-y:auto; display:none; }
   #painel.aberto #painel-corpo { display:block; }
@@ -95,7 +94,7 @@
 
 <div id="painel">
   <div id="hover"><div class="quem"></div><div class="coord"></div></div>
-  <div id="painel-cabeca"><span id="painel-resumo"></span><span style="color:#7d8598">▲</span></div>
+  <button type="button" id="painel-cabeca" aria-expanded="false" aria-controls="painel-corpo"><span id="painel-resumo"></span><span aria-hidden="true" style="color:#7d8598">▲</span></button>
   <div id="painel-corpo"></div>
 </div>
 
@@ -115,18 +114,12 @@
 // distinguíveis, por isso a escala dos partilhados é deliberadamente neutra
 //, o *quem* de cada square continua no tooltip (hover/click) e no Detalhe.
 //
-// Uma cor por atleta, na ordem de ATLETAS (pipeline/fetch_club_squares.py),
-// que é quem fixa os bits. As cores em si vêm da fonte única
+// Uma cor por atleta, no índice de bit que o club.json fixa
+// (pipeline/fetch_club_squares.py). As cores vêm da fonte única
 // data/membros_cores.json (partilhada com o club-koms), carregada no arranque
-// e remapeada por nome (ver mais abaixo). Esta lista é só o fallback offline,
-// na mesma ordem de ATLETAS: Zé, Xeira, Carolina, Inês S., Pedro.
-let COR_ATLETA = [
-  '#e03131', // vermelho  (Zé)
-  '#9c46d8', // roxo      (Xeira)
-  '#c99a00', // dourado   (Carolina)
-  '#e8710a', // laranja   (Inês S.)
-  '#2f5fd0', // azul      (Pedro)
-];
+// e mapeada por nome. Preenchido a partir de dados.atletas quando o club.json
+// chega; sem membros_cores.json fica o COR_FALLBACK do shared.js.
+let COR_ATLETA = [];
 
 // bandeiras do shared.js (as mesmas do mapa.html), aqui em 13x10, um pouco
 // mais pequenas que no mapa pessoal. Estiveram copiadas à mão até 2026-08-18,
@@ -249,7 +242,7 @@ function mostrarSquare(latlng) {
   // cada nome com a bolinha da sua cor, é o que as riscas do square dizem
   const quem = dados.atletas
     .map((a, i) => [a, i]).filter(([, i]) => em & (1 << i))
-    .map(([a, i]) => `<span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}`)
+    .map(([a, i]) => `<span class="tile" style="background:${COR_ATLETA[i]}"></span>${a.nome}`)
     .join(' ');
   hover.querySelector('.quem').innerHTML =
     (n === 1 ? 'Só ' : `<b>${n} pessoas</b> · `) + quem;
@@ -267,7 +260,7 @@ function renderAtletas() {
   box.innerHTML = dados.atletas.map((a, i) => {
     const ligado = activos & (1 << i);
     return `<button data-i="${i}" class="${ligado ? '' : 'off'}">
-      <span class="dot" style="background:${COR_ATLETA[i]}"></span>${a.nome}</button>`;
+      <span class="tile" style="background:${COR_ATLETA[i]}"></span>${a.nome}</button>`;
   }).join('');
   box.querySelectorAll('button').forEach(b => {
     b.onclick = () => {
@@ -317,7 +310,7 @@ function renderPainel() {
     const porAtleta = dados.atletas.map((a, i) => {
       const ligado = activos & (1 << i);
       return `<div class="linha-stat" style="${ligado ? '' : 'opacity:.4'}">
-        <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+        <span class="esq"><span class="tile" style="background:${COR_ATLETA[i]}"></span>
         <span class="txt">${linkNome(i, a.nome)}</span></span>
         <b>${a.total.toLocaleString('pt-PT')}</b></div>`;
     }).join('');
@@ -328,13 +321,13 @@ function renderPainel() {
     const soLinhas = dados.atletas.map((a, i) => {
       if (!soDe.has(i)) return '';
       return `<div class="linha-stat">
-        <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+        <span class="esq"><span class="tile" style="background:${COR_ATLETA[i]}"></span>
         <span class="txt">Só ${linkNome(i, a.nome)}</span></span>
         <b>${soDe.get(i).toLocaleString('pt-PT')}</b></div>`;
     }).join('');
     const partLinhas = [...partilhados.keys()].sort((a, b) => a - b).map(c => `
       <div class="linha-stat">
-        <span class="esq"><span class="dot" style="background:${corPartilha(c)}"></span>
+        <span class="esq"><span class="tile" style="background:${corPartilha(c)}"></span>
         <span class="txt">${c} pessoas</span></span>
         <b>${partilhados.get(c).toLocaleString('pt-PT')}</b></div>`).join('');
     linhas.push(`<div class="grupo"><div class="titulo-seccao">No mapa</div>${soLinhas}${partLinhas}</div>`);
@@ -349,7 +342,7 @@ function renderPainel() {
         const so = soDe.get(i) || 0;
         const pct = a.total ? Math.round(100 * so / a.total) : 0;
         linhas.push(`<div class="linha-stat">
-          <span class="esq"><span class="dot" style="background:${COR_ATLETA[i]}"></span>
+          <span class="esq"><span class="tile" style="background:${COR_ATLETA[i]}"></span>
           <span class="txt">${linkNome(i, a.nome)}, único</span></span>
           <b>${so.toLocaleString('pt-PT')} <span class="fraco">${pct}%</span></b></div>`);
       });
@@ -358,7 +351,7 @@ function renderPainel() {
         .sort((a, b) => contaBits(a) - contaBits(b) || efectivas.get(b) - efectivas.get(a));
       pares.forEach(m => {
         linhas.push(`<div class="linha-stat">
-          <span class="esq"><span class="dot" style="background:${corPartilha(contaBits(m))}"></span>
+          <span class="esq"><span class="tile" style="background:${corPartilha(contaBits(m))}"></span>
           <span class="txt">${rotulo(m)}</span></span>
           <b>${efectivas.get(m).toLocaleString('pt-PT')}</b></div>`);
       });
@@ -488,15 +481,19 @@ function renderLeaderboard() {
       const nome = slug ? `<a href="atletas/${slug}.html" style="color:inherit">${e.atleta}</a>` : e.atleta;
       return `<div class="linha-stat" style="padding-left:16px">
         <span class="esq"><span class="txt">${pos + 1}º</span>
-        <span class="dot" style="background:${COR_ATLETA[e.i]}"></span>
+        <span class="tile" style="background:${COR_ATLETA[e.i]}"></span>
         <span class="txt">${nome}</span></span>
         <b>${e.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
     }).join('');
     const nomeReg = (leaderboardNivel !== 'pais' && r.cc === 'PT')
       ? `<a class="lnome" href="${regiaoHref(leaderboardNivel, r.nome)}">${r.nome}</a>`
       : r.nome;
+    // BANDEIRA só tem os 5 conhecidos; um país detetado por contorno
+    // (ver classify.py) entra na mesma via pivotRegioes, com bandeira
+    // genérica e o nome de PAIS_NOME (shared.js, alargado à Europa).
+    const flag = BANDEIRA[r.cc] || bandeiraSvg(r.cc, 13, 10);
     linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
-      <span class="esq"><span class="txt">${BANDEIRA[r.cc] || ''} ${nomeReg}</span></span>
+      <span class="esq"><span class="txt">${flag} ${nomeReg}</span></span>
       <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}</div>`);
   });
 
@@ -507,7 +504,10 @@ function renderLeaderboard() {
 }
 
 const painel = document.getElementById('painel');
-document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle('aberto');
+document.getElementById('painel-cabeca').onclick = function () {
+  const aberto = painel.classList.toggle('aberto');
+  this.setAttribute('aria-expanded', String(aberto));
+};
 
 (async function () {
   // no-cache = revalidar sempre com o servidor (304 quando não mudou, por isso
@@ -523,10 +523,13 @@ document.getElementById('painel-cabeca').onclick = () => painel.classList.toggle
   dados = await r.json();
   dados.squares.forEach(([x, y, m]) => porCoord.set(x + ',' + y, m));
   activos = (1 << dados.atletas.length) - 1;
+  // plantel e ordem de bit saem do club.json; a cor de cada um é o fallback
+  // do shared.js até o membros_cores.json chegar
+  COR_ATLETA = dados.atletas.map(a => COR_FALLBACK[a.nome] || '#7d8598');
 
   // Cores dos membros: fonte única em data/membros_cores.json (branch main,
   // partilhada com o club-koms). Remapeia COR_ATLETA por nome; se a fetch
-  // falhar ou faltar um nome, fica o fallback offline definido em cima.
+  // falhar ou faltar um nome, fica o fallback do shared.js.
   try {
     const rc = await fetch('https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/main/data/membros_cores.json', { cache: 'no-cache' });
     if (rc.ok) {

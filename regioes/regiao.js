@@ -14,21 +14,22 @@
   const alvo = document.getElementById('regiao');
   const KEY = alvo.dataset.key, NIVEL = alvo.dataset.nivel, NOME = alvo.dataset.nome;
 
-  // cor / esc / nfmt / dot / atl / carregarCores / tabelaSubRegioes: comum.js
+  // cor / esc / nfmt / tile / atl / tira / carregarCores: shared.js
+  // pctfmt / tabelaSubRegioes: comum.js
 
   const ICO = { ultrapassagem: '⇅', novo_lider: '👑', primeira_presenca: '📍', marco: '🚩' };
   function frase(e) {
     const v = e.valores;
     if (e.tipo === 'ultrapassagem')
-      return `${dot(e.quem)}${atl(e.quem)} passou ${dot(e.sobre)}${atl(e.sobre)}
+      return `${tile(e.quem)}${atl(e.quem)} passou ${tile(e.sobre)}${atl(e.sobre)}
         <span class="num">${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
     if (e.tipo === 'novo_lider')
-      return `${dot(e.quem)}${atl(e.quem)} assumiu a liderança, passou ${dot(e.sobre)}${atl(e.sobre)}
+      return `${tile(e.quem)}${atl(e.quem)} assumiu a liderança, passou ${tile(e.sobre)}${atl(e.sobre)}
         <span class="num">${nfmt(v[0])} vs ${nfmt(v[1])}</span>`;
     if (e.tipo === 'primeira_presenca')
-      return `${dot(e.quem)}${atl(e.quem)} estreou-se aqui
+      return `${tile(e.quem)}${atl(e.quem)} estreou-se aqui
         <span class="num">${nfmt(v[0])} squadratinho${v[0] === 1 ? '' : 's'}</span>`;
-    return `${dot(e.quem)}${atl(e.quem)} passou os <b>${nfmt(v[0])}</b> squadratinhos,
+    return `${tile(e.quem)}${atl(e.quem)} passou os <b>${nfmt(v[0])}</b> squadratinhos,
       <span class="num">agora ${nfmt(v[1])}</span>`;
   }
 
@@ -62,7 +63,7 @@
     const rankRows = d.ranking.map((r, i) => `
       <tr class="${i === 0 ? 'p1' : ''}">
         <td class="pos${i === 0 ? ' p1' : ''}">${i + 1}</td>
-        <td><span class="nome">${dot(r.nome)}${atl(r.nome)}</span></td>
+        <td><span class="nome">${tile(r.nome)}${atl(r.nome)}</span></td>
         <td class="tira-td">${tira(cor(r.nome), lider ? r.captured / lider : 0)}</td>
         <td class="num">${nfmt(r.captured)}</td>
         ${temExc ? `<td class="uni">${r.exclusivos ? nfmt(r.exclusivos) : ''}</td>` : ''}

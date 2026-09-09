@@ -46,7 +46,7 @@
 
   --tinta: #eceaf4;
   --tinta-2: #a29cb4;
-  --tinta-3: #726c86;
+  --tinta-3: #8f88a6;  /* texto pequeno (rodapés, th, meta): 4.5:1 nos três chãos */
 
   --marca: #663399;  /* roxo Squadrats: SÓ traços (sublinhado, aresta, foco) */
   --ganho: #3ad17f;  /* delta positivo, captura */
@@ -62,10 +62,6 @@
   --texto: var(--tinta);
   --suave: var(--tinta-2);
   --fraco: var(--tinta-3);
-  --azul: var(--tinta);
-  --azul-claro: var(--tinta);
-  --prata: var(--tinta-2);
-  --bronze: var(--tinta-2);
 
   --f-txt:  "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
@@ -73,6 +69,41 @@
 }
 
 * { box-sizing: border-box; }
+
+/* --- foco de teclado (a11y) --- */
+/* Anel na cor da marca (o roxo, reservado para traços/foco no plano) mais um
+   fio quase-branco colado ao elemento: o roxo sozinho sobre o chão
+   tinta-violeta fica em ~2,2:1, abaixo do 3:1 que a 1.4.11 pede para o anel.
+   Só :focus-visible, para o rato não o disparar. */
+:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 2px;
+}
+a:focus-visible, button:focus-visible, select:focus-visible,
+input:focus-visible, summary:focus-visible, [tabindex]:focus-visible {
+  box-shadow: 0 0 0 1px var(--tinta);
+}
+/* dentro de tabelas / contentores com overflow o offset positivo é cortado */
+tr:focus-visible, td:focus-visible, th:focus-visible { outline-offset: -2px; }
+
+/* --- movimento reduzido (a11y) --- */
+/* Só há transições de hover e a expansão de linhas; com a preferência ligada
+   passam a instantâneas, o site fica igual mas sem animação. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* texto só para leitores de ecrã (nomes de placeholders opacos como o "·") */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0;
+}
 
 html { background: var(--ch-0); }
 body {
@@ -99,13 +130,12 @@ td.num, td.uni, td.pct, .reg-rank th {
 
 /* ---- primitivas ---- */
 
-/* tile: quadrado de cor do atleta. Substitui o .dot redondo. */
+/* tile: quadrado de cor do atleta. */
 .tile {
   display: inline-block; width: 10px; height: 10px;
   border-radius: 1px; background: var(--tinta-2);
   vertical-align: -1px; flex: 0 0 auto;
 }
-.dot { border-radius: 1px !important; }  /* legado: arredonda menos */
 
 /* tira: quota dentro do grupo (NÃO magnitude). Uma <i> por célula na cor
    herdada do style inline (cor do atleta). */

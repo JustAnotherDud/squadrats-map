@@ -49,7 +49,9 @@ a:hover { text-decoration-color: var(--tinta); }
 .reg-rank.sr-exp .sr-row.exp { cursor: pointer; }
 .reg-rank.sr-exp .sr-row.exp:hover td { background: var(--ch-1); }
 .sr-tri { display: inline-block; width: 12px; color: var(--tinta-3); font-size: 9px;
-  transition: transform .12s; }
+  transition: transform .12s;
+  background: none; border: 0; padding: 0; line-height: 1; font-family: inherit;
+  cursor: pointer; vertical-align: baseline; }
 .sr-row.aberto .sr-tri { transform: rotate(90deg); }
 .sr-det > td { padding: 6px 5px 14px 20px; border-bottom: 1px solid var(--hair);
   background: var(--ch-1); }

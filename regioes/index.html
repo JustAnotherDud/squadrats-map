@@ -77,7 +77,7 @@
   const U_CORES = LOCAL ? '../data/membros_cores.json' : RAW + 'main/data/membros_cores.json';
   const NC = { cache: 'no-cache' };
 
-  // cor / esc / nfmt / pctfmt / carregarCores: comum.js. O índice mantém o seu
+  // cor / esc / nfmt / carregarCores: shared.js; pctfmt: comum.js. O índice mantém o seu
   // render agrupado (distrito = cabeçalho, concelhos por baixo), não a tabela
   // plana do tabelaSubRegioes.
   const pct = p => pctfmt(p, { compacto: true });

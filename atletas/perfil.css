@@ -62,8 +62,7 @@
 }
 .perfil-barra-legenda b { color: var(--tinta); font-family: var(--f-mono); }
 .perfil-barra-legenda .p { display: inline-flex; align-items: center; gap: 6px; }
-.perfil-barra-legenda .tile,
-.perfil-barra-legenda .dot { width: 9px; height: 9px; border-radius: 1px; display: inline-block; }
+.perfil-barra-legenda .tile { width: 9px; height: 9px; }
 
 /* tabelas */
 .perfil-scroll { overflow-x: auto; max-width: 100%; }
@@ -140,6 +139,8 @@
   cursor: pointer; margin-bottom: 10px;
 }
 .perfil-toggle.on { color: var(--tinta); border-color: var(--marca); }
+/* "mostrar todos" no fim da tabela de ganhos: colado à tabela, não antes dela */
+.perfil-mais { margin: 6px 0 0; }
 
 .perfil-spark { display: block; width: 100%; height: 90px; margin: 4px 0 12px; }
 .perfil-spark rect { fill: var(--tinta-2); }

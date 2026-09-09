@@ -37,29 +37,23 @@
 
   const CACHE_BUST = { cache: 'no-cache' };
 
-  function esc(s) {
-    return String(s).replace(/[&<>"]/g, c => (
-      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
-    ));
-  }
-  const nfmt = n => (n || 0).toLocaleString('pt-PT');
+  // Países com página própria em regioes/pais-<cc>.html. Só se linka os que
+  // existem, tal como as regiões/zonas.
+  const PAIS_COM_PAGINA = new Set(['PT', 'ES']);
+
+  // Ganhos diários: quantos dias mostrar antes do "mostrar todos". O sparkline
+  // por cima continua a cobrir o período todo.
+  const GANHOS_INICIAIS = 8;
+
+  // esc / nfmt / cor / carregarCores / CORES: shared.js.
   const paisNome = cc => PAIS_NOME[cc] || cc;
   const flag = cc => BANDEIRA[cc] || '';
 
-  async function carregarCores() {
-    try {
-      const r = await fetch(CORES_URL, CACHE_BUST);
-      if (r.ok) return (await r.json()).cores || {};
-    } catch (e) { /* offline: sem cor, não é fatal */ }
-    return {};
-  }
-
   // ---------- índice ----------
   async function renderIndice() {
-    const cores = await carregarCores();
+    await carregarCores(CORES_URL, CACHE_BUST);  // funde membros_cores.json em CORES
     INDICE.querySelectorAll('.perfil-cor').forEach(el => {
-      const c = cores[el.dataset.nome];
-      if (c) el.style.background = c;
+      el.style.background = cor(el.dataset.nome);
     });
   }
 
@@ -95,9 +89,9 @@
         <i style="width:${ppa}%;background:#4a5568"></i>
       </div>
       <div class="perfil-barra-legenda">
-        <span class="p"><span class="dot" style="background:${cor || '#7d8598'}"></span>
+        <span class="p"><span class="tile" style="background:${cor || '#7d8598'}"></span>
           só deste atleta <b>${nfmt(ex)}</b> (${pex}%)</span>
-        <span class="p"><span class="dot" style="background:#4a5568"></span>
+        <span class="p"><span class="tile" style="background:#4a5568"></span>
           partilhados <b>${nfmt(pa)}</b> (${ppa}%)</span>
         <span class="p">total <b>${nfmt(tot)}</b></span>
       </div>
@@ -134,23 +128,30 @@
     });
   }
 
-  const traco = '<span class="fraco">·</span>';
+  // Placeholder "·": visualmente um ponto, mas com nome para leitor de ecrã.
+  // O "·" em si fica aria-hidden; o <span.sr-only> leva o significado.
+  const vazio = sr => `<span class="sr-only">${sr}</span><span class="fraco" aria-hidden="true">·</span>`;
 
   function linhaGeo(r, nivel) {
-    const txt = r.cc === r.nome ? paisNome(r.cc) : esc(r.nome);
+    const ehPais = r.cc === r.nome;
+    const txt = ehPais ? paisNome(r.cc) : esc(r.nome);
     // regiao -> distrito, zona -> concelho; só PT tem página
-    const ligaRegiao = (nivel === 'regiao' || nivel === 'zona') && r.cc === 'PT' && r.cc !== r.nome;
+    const ligaRegiao = (nivel === 'regiao' || nivel === 'zona') && r.cc === 'PT' && !ehPais;
     const nome = ligaRegiao
       ? `<a href="../${regiaoHref(nivel === 'regiao' ? 'distrito' : 'concelho', r.nome)}">${txt}</a>`
-      : txt;
+      : (ehPais && PAIS_COM_PAGINA.has(r.cc))
+        ? `<a href="../regioes/pais-${r.cc.toLowerCase()}.html">${txt}</a>`
+        : txt;
     const cls = r.posicao <= 3 && r.de > 1 ? ` p${r.posicao}` : '';
-    const subir = r.acima != null ? `<span class="mg-neg">${nfmt(r.acima - r.captured)}</span>` : traco;
-    const folga = r.abaixo != null ? `<span class="mg-pos">${nfmt(r.captured - r.abaixo)}</span>` : traco;
+    const subir = r.acima != null
+      ? `<span class="mg-neg">${nfmt(r.acima - r.captured)}</span>` : vazio('já lidera');
+    const folga = r.abaixo != null
+      ? `<span class="mg-pos">${nfmt(r.captured - r.abaixo)}</span>` : vazio('sem ninguém atrás');
     return `<tr>
       <td><span class="nome">${flag(r.cc)}<span>${nome}</span></span></td>
       <td class="n"><b>${nfmt(r.captured)}</b></td>
-      <td class="n fraco">${r.total != null ? nfmt(r.total) : '·'}</td>
-      <td class="n">${r.pct != null ? r.pct.toFixed(1) + '%' : traco}</td>
+      <td class="n fraco">${r.total != null ? nfmt(r.total) : vazio('sem dados')}</td>
+      <td class="n">${r.pct != null ? r.pct.toFixed(1) + '%' : vazio('sem dados')}</td>
       <td class="n"><span class="perfil-pos${cls}">${r.posicao}º</span><span class="fraco"> / ${r.de}</span></td>
       <td class="n mg">${subir}</td>
       <td class="n mg">${folga}</td>
@@ -227,21 +228,30 @@
     if (!dias || !dias.length) {
       return '<p class="perfil-vazio">Sem ganhos registados desde que o registo diário começou.</p>';
     }
-    // sempre as 6 métricas, na mesma ordem das Contagens, uma sem ganhos
-    // fica só com "·", como acontece quase sempre com Yard/Über
+    // sempre as 6 métricas, na mesma ordem das Contagens; uma métrica sem
+    // ganho nesse dia fica com a célula vazia (a grelha já diz que existe),
+    // o que acontece quase sempre com Yard/Über
     const cab = METRICAS.map(m => `<th>${esc(m[1])}</th>`).join('');
     const campos = METRICAS.map(m => m[0]);
     const ncols = 1 + METRICAS.length;
-    const linhas = [...dias].reverse().slice(0, 30).map(d => {
+    // colapsada por defeito: só os primeiros GANHOS_INICIAIS dias, o resto
+    // atrás de um botão. O sparkline por cima mantém o período todo.
+    const todos = [...dias].reverse().slice(0, 30);
+    const limite = estado.ganhosExpandido ? todos.length : GANHOS_INICIAIS;
+    const linhas = todos.slice(0, limite).map(d => {
       const aberto = estado.ganhoAberto === d.data;
       const temDetalhe = d.regioes && (d.squadratinhos || 0) > 0;
       const celulas = campos.map(c => {
         const v = d[c] || 0;
         if (c === 'squadratinhos' && temDetalhe) {
+          // caret à frente do número: assim o "+N" fica na aresta direita, a
+          // alinhar com o cabeçalho e com as outras colunas
           return `<td class="n gan-z${aberto ? ' aberto' : ''}" data-dia="${esc(d.data)}">
-            <button class="gan-btn" type="button">+${v} <span class="gan-caret">▸</span></button></td>`;
+            <button class="gan-btn" type="button" aria-expanded="${aberto}"
+              aria-label="+${v} squadratinhos em ${fmtData(d.data)}, ver onde">
+              <span class="gan-caret" aria-hidden="true">▸</span>+${v}</button></td>`;
         }
-        return `<td class="n">${v > 0 ? '+' + v : (v < 0 ? v : '·')}</td>`;
+        return `<td class="n">${v > 0 ? '+' + v : (v < 0 ? v : '')}</td>`;
       }).join('');
       const detalhe = aberto && temDetalhe
         ? `<tr class="gan-det"><td colspan="${ncols}">${ganhoDetalhe(d.regioes, d.squadratinhos)}</td></tr>`
@@ -253,14 +263,22 @@
         `<span class="d-mes">${esc(dmes)}</span><span class="d-ano">${esc(dano)}</span></td>` +
         `${celulas}</tr>${detalhe}`;
     }).join('');
+    const escondidos = todos.length - GANHOS_INICIAIS;
+    const maisBtn = escondidos > 0
+      ? `<button class="perfil-toggle perfil-mais" data-ganhos-mais>${estado.ganhosExpandido
+          ? 'Mostrar menos' : `Mostrar os outros ${escondidos} dias`}</button>`
+      : '';
     return blocoSpark(dias) + `<div class="perfil-scroll"><table class="perfil-tabela">
-      <thead><tr><th>Dia</th>${cab}</tr></thead><tbody>${linhas}</tbody></table></div>`;
+      <thead><tr><th>Dia</th>${cab}</tr></thead><tbody>${linhas}</tbody></table></div>` + maisBtn;
   }
 
   function pintar(d, cor) {
     const mapaUrl = `https://squadrats.com/map/${encodeURIComponent(d.uid)}/17`;
     const quando = fmtDataHora(d.atualizado);
-    let estado = { soDisputadas: false, sort: { k: 'captured', dir: 'desc' }, ganhoAberto: null };
+    let estado = {
+      soDisputadas: false, sort: { k: 'captured', dir: 'desc' },
+      ganhoAberto: null, ganhosExpandido: false,
+    };
 
     function desenhar() {
       SEC_N = 0;
@@ -306,6 +324,11 @@
         estado.soDisputadas = !estado.soDisputadas;
         desenhar();
       };
+      const ganhosMais = alvo.querySelector('[data-ganhos-mais]');
+      if (ganhosMais) ganhosMais.onclick = () => {
+        estado.ganhosExpandido = !estado.ganhosExpandido;
+        desenhar();
+      };
       alvo.querySelectorAll('.gan-z[data-dia] .gan-btn').forEach(btn => {
         btn.onclick = () => {
           const dia = btn.closest('.gan-z').dataset.dia;
@@ -330,9 +353,9 @@
         Talvez o build ainda não tenha corrido para este atleta.</p>`;
       return;
     }
-    const cores = await carregarCores();
+    await carregarCores(CORES_URL, CACHE_BUST);
     document.title = `${dados.nome} · Squadrats Club`;
-    pintar(dados, cores[dados.nome]);
+    pintar(dados, cor(dados.nome));
   }
 
   if (alvo && alvo.dataset.slug) renderPerfil();

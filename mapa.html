@@ -65,6 +65,8 @@
   }
   .stat-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #1e2230; font-size:12.5px; gap:8px; }
   .stat-row b { color:#fff; white-space:nowrap; }
+  .stat-row.stat-nodata b { color:#a9b3c4; font-weight:400; }
+  .stat-row.stat-nodata .stat-hint { color:#7d8598; font-size:10.5px; margin-left:4px; }
   .stat-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .bandeira { vertical-align:-1px; margin-right:3px; border-radius:1px; flex-shrink:0; }
   .section-title { margin-top:12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#7d8598; }
@@ -1010,6 +1012,9 @@ function renderStats() {
     const s = (stats[PAIS_INFO[cc].statsKey] || {})[zkey];
     if (s) totalCaptured += s.captured;
   }
+  // países detetados por contorno, sem dados de região (ver classify.py)
+  const semDados = ((stats.foreign || {})[zkey] || {}).by_country_nodata || {};
+  for (const n of Object.values(semDados)) totalCaptured += n;
   document.getElementById('summary-text').innerHTML = `<b>${totalCaptured}</b> sq capturados`;
 
   let html = '';
@@ -1035,6 +1040,15 @@ function renderStats() {
         ? `<div class="zero-toggle" data-zero-toggle="1">− ocultar os ${zeroCount} países sem capturas</div>`
         : `<div class="zero-toggle" data-zero-toggle="1">+ mostrar os ${zeroCount} países sem capturas</div>`;
     }
+    // países detetados por contorno (Natural Earth), sem geometria de região:
+    // bandeira + nome + total, NÃO clicáveis (não há vista Região/Zona). A
+    // divisão fina constrói-se com refdata/clip.py quando alguém lá for a
+    // sério (ver README).
+    Object.entries(semDados).sort((a, b) => b[1] - a[1]).forEach(([cc, n]) => {
+      const flag = BANDEIRA[cc] || bandeiraSvg(cc, 15, 11);
+      html += `<div class="stat-row stat-nodata"><span class="stat-name">${flag} ${PAIS_NOME[cc] || cc}</span>`
+        + `<b>${n} sq<span class="stat-hint">sem dados por região</span></b></div>`;
+    });
   } else {
     const nivel = NIVEL_INFO[state.visao];
     const paisesNesteNivel = [...state.paises].filter(p => nivel[p]);

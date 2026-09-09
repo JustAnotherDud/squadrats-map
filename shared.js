@@ -25,6 +25,21 @@ const PAIS_NOME = {
   AD: 'Andorra',
   DE: 'Alemanha',
   MA: 'Marrocos',
+  // resto da Europa (nomes pt, Natural Earth): só para dar nome a um país
+  // DETETADO por contorno num square sem dados de região (ver classify.py).
+  // Sem bandeira própria em BANDEIRA_PATHS -> bandeiraSvg devolve uma genérica.
+  AL: 'Albânia', AT: 'Áustria', AX: 'Åland', BA: 'Bósnia e Herzegovina',
+  BE: 'Bélgica', BG: 'Bulgária', BY: 'Bielorrússia', CH: 'Suíça',
+  CZ: 'Chéquia', DK: 'Dinamarca', EE: 'Estónia', FI: 'Finlândia',
+  FO: 'Ilhas Feroe', FR: 'França', GB: 'Reino Unido', GG: 'Guernsey',
+  GR: 'Grécia', HR: 'Croácia', HU: 'Hungria', IE: 'República da Irlanda',
+  IM: 'Ilha de Man', IS: 'Islândia', IT: 'Itália', JE: 'Jersey',
+  LI: 'Liechtenstein', LT: 'Lituânia', LU: 'Luxemburgo', LV: 'Letónia',
+  MC: 'Mónaco', MD: 'Moldávia', ME: 'Montenegro', MK: 'Macedónia do Norte',
+  MT: 'Malta', NL: 'Países Baixos', NO: 'Noruega', PL: 'Polónia',
+  RO: 'Roménia', RS: 'Sérvia', RU: 'Rússia', SE: 'Suécia',
+  SI: 'Eslovénia', SK: 'Eslováquia', SM: 'San Marino', UA: 'Ucrânia',
+  VA: 'Vaticano', XK: 'Kosovo',
 };
 
 // Interior do <svg> de cada bandeira, sempre no mesmo viewBox 15x11, o tamanho
@@ -42,8 +57,10 @@ const BANDEIRA_PATHS = {
 };
 
 function bandeiraSvg(cc, largura, altura) {
-  const inner = BANDEIRA_PATHS[cc];
-  if (!inner) return '';
+  // país sem bandeira própria (detetado por contorno): pendão cinzento
+  // genérico, para aparecer na mesma com "sem dados por região".
+  const inner = BANDEIRA_PATHS[cc]
+    || '<rect width="15" height="11" fill="#3a3550"/><rect x="1" y="1" width="13" height="9" fill="none" stroke="#5a5478" stroke-width="1"/>';
   return `<svg width="${largura}" height="${altura}" viewBox="0 0 15 11" class="bandeira">${inner}</svg>`;
 }
 
@@ -73,6 +90,55 @@ function slugify(s) {
 // …). Só há página para regiões com actividade, quem chama decide se linka.
 function regiaoHref(nivel, nome) {
   return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+}
+
+// --- primitivas de render partilhadas ---
+// Estiveram copiadas em historico.html, index.html, atletas/perfil.js e
+// regioes/comum.js (quatro cópias de esc/nfmt/cor/dot). shared.js é carregado
+// em todas as páginas, por isso a fonte única é aqui.
+
+// Cores de identidade dos atletas. Fonte em runtime: data/membros_cores.json,
+// que carregarCores() funde em CORES. Este objecto é o fallback offline E a
+// única lista do plantel escrita à mão que resta no front-end: as páginas
+// derivam os nomes de club.json / club_regioes.json (que os têm por ordem de
+// bit) e só caem aqui quando não há rede.
+const COR_FALLBACK = {
+  'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00',
+  'Inês S.': '#e8710a', 'Pedro': '#2f5fd0',
+};
+let CORES = { ...COR_FALLBACK };
+const cor = n => CORES[n] || '#7d8598';
+
+// funde membros_cores.json em CORES. Falha em silêncio: fica o fallback.
+async function carregarCores(url, opts) {
+  try {
+    const r = await fetch(url, opts);
+    if (r.ok) { const j = await r.json(); CORES = { ...COR_FALLBACK, ...(j.cores || {}) }; }
+  } catch (e) { /* offline: fallback */ }
+}
+
+const esc = s => String(s).replace(/[&<>"]/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// número em pt-PT; null/undefined -> "·", não "0".
+const nfmt = n => (n == null ? '·' : n.toLocaleString('pt-PT'));
+
+// quadrado de cor do atleta (.tile do site.css). Era dot() no comum.js e
+// tile() no index.html.
+const tile = n => `<span class="tile" style="background:${cor(n)}"></span>`;
+
+// link para o perfil do atleta. O ../ entra sozinho a partir de atletas/ ou
+// regioes/ (mesmo teste do nav.js: não conta segmentos, aguenta o prefixo do
+// repo no GitHub Pages).
+const atl = n => `<a class="atl" href="${/\/(atletas|regioes)\//.test(location.pathname) ? '../' : ''}atletas/${slugify(n)}.html">${esc(n)}</a>`;
+
+// tira de quota: `frac` (0..1) -> N células na cor `corHex`, comparáveis em
+// comprimento dentro do mesmo grupo. NÃO é magnitude (o número mono leva
+// isso). `n` = máximo de células.
+function tira(corHex, frac, n) {
+  n = n || 16;
+  const cheias = frac > 0 ? Math.max(1, Math.min(n, Math.round(frac * n))) : 0;
+  return `<span class="tira" style="color:${corHex}">${'<i></i>'.repeat(cheias)}</span>`;
 }
 
 // --- datas ---

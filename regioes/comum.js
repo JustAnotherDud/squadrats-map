@@ -5,16 +5,9 @@
 
 /* eslint-disable no-unused-vars */
 
-const COR_FB = {
-  'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00',
-  'Inês S.': '#e8710a', 'Pedro': '#2f5fd0',
-};
-let CORES = { ...COR_FB };
-const cor = n => CORES[n] || '#7d8598';
+// cor / esc / nfmt / tile / atl / tira / carregarCores / COR_FALLBACK / CORES:
+// shared.js (carregado antes deste ficheiro).
 
-const esc = s => String(s).replace(/[&<>"]/g,
-  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const nfmt = n => (n == null ? '·' : n.toLocaleString('pt-PT'));
 // % de squadratinhos: 1 casa em geral. Opções:
 //   piso      "<0,01%" em vez de "0,00%" (páginas de país, % de um país inteiro)
 //   casas     nº de casas decimais (default 1; país usa 2)
@@ -26,27 +19,6 @@ const pctfmt = (p, opts) => {
   if (opts.compacto && p >= 9.5) return Math.round(p) + '%';
   return p.toFixed(opts.casas != null ? opts.casas : 1) + '%';
 };
-const dot = n => `<span class="tile" style="background:${cor(n)}"></span>`;
-const atl = n => `<a class="atl" href="../atletas/${slugify(n)}.html">${esc(n)}</a>`;
-
-// Tira de quota: `frac` (0..1, quota dentro do grupo) -> N células na cor do
-// atleta, comparadas em comprimento entre linhas do mesmo grupo. NÃO é
-// magnitude (o número mono carrega isso). `n` = máx de células.
-function tira(corHex, frac, n) {
-  n = n || 16;
-  const cheias = frac > 0 ? Math.max(1, Math.min(n, Math.round(frac * n))) : 0;
-  return `<span class="tira" style="color:${corHex}">${'<i></i>'.repeat(cheias)}</span>`;
-}
-
-// Carrega e funde as cores dos membros (membros_cores.json). Falha em
-// silêncio, fica com COR_FB.
-async function carregarCores(url, nc) {
-  try {
-    const r = await fetch(url, nc);
-    if (r.ok) { const j = await r.json(); CORES = { ...COR_FB, ...(j.cores || {}) }; }
-  } catch (e) { /* fallback */ }
-}
-
 // Tabela de sub-regiões: nome (link opcional) | união do clube | líder | %.
 // É o mesmo componente nos concelhos de uma página de distrito e nas
 // províncias de uma página de país.
@@ -65,9 +37,15 @@ function tabelaSubRegioes(linhas, opts) {
     const nomeCel = (opts.linkKey && x.key)
       ? `<a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.nome)}</a>`
       : `<span class="sr-nome">${esc(x.nome)}</span>`;
-    const lid = x.lider ? `${dot(x.lider)}${esc(x.lider)}` : '';
+    const lid = x.lider ? `${tile(x.lider)}${esc(x.lider)}` : '';
+    // linha expansível: o ▸ é um <button> real, para o teclado lá chegar e o
+    // Enter/Espaço dispararem o mesmo clique. aria-label leva o nome porque a
+    // célula do nome pode ser só um <span> (províncias, sem página).
+    const tri = exp
+      ? `<button type="button" class="sr-tri" aria-expanded="false" aria-label="detalhe de ${esc(x.nome)}">▸</button>`
+      : '';
     const linha = `<tr class="sr-row${exp ? ' exp' : ''}"${exp ? ` data-i="${i}"` : ''}>
-      <td>${exp ? '<span class="sr-tri">▸</span>' : ''}${nomeCel}</td>
+      <td>${tri}${nomeCel}</td>
       <td class="num">${nfmt(x.uniao)}</td>
       <td class="uni">${lid}</td>
       <td class="pct">${pctfmt(x.pct, opts.pctOpts)}</td>
@@ -83,7 +61,9 @@ function tabelaSubRegioes(linhas, opts) {
     <tbody>${corpo}</tbody></table>`;
 }
 
-// Liga o clique de expansão numa tabela do tabelaSubRegioes({detalheHtml}).
+// Liga a expansão numa tabela do tabelaSubRegioes({detalheHtml}). O clique
+// vale na linha toda (rato) e o <button.sr-tri> trata do teclado (Enter/Espaço
+// disparam clique nativo, que borbulha para aqui).
 function ligarExpansao(tabela) {
   if (!tabela) return;
   tabela.addEventListener('click', e => {
@@ -93,5 +73,7 @@ function ligarExpansao(tabela) {
     if (!det) return;
     det.hidden = !det.hidden;
     row.classList.toggle('aberto', !det.hidden);
+    const tri = row.querySelector('.sr-tri');
+    if (tri) tri.setAttribute('aria-expanded', String(!det.hidden));
   });
 }

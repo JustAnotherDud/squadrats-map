@@ -17,8 +17,8 @@
   const alvo = document.getElementById('pais');
   const CC = (alvo.dataset.cc || '').toUpperCase();
 
-  // cor / esc / nfmt / pctfmt / dot / atl / carregarCores / tabelaSubRegioes
-  // / ligarExpansao: comum.js
+  // cor / esc / nfmt / tile / atl / tira / carregarCores: shared.js
+  // pctfmt / tabelaSubRegioes / ligarExpansao: comum.js
   const PCT_PAIS = { casas: 2, piso: true };  // % contra um país inteiro é minúscula
 
   // chaves em stats.json / adjacency.json por país
@@ -70,7 +70,7 @@
     const lider = x.pares.length ? x.pares[0][1] : 0;
     const linhas = x.pares.map(([n, cap], i) => `<tr>
       <td class="pos">${i + 1}</td>
-      <td><span class="nome">${dot(n)}${atl(n)}</span></td>
+      <td><span class="nome">${tile(n)}${atl(n)}</span></td>
       <td class="tira-td">${tira(cor(n), lider ? cap / lider : 0)}</td>
       <td class="num">${nfmt(cap)}</td>
       <td class="uni">${excR[n] ? nfmt(excR[n]) : ''}</td>
@@ -101,7 +101,7 @@
       const pct = z17 ? (100 * cap / z17) : null;
       return `<tr>
         <td class="pos">${i + 1}</td>
-        <td><span class="nome">${dot(n)}${atl(n)}</span></td>
+        <td><span class="nome">${tile(n)}${atl(n)}</span></td>
         <td class="tira-td">${tira(cor(n), lider ? cap / lider : 0)}</td>
         <td class="num">${nfmt(cap)}</td>
         ${temExc ? `<td class="uni">${exc[n] ? nfmt(exc[n]) : ''}</td>` : ''}

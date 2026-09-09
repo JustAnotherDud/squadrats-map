@@ -97,17 +97,19 @@
 </main>
 
 <script src="nav.js"></script>
+<script src="shared.js"></script>
 <script>
   (function () {
     'use strict';
-    var A = [['Zé', 'ze'], ['Xeira', 'xeira'], ['Carolina', 'carolina'], ['Inês S.', 'ines-s'], ['Pedro', 'pedro']];
-    var COR = { 'Zé': '#e03131', 'Xeira': '#9c46d8', 'Carolina': '#c99a00', 'Inês S.': '#e8710a', 'Pedro': '#2f5fd0' };
+    // cor / tile / tira / CORES / carregarCores / COR_FALLBACK / slugify: shared.js
     var RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
     var LOCAL = ['localhost', '127.0.0.1', ''].indexOf(location.hostname) >= 0;
+    var NC = { cache: 'no-cache' };
 
-    function tile(n) {
-      return '<span class="tile" style="background:' + (COR[n] || 'var(--tinta-2)') + '"></span>';
-    }
+    // plantel: nome + slug. Sai do club.json (já lido aqui para o leaderboard);
+    // sem rede fica o único fallback à mão, o COR_FALLBACK do shared.js.
+    var A = Object.keys(COR_FALLBACK).map(function (n) { return [n, slugify(n)]; });
+
     function roster() {
       document.getElementById('hub-atletas').innerHTML = A.map(function (a) {
         return '<a href="atletas/' + a[1] + '.html">' + tile(a[0]) + a[0] + '</a>';
@@ -121,23 +123,25 @@
       var lider = arr.length ? arr[0][1] : 0;
       document.getElementById('hub-lb').innerHTML = arr.map(function (p) {
         var frac = lider ? p[1] / lider : 0;
-        var cel = frac > 0 ? Math.max(1, Math.round(frac * 16)) : 0;
-        var t = '<span class="tira" style="color:' + (COR[p[0]] || 'var(--tinta-2)') + '">';
-        for (var i = 0; i < cel; i++) { t += '<i></i>'; }
-        t += '</span>';
-        return '<div class="r"><span class="nm">' + p[0] + '</span>' + t +
+        return '<div class="r"><span class="nm">' + p[0] + '</span>' +
+          tira(cor(p[0]), frac, 16) +
           '<span class="v">' + p[1].toLocaleString('pt-PT') + '</span></div>';
       }).join('');
     }
 
     roster();
-    fetch(RAW + 'main/data/membros_cores.json', { cache: 'no-cache' })
+    carregarCores(LOCAL ? 'data/membros_cores.json' : RAW + 'main/data/membros_cores.json', NC)
+      .then(roster);
+    fetch((LOCAL ? 'data/club.json' : RAW + 'data/data/club.json'), NC)
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j && j.cores) { Object.assign(COR, j.cores); roster(); } })
-      .catch(function () {});
-    fetch((LOCAL ? 'data/club.json' : RAW + 'data/data/club.json'), { cache: 'no-cache' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j) leaderboard(j); })
+      .then(function (j) {
+        if (!j) return;
+        if (j.atletas) {
+          A = j.atletas.map(function (a) { return [a.nome, a.slug]; });
+          roster();
+        }
+        leaderboard(j);
+      })
       .catch(function () {});
   })();
 </script>
