@@ -14,49 +14,65 @@
 <link rel="stylesheet" href="../site.css">
 <link rel="stylesheet" href="regiao.css">
 <style>
-  #regioes-idx { max-width: 820px; margin: 0 auto; padding: 22px 18px 72px; }
+  #regioes-idx { max-width: 860px; margin: 0 auto; padding: 22px 18px 72px; }
   .idx-paises {
     font-family: var(--f-mono); font-size: 12px; color: var(--tinta-3);
-    margin: 16px 0 22px;
+    margin: 16px 0 14px;
   }
   .idx-paises a { margin-left: 12px; }
   .idx-estado { color: var(--tinta-2); padding: 44px 0; text-align: center; }
   .idx-erro { color: #e88a6a; }
 
-  .idx-grupo { margin: 0 0 4px; }
-  .idx-row {
-    display: flex; align-items: baseline; gap: 10px;
-    padding: 6px 2px; border-bottom: 1px solid var(--hair); font-size: 13px;
+  /* toggle "só disputadas", mesmo espírito do .perfil-toggle dos perfis */
+  .idx-toggle {
+    background: none; border: 1px solid var(--rule); border-radius: 3px;
+    color: var(--tinta-2); font-family: var(--f-mono); font-size: 11.5px;
+    padding: 5px 10px; cursor: pointer; margin: 0 0 4px;
   }
-  .idx-dist {
-    border-bottom: 1px solid var(--rule); margin-top: 18px; padding-bottom: 7px;
-  }
-  .idx-dist .idx-nome { font-family: var(--f-tit); font-weight: 600; font-size: 15px; }
-  .idx-conc { padding-left: 16px; }
-  .idx-nome { color: var(--tinta); text-decoration: none; }
-  .idx-nome:hover { text-decoration: underline; text-decoration-color: var(--marca); }
-  .idx-nome.disp { text-decoration: underline; text-decoration-color: var(--ouro); text-underline-offset: 3px; }
-  .idx-z {
-    margin-left: auto; font-family: var(--f-mono); color: var(--tinta);
-    font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
-  }
-  .idx-pct {
-    font-family: var(--f-mono); color: var(--tinta-3); font-size: 11px;
-    font-variant-numeric: tabular-nums; flex: 0 0 44px; text-align: right;
-  }
-  .idx-lider {
-    color: var(--tinta-2); font-size: 12px; white-space: nowrap;
-    flex: 0 0 100px; text-align: right;
-  }
-  .idx-lider .tile { width: 8px; height: 8px; margin-right: 5px; }
-  .idx-nota { font-size: 11.5px; color: var(--tinta-3); margin: 24px 0 0; max-width: 66ch; line-height: 1.7; }
+  .idx-toggle.on { color: var(--tinta); border-color: var(--marca); }
 
-  /* concelhos/sub-regiões colapsados sob o distrito/país (ligarExpansao) */
-  .idx-dist.sr-row.exp { cursor: pointer; }
-  .idx-dist .sr-tri { margin-right: 7px; font-size: 11px; vertical-align: 1px; }
-  .idx-dist.aberto .sr-tri { color: var(--tinta-2); }
-  .sr-det.idx-conc { padding-left: 0; }
-  .idx-pais-h .idx-nome { font-family: var(--f-tit); font-weight: 600; font-size: 15px; }
+  /* tabela densa e ordenável, modelada no .perfil-tabela da secção 04 dos
+     perfis. Cada grupo (distrito / país estrangeiro) é um <tbody> cabeçalho
+     + um <tbody.sr-det> colapsável com as folhas. Scroll horizontal em ecrãs
+     estreitos, como a .perfil-scroll. */
+  .idx-scroll { overflow-x: auto; max-width: 100%; }
+  .idx-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .idx-scroll .idx-t { min-width: 560px; }
+  .idx-t thead th {
+    text-align: right; font-family: var(--f-mono); font-weight: 400;
+    color: var(--tinta-3); font-size: 10.5px; padding: 6px 6px;
+    border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  .idx-t thead th.idx-t-lugar { text-align: left; }
+  .idx-t thead th[data-sort] { cursor: pointer; user-select: none; }
+  .idx-t thead th[data-sort]:hover, .idx-t thead th.ord { color: var(--tinta); }
+
+  .idx-t td { padding: 5px 6px; border-bottom: 1px solid var(--hair); }
+  .idx-t td.idx-t-n {
+    text-align: right; white-space: nowrap; font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums; color: var(--tinta);
+  }
+  .idx-t td.idx-t-n.fraco { color: var(--tinta-3); }
+  .idx-t td.idx-t-lugar a { color: var(--tinta); text-decoration: none; }
+  .idx-t td.idx-t-lugar a:hover { text-decoration: underline; text-decoration-color: var(--marca); }
+  .idx-t td.idx-t-lugar a.disp { text-decoration: underline; text-decoration-color: var(--ouro); text-underline-offset: 3px; }
+  .idx-t td.idx-t-lid { text-align: right; white-space: nowrap; color: var(--tinta-2); font-size: 11.5px; }
+  .idx-t-lider .tile { width: 8px; height: 8px; margin-right: 5px; }
+  .idx-t td.idx-t-vazio { color: var(--tinta-3); text-align: center; padding: 8px 6px; }
+
+  /* linha-cabeçalho de grupo: colapsável (sr-tri + ligarExpansao local) */
+  .idx-t-cab td { border-bottom: 1px solid var(--rule); }
+  .idx-t-cab td.idx-t-lugar { padding-top: 14px; }
+  .idx-t-cab td.idx-t-lugar a { font-family: var(--f-tit); font-weight: 600; font-size: 14.5px; }
+  .idx-t-cab .sr-tri {
+    background: none; border: 0; color: var(--tinta-3); cursor: pointer;
+    font-size: 11px; padding: 0 7px 0 0; vertical-align: 1px;
+  }
+  .idx-t-cab.aberto .sr-tri { color: var(--tinta-2); }
+  .idx-t-cab td.idx-t-n { color: var(--tinta-2); }
+  tbody.idx-t-grupo:first-of-type .idx-t-cab td.idx-t-lugar { padding-top: 4px; }
+
+  .idx-nota { font-size: 11.5px; color: var(--tinta-3); margin: 22px 0 0; max-width: 66ch; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -64,14 +80,14 @@
   <h1>Lugares</h1>
   <dl class="meta" id="meta"></dl>
   <p class="idx-paises" id="idx-paises">por país</p>
+  <button class="idx-toggle" id="idx-disp">Só disputados (2+ membros)</button>
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
-  <p class="idx-nota">Número e ordem: squadratinhos que o clube cobre no lugar
-    (união dos membros, sem repetir os partilhados), e a seguir a fracção do
-    lugar que isso representa (só Portugal e países inteiros; contra uma
-    província estrangeira a % não diz nada). Carrega num distrito, província
-    ou país para ver as sub-regiões. Só lugares onde algum atleta tem pelo
-    menos um squadratinho, agora com página própria em todos os níveis.
-    A ouro: com troca de posição no ranking (ver o
+  <p class="idx-nota"><b>Cobre</b> = squadratinhos que o clube cobre no lugar
+    (união dos membros, sem repetir os partilhados); <b>Total</b> = o tamanho do
+    lugar; <b>Membros</b> = quantos têm lá pelo menos um squadratinho. A % só
+    para Portugal e países inteiros (contra uma província estrangeira não diz
+    nada). Clica num cabeçalho para ordenar; num distrito ou país para abrir as
+    sub-divisões. A ouro: com troca de posição no ranking (ver o
     <a href="../historico.html">histórico</a>).</p>
 </main>
 <script src="../nav.js"></script>
@@ -80,51 +96,94 @@
 <script>
 (function () {
   'use strict';
-  // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
-  // avisoDadosVelhos / cor / esc / nfmt / carregarCores: shared.js
-  // pctfmt: comum.js. Render agrupado (país/distrito/província = cabeçalho
-  // colapsável, sub-regiões por baixo), não a tabela plana do tabelaSubRegioes.
+  // dadosUrl / carregarJson / mostrarErroDados / avisoDadosVelhos / cor / esc /
+  // nfmt / carregarCores / fmtDataHora: shared.js. pctfmt: comum.js.
   // Tudo vem do regioes_index.json (Fase 3: já inclui estrangeiro e país).
   const pct = p => pctfmt(p, { compacto: true });
   const pctPais = p => pctfmt(p, { casas: 2, piso: true });
   const CC_ORDEM = ['PT', 'ES', 'DE', 'MA', 'AD'];
-  // no índice, a % de uma província estrangeira contra o seu total não diz
-  // nada (ver nota); só se mostra para PT e para o nível país.
-  const mostraPct = x => x.uniao_pct != null && (x.cc === 'PT' || x.nivel === 'pais');
+  // a % de uma província estrangeira contra o seu total não diz nada; só se
+  // mostra para PT e para o nível país (2 casas + piso).
   const celPct = x => x.nivel === 'pais'
     ? (x.uniao_pct != null ? pctPais(x.uniao_pct) : '')
-    : (mostraPct(x) ? pct(x.uniao_pct) : '');
+    : ((x.uniao_pct != null && x.cc === 'PT') ? pct(x.uniao_pct) : '');
+  const num = v => (v == null ? '' : nfmt(v));
+
+  // colunas ordenáveis. Lugar e Líder não ordenam.
+  const COLS = [
+    { k: 'n', label: 'Membros', val: x => x.n },
+    { k: 'uniao', label: 'Cobre', val: x => x.uniao },
+    { k: 'total', label: 'Total', val: x => x.total },
+    { k: 'uniao_pct', label: '%', val: x => x.uniao_pct },
+  ];
+
+  const estado = {
+    sort: { k: 'uniao', dir: 'desc' },
+    soDisputados: false,
+    abertos: new Set(),   // keys dos grupos expandidos, para o sort não os fechar
+  };
+  let IDX = null;
+
+  function ordenar(rows) {
+    const c = COLS.find(cc => cc.k === estado.sort.k);
+    if (!c) return rows;
+    const dir = estado.sort.dir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const va = c.val(a), vb = c.val(b);
+      if (va == null && vb == null) return a.regiao.localeCompare(b.regiao, 'pt');
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      return (va - vb) * dir || a.regiao.localeCompare(b.regiao, 'pt');
+    });
+  }
 
   function lider(nome) {
-    if (!nome) return '<span class="idx-lider"></span>';
-    return `<span class="idx-lider"><span class="tile" style="background:${cor(nome)}"></span>${esc(nome)}</span>`;
+    if (!nome) return '';
+    return `<span class="idx-t-lider"><span class="tile" style="background:${cor(nome)}"></span>${esc(nome)}</span>`;
   }
-  // linha (folha): nome liga sempre à página do lugar (todos os níveis têm
-  // página desde a Fase 3).
-  function row(x) {
-    return `<div class="idx-row">
-      <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
-      <span class="idx-z">${nfmt(x.uniao)}</span>
-      <span class="idx-pct">${celPct(x)}</span>${lider(x.lider)}</div>`;
-  }
-  // cabeçalho de grupo colapsável (país, distrito ou província). `i` = índice
-  // único para o ligarExpansao casar o .sr-det.
-  function grupoCab(x, i, extraCls) {
-    return `<div class="idx-row idx-dist sr-row exp${extraCls ? ' ' + extraCls : ''}" data-i="${i}">
-      <button type="button" class="sr-tri" aria-expanded="false" aria-label="ver sub-regiões de ${esc(x.regiao)}">▸</button>
-      <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
-      <span class="idx-z">${nfmt(x.uniao)}</span>
-      <span class="idx-pct">${celPct(x)}</span>${lider(x.lider)}</div>`;
-  }
-  const grupoDet = (i, filhosHtml) =>
-    `<div class="sr-det idx-conc" data-i="${i}" hidden>${filhosHtml}</div>`;
-  const vazio = t => `<div class="idx-row idx-conc"><span class="reg-vazio">${t}</span></div>`;
 
-  function pintar(idx) {
-    const rows = idx.regioes || [];
+  const celulasNum = x =>
+    `<td class="idx-t-n">${x.n}</td>`
+    + `<td class="idx-t-n">${num(x.uniao)}</td>`
+    + `<td class="idx-t-n fraco">${num(x.total)}</td>`
+    + `<td class="idx-t-n">${celPct(x)}</td>`
+    + `<td class="idx-t-lid">${lider(x.lider)}</td>`;
+
+  function linhaFolha(x) {
+    return `<tr>
+      <td class="idx-t-lugar"><a class="${x.disp ? 'disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a></td>
+      ${celulasNum(x)}</tr>`;
+  }
+
+  function grupo(g, filhos) {
+    const aberto = estado.abertos.has(g.key);
+    let leaves = filhos;
+    if (estado.soDisputados) leaves = leaves.filter(x => x.n >= 2);
+    leaves = ordenar(leaves);
+    const cab = `<tbody class="idx-t-grupo"><tr class="idx-t-cab sr-row exp${aberto ? ' aberto' : ''}" data-i="${g.key}">
+      <td class="idx-t-lugar"><button type="button" class="sr-tri" aria-expanded="${aberto}" aria-label="ver ${esc(g.regiao)}">▸</button><a class="${g.disp ? 'disp' : ''}" href="${g.key}.html">${esc(g.regiao)}</a></td>
+      ${celulasNum(g)}</tr></tbody>`;
+    const corpo = leaves.length
+      ? leaves.map(linhaFolha).join('')
+      : `<tr><td colspan="6" class="idx-t-vazio">${estado.soDisputados ? 'nenhum com 2+ membros' : 'sem sub-divisões com actividade'}</td></tr>`;
+    return cab + `<tbody class="sr-det" data-i="${g.key}"${aberto ? '' : ' hidden'}>${corpo}</tbody>`;
+  }
+
+  function thead() {
+    return `<thead><tr>
+      <th class="idx-t-lugar">Lugar</th>
+      ${COLS.map(c => {
+        const on = estado.sort.k === c.k;
+        return `<th data-sort="${c.k}"${on ? ' class="ord"' : ''}>${c.label}${on ? (estado.sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>`;
+      }).join('')}
+      <th class="idx-t-lid">Líder</th>
+    </tr></thead>`;
+  }
+
+  function pintar() {
+    const rows = IDX.regioes || [];
     const porPai = {};
     for (const r of rows) (porPai[r.pai_key] = porPai[r.pai_key] || []).push(r);
-    const ordU = (a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt');
 
     const paises = rows.filter(r => r.nivel === 'pais')
       .sort((a, b) => (CC_ORDEM.indexOf(a.cc) + 99) - (CC_ORDEM.indexOf(b.cc) + 99));
@@ -140,43 +199,62 @@
         + (nEstr ? ` (${nPT} em Portugal, ${nEstr} no estrangeiro)` : '') + '</dd>'
       + `<dt>nível</dt><dd>${nDist} distritos, ${nPT - nDist} concelhos`
         + (nEstr ? `, ${nEstr} no estrangeiro (${estr.map(p => `${p.cc} ${(porPai[p.key] || []).length}`).join(', ')})` : '') + '</dd>'
-      + `<dt>actualizado</dt><dd>${fmtDataHora(idx.gerado)}</dd>`;
-    avisoDadosVelhos(idx.gerado);  // shared.js
+      + `<dt>actualizado</dt><dd>${fmtDataHora(IDX.gerado)}</dd>`;
+    avisoDadosVelhos(IDX.gerado);  // shared.js
 
-    let html = '';
-    let i = 0;
-    // PT: distritos (colapsáveis) -> concelhos
-    for (const dd of (porPai['pais-pt'] || []).slice().sort(ordU)) {
-      const filhos = (porPai[dd.key] || []).slice().sort(ordU);
-      html += `<div class="idx-grupo">${grupoCab(dd, i)}`
-        + grupoDet(i, filhos.length ? filhos.map(row).join('') : vazio('sem concelhos com actividade'))
-        + '</div>';
-      i++;
-    }
-    // estrangeiro: país (colapsável, linkado) -> províncias/regiões (linkadas)
-    for (const p of estr) {
-      const provs = (porPai[p.key] || []).slice().sort(ordU);
-      html += `<div class="idx-grupo">${grupoCab(p, i, 'idx-pais-h')}`
-        + grupoDet(i, provs.length ? provs.map(row).join('') : vazio('sem regiões com actividade'))
-        + '</div>';
-      i++;
-    }
+    // grupos PT (distritos) e depois estrangeiros (países), cada bloco pela
+    // mesma ordenação escolhida
+    const distritos = ordenar(porPai['pais-pt'] || []);
+    const paisesEstr = ordenar(estr);
+    let html = `<div class="idx-scroll"><table class="idx-t">${thead()}`;
+    for (const dd of distritos) html += grupo(dd, porPai[dd.key] || []);
+    for (const p of paisesEstr) html += grupo(p, porPai[p.key] || []);
+    html += '</table></div>';
 
     const lista = document.getElementById('lista');
     lista.innerHTML = html;
-    ligarExpansao(lista);  // comum.js
+
+    lista.querySelectorAll('.idx-t th[data-sort]').forEach(th => {
+      th.onclick = () => {
+        const k = th.dataset.sort;
+        if (estado.sort.k === k) estado.sort.dir = estado.sort.dir === 'asc' ? 'desc' : 'asc';
+        else estado.sort = { k, dir: 'desc' };
+        pintar();
+      };
+    });
+    // expansão local (não o ligarExpansao do comum.js): precisa de manter o
+    // estado.abertos para o sort não fechar os grupos. Mesmo padrão sr-tri.
+    lista.querySelector('.idx-t').addEventListener('click', e => {
+      if (e.target.closest('a') || e.target.closest('th')) return;
+      const row = e.target.closest('.idx-t-cab.sr-row.exp');
+      if (!row) return;
+      const k = row.dataset.i;
+      const det = lista.querySelector(`tbody.sr-det[data-i="${CSS.escape(k)}"]`);
+      if (!det) return;
+      const abrir = det.hidden;
+      det.hidden = !abrir;
+      row.classList.toggle('aberto', abrir);
+      const tri = row.querySelector('.sr-tri');
+      if (tri) tri.setAttribute('aria-expanded', String(abrir));
+      if (abrir) estado.abertos.add(k); else estado.abertos.delete(k);
+    });
   }
+
+  document.getElementById('idx-disp').onclick = function () {
+    estado.soDisputados = !estado.soDisputados;
+    this.classList.toggle('on', estado.soDisputados);
+    pintar();
+  };
 
   (async function () {
     await carregarCores(mainUrl('membros_cores.json'), NC);
-    let idx;
     try {
-      idx = await carregarJson(dadosUrl('regioes_index.json'));
+      IDX = await carregarJson(dadosUrl('regioes_index.json'));
     } catch (e) {
       mostrarErroDados(document.getElementById('regioes-idx'), e);
       return;
     }
-    pintar(idx);
+    pintar();
   })();
 })();
 </script>

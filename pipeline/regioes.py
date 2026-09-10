@@ -309,6 +309,7 @@ def linha_indice(reg, disputadas):
         "pai_key": reg.get("pai_key"),
         "uniao": reg["uniao"]["z17"],
         "uniao_pct": reg["uniao"]["pct"],
+        "total": (reg.get("totais") or {}).get("z17"),
         "lider": rk[0]["nome"] if rk else None,
         "n": len(rk),
         "disp": (cc, reg["nivel"], reg["regiao"]) in disputadas,
