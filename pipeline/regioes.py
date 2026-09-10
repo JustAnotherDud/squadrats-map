@@ -22,6 +22,14 @@ CHAVE_BUCKET = {"concelho": "by_concelho", "distrito": "by_distrito"}
 CHAVE_ADJ = {"concelho": "concelhos", "distrito": "distritos"}
 CHAVE_STATS = {"concelho": "by_concelho", "distrito": "by_distrito"}
 
+# estrangeiro: nível 2 = "regiao" (província/Land/région), nível 3 = "zona"
+# (município/cercle). bucket no club_regioes por atleta e na uniao; bucket de
+# adjacência (compute_adjacency.py); os totais do stats.json são by_region_<cc>
+# / by_municipio_<cc>. AD só tem paróquias (7), servem de nível 2 e 3.
+BUCKET_ATLETA_ESTR = {"regiao": "by_region", "zona": "by_municipio"}
+ADJ_REGIAO = {"es": "provincias_es", "de": "laender_de", "ma": "regioes_ma", "ad": "paroquias_ad"}
+ADJ_ZONA = {"es": "municipios_es", "de": "municipios_de", "ma": "municipios_ma", "ad": "paroquias_ad"}
+
 
 def key_de(cc, nivel, nome):
     """<key> do ficheiro de um lugar, base do nome regioes/<key>.html|json e
@@ -53,18 +61,99 @@ def regioes_ativas(club_regioes):
     return fora
 
 
+def _ordena_ranking(pares):
+    pares.sort(key=lambda t: (-t[1],
+               ATLETAS_ORDEM.index(t[0]) if t[0] in ATLETAS_ORDEM else 99))
+    return pares
+
+
 def ranking_de(club_regioes, nivel, nome):
     """[(atleta, captured), ...] ordenado desc; empate pela ordem canónica.
     Só atletas com captured > 0."""
     b = CHAVE_BUCKET[nivel]
-    pares = []
-    for atleta, info in club_regioes.get("atletas", {}).items():
-        n = (info.get(b) or {}).get(nome, 0)
-        if n > 0:
-            pares.append((atleta, n))
-    pares.sort(key=lambda t: (-t[1],
-               ATLETAS_ORDEM.index(t[0]) if t[0] in ATLETAS_ORDEM else 99))
-    return pares
+    pares = [(atleta, (info.get(b) or {}).get(nome, 0))
+             for atleta, info in club_regioes.get("atletas", {}).items()]
+    return _ordena_ranking([(a, n) for a, n in pares if n > 0])
+
+
+# --- estrangeiro (Fase 2) ---------------------------------------------------
+
+def ativas_estrangeiro(club_regioes):
+    """{ccl: {"regiao": set(nomes), "zona": set(nomes)}} do estrangeiro com
+    pelo menos um atleta a >0. ccl minúsculo, como no club_regioes.json."""
+    fora = {}
+    for info in club_regioes.get("atletas", {}).values():
+        for nivel, bucket in BUCKET_ATLETA_ESTR.items():
+            for ccl, regs in (info.get(bucket) or {}).items():
+                for nome, n in regs.items():
+                    if n > 0:
+                        fora.setdefault(ccl, {"regiao": set(), "zona": set()})[nivel].add(nome)
+    return fora
+
+
+def parent_map_estrangeiro(foreign_muni_path):
+    """{municipio: província/Land/région} a partir do properties.parent do
+    ficheiro recortado foreign_muni/<CC>.geojson. {} se o ficheiro faltar."""
+    try:
+        with open(foreign_muni_path, encoding="utf-8") as f:
+            geo = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+    return {ft["properties"].get("region"): ft["properties"].get("parent")
+            for ft in geo.get("features", [])}
+
+
+def construir_estrangeiro(ccl, nivel, nome, snapshot, stats, adjacency,
+                          ativas_estr, parent):
+    """Dict de uma região (nivel "regiao") ou zona (nivel "zona") estrangeira,
+    mesma forma que construir() mais cc / pai_key / avo_key. `parent` = nome da
+    província que contém a zona (parent_map_estrangeiro), None para regiões."""
+    cc = ccl.upper()
+    ba = BUCKET_ATLETA_ESTR[nivel]
+    skey = ("by_region_" if nivel == "regiao" else "by_municipio_") + ccl
+    adjbkt = (ADJ_REGIAO if nivel == "regiao" else ADJ_ZONA).get(ccl)
+
+    total = (stats.get(skey, {}).get(nome) or {})
+    z14 = (total.get("z14") or {}).get("total")
+    z17 = (total.get("z17") or {}).get("total")
+
+    uni_b = snapshot.get("uniao") or {}
+    uni = ((uni_b.get(ba) or {}).get(ccl) or {}).get(nome, 0)
+    uni_pct = round(100 * uni / z17, 2) if z17 else None
+    exc = (((uni_b.get("exclusivos") or {}).get(ba) or {}).get(ccl) or {}).get(nome, {})
+
+    pares = [(atleta, ((info.get(ba) or {}).get(ccl) or {}).get(nome, 0))
+             for atleta, info in snapshot.get("atletas", {}).items()]
+    ranking = [
+        {"nome": a, "captured": n, "exclusivos": exc.get(a, 0),
+         "pct": round(100 * n / z17, 2) if z17 else None}
+        for a, n in _ordena_ranking([(a, n) for a, n in pares if n > 0])
+    ]
+
+    viz = []
+    pagina_de = ativas_estr.get(ccl, {}).get(nivel, set())
+    for vn in (adjacency.get(adjbkt, {}).get(nome, {}) or {}).get("neighbors", []) if adjbkt else []:
+        viz.append({"nome": vn, "key": key_de(cc, nivel, vn), "tem_pagina": vn in pagina_de})
+
+    pais_key = key_de(cc, "pais", cc)
+    if nivel == "regiao":
+        pai_key, avo_key = pais_key, None
+    else:
+        pai_key = key_de(cc, "regiao", parent) if parent else pais_key
+        avo_key = pais_key
+
+    return {
+        "key": key_de(cc, nivel, nome),
+        "cc": cc,
+        "nivel": nivel,
+        "regiao": nome,
+        "pai_key": pai_key,
+        "avo_key": avo_key,
+        "totais": {"z14": z14, "z17": z17},
+        "uniao": {"z17": uni, "pct": uni_pct},
+        "ranking": ranking,
+        "vizinhos": viz,
+    }
 
 
 def _distrito_pai(concelhos_geojson_path, nome):

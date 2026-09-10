@@ -21,6 +21,7 @@ DATA_DIR = os.path.join(REPO, "data")
 # nenhuma; lê da fonte de precisão (refdata), não da cópia simplificada de
 # data/ que agora só serve para o analise.html desenhar.
 CONCELHOS_GEO = os.path.join(HERE, "refdata", "concelhos_pt.geojson")
+FOREIGN_MUNI_DIR = os.path.join(HERE, "refdata", "foreign_muni")
 
 
 def _carrega(path, default=None):
@@ -61,6 +62,27 @@ def main(out_dir):
     regioes.escrever_indice(out_dir, indice, gerado)
     print(f"append_regioes: {n} regiões, {len(disputadas)} disputadas "
           f"-> regioes_index.json")
+
+    # --- estrangeiro (Fase 2): escreve data/regioes/<ccl>-r-*.json e
+    # <ccl>-z-*.json com dados reais, MAS fora do regioes_index.json e sem
+    # stub HTML (o gen_regiao_stubs.py ignora estas keys por agora). O
+    # renderer, a ligação a partir do índice e as páginas de país são da
+    # Fase 3; isto só deixa os dados prontos na branch `data` para inspecção.
+    ativas_estr = regioes.ativas_estrangeiro(novo)
+    ne = 0
+    for ccl, niveis in sorted(ativas_estr.items()):
+        pmap = regioes.parent_map_estrangeiro(
+            os.path.join(FOREIGN_MUNI_DIR, f"{ccl.upper()}.geojson"))
+        for nivel in ("regiao", "zona"):
+            for nome in sorted(niveis[nivel]):
+                reg = regioes.construir_estrangeiro(
+                    ccl, nivel, nome, novo, stats, adjacency, ativas_estr,
+                    pmap.get(nome))
+                regioes.escrever(out_dir, reg, gerado)
+                ne += 1
+    if ne:
+        print(f"append_regioes: +{ne} ficheiros de região/zona estrangeira "
+              f"(fora do índice e sem stub, Fase 2)")
 
 
 if __name__ == "__main__":

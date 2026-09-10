@@ -13,9 +13,16 @@ import argparse
 import glob
 import json
 import os
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(HERE)
+
+# regiões/zonas estrangeiras (<ccl>-r-*, <ccl>-z-*): o append_regioes já
+# escreve os .json na branch `data`, mas o stub e o renderer só na Fase 3.
+# Ignora-as aqui (nem gera nem apaga) para o cron não commitar páginas
+# meio-feitas.
+ADIAR_FASE3 = re.compile(r"^[a-z]{2}-[rz]-")
 
 STUB = """<!DOCTYPE html>
 <html lang="pt">
@@ -54,18 +61,23 @@ def main(repo_dir, dados_dir):
     # geradas a partir de data/regioes/, nunca as apagar
     escritos = {"index.html", "pais-pt.html", "pais-es.html"}
     for p in sorted(glob.glob(os.path.join(dados_dir, "regioes", "*.json"))):
+        key = os.path.splitext(os.path.basename(p))[0]  # <key>.json -> <key>
+        if ADIAR_FASE3.match(key):
+            continue
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
-        key = os.path.splitext(os.path.basename(p))[0]  # <key>.json -> <key>
         with open(os.path.join(destino, key + ".html"), "w", encoding="utf-8", newline="\n") as f:
             f.write(STUB.format(nome=d["regiao"], key=key, nivel=d["nivel"]))
         escritos.add(key + ".html")
         print(f"stub: regioes/{key}.html")
 
     for ficheiro in os.listdir(destino):
-        if ficheiro.endswith(".html") and ficheiro not in escritos:
-            os.remove(os.path.join(destino, ficheiro))
-            print(f"removido (regiao sem actividade): regioes/{ficheiro}")
+        if not ficheiro.endswith(".html") or ficheiro in escritos:
+            continue
+        if ADIAR_FASE3.match(os.path.splitext(ficheiro)[0]):
+            continue  # não mexer nas keys adiadas para a Fase 3
+        os.remove(os.path.join(destino, ficheiro))
+        print(f"removido (regiao sem actividade): regioes/{ficheiro}")
 
 
 if __name__ == "__main__":
