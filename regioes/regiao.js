@@ -31,6 +31,15 @@
   };
 
   const ICO = { ultrapassagem: '⇅', novo_lider: '👑', primeira_presenca: '📍', marco: '🚩' };
+  const LEGENDA_EV = `<details class="legenda">
+    <summary>👑 ⇅ 📍 🚩 <span class="lg-q">o que significam</span></summary>
+    <div class="lg-corpo">
+      <span>👑 <b>nova liderança</b> desta região</span>
+      <span>⇅ <b>ultrapassagem</b> (troca de posição fora do topo)</span>
+      <span>📍 <b>primeira presença</b> de um atleta aqui</span>
+      <span>🚩 <b>marco</b> de squadratinhos (25/50/100/…)</span>
+    </div>
+  </details>`;
   function frase(e) {
     const v = e.valores;
     if (e.tipo === 'ultrapassagem')
@@ -133,10 +142,18 @@
       : '';
 
     const temSubs = ['distrito', 'regiao', 'pais'].includes(d.nivel);
-    const filhosTabela = filhos && filhos.length
-      ? tabelaSubRegioes(filhos, { linkKey: true, pctOpts })
-        + `<p class="reg-viz-nota">União do clube em cada sub-região e a fracção
-           que representa, por ordem de união.${d.nivel === 'distrito' ? ' A ouro: concelho com troca de posição no ranking.' : ''}</p>`
+    const subSort = { k: 'uniao', dir: 'desc' };
+    function renderSubs() {
+      const box = document.getElementById('subs-tab');
+      if (!box) return;
+      box.innerHTML = tabelaSubRegioes(filhos, { linkKey: true, pctOpts, sort: subSort });
+      ligarOrdenacaoSub(box.querySelector('.sr-sort'), subSort, renderSubs);
+    }
+    const filhosBloco = filhos && filhos.length
+      ? '<div id="subs-tab"></div>'
+        + `<p class="reg-viz-nota"><b>por explorar</b> = squadratinhos do lugar que
+           mais ninguém do clube tem ainda. Por defeito ordenado pela cobertura do
+           clube; clica num cabeçalho para ordenar por outra coluna.${d.nivel === 'distrito' ? ' A ouro: concelho com troca de posição no ranking.' : ''}</p>`
       : (temSubs ? '<p class="reg-vazio">Sem sub-regiões com actividade.</p>' : '');
 
     alvo.innerHTML = `
@@ -154,9 +171,9 @@
       ${rankTable}
       ${cobre}
 
-      ${filhosTabela ? sec(rotulo(FILHOS_TIT, d.nivel, cc)) + filhosTabela : ''}
+      ${filhosBloco ? sec(rotulo(FILHOS_TIT, d.nivel, cc)) + filhosBloco : ''}
 
-      ${ehPais ? '' : sec('Eventos') + evHtml}
+      ${ehPais ? '' : sec('Eventos') + (evReg.length ? LEGENDA_EV : '') + evHtml}
 
       ${sec('Faz fronteira com')}
       <div class="reg-viz">${viz}</div>
@@ -170,6 +187,8 @@
           + 'cobre menos de 1% de uma região.' : ''} Dados 6×/dia, mesmo processo que o
         <a href="../club.html">mapa do clube</a>. O
         <a href="../historico.html">histórico</a> tem o feed completo.</p>`;
+
+    renderSubs();
   }
 
   async function carregar() {

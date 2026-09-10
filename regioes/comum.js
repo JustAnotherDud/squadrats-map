@@ -38,67 +38,98 @@ function barraCobertura(pct) {
     + `${cels}</span>`;
 }
 
-// Tabela de sub-regiões: Lugar | % | do clube | Total | Membros | Líder.
-// É o mesmo componente nos concelhos de uma página de distrito e nas
-// sub-regiões de uma página de país.
-//   linhas: [{nome, key?, uniao, pct, total?, lider, n?, disp?}], já ordenada
-//   opts.rotulo      cabeçalho da coluna da união (default "do clube")
-//   opts.linkKey     se true e a linha tem `key`, o nome liga a <key>.html
-//   opts.pctOpts     passado a pctfmt (ex. {casas:2, piso:true} nas províncias)
-//   opts.detalheHtml fn(linha) -> html: torna cada linha expansível (▸),
-//                    com esse html numa linha por baixo. Ligar com
-//                    ligarExpansao() depois de inserir no DOM.
+// Tabela de sub-regiões (concelhos de um distrito, zonas de uma região,
+// sub-regiões de um país). Colunas ordenáveis por clique/tecla no cabeçalho,
+// mesmo padrão das tabelas do perfil (th clicável, indicador ▲/▼).
+//   lugar | % | <rotulo> | total | por explorar | membros | líder
+//   linhas   [{nome, key?, uniao, pct, total?, lider, n?, disp?}]
+//   opts.rotulo   cabeçalho da coluna da união (default "do clube")
+//   opts.linkKey  se true e a linha tem `key`, o nome liga a <key>.html
+//   opts.pctOpts  passado a pctfmt ({casas:2, piso:true} nos países)
+//   opts.sort     {k, dir} mutável; default {k:'uniao', dir:'desc'}.
+//                 ligarOrdenacaoSub() actualiza-o ao clicar num cabeçalho.
+const SR_COLS = [
+  { k: 'nome',     rot: 'lugar',        num: false, val: x => x.nome },
+  { k: 'pct',      rot: '%',            num: true,  val: x => x.pct },
+  { k: 'uniao',    rot: null,           num: true,  val: x => x.uniao },
+  { k: 'total',    rot: 'total',        num: true,  val: x => x.total },
+  { k: 'explorar', rot: 'por explorar', num: true,  val: x => (x.total != null ? x.total - x.uniao : null) },
+  { k: 'n',        rot: 'membros',      num: true,  val: x => x.n },
+  { k: 'lider',    rot: 'líder',        num: false, val: x => x.lider || '' },
+];
+
+function ordenarSub(linhas, sort) {
+  const col = SR_COLS.find(c => c.k === sort.k) || SR_COLS[2];
+  const dir = sort.dir === 'asc' ? 1 : -1;
+  return [...linhas].sort((a, b) => {
+    let va = col.val(a), vb = col.val(b);
+    if (col.num) {
+      va = va == null ? -Infinity : va;
+      vb = vb == null ? -Infinity : vb;
+      return (va - vb) * dir || a.nome.localeCompare(b.nome, 'pt');
+    }
+    return String(va).localeCompare(String(vb), 'pt') * dir;
+  });
+}
+
 function tabelaSubRegioes(linhas, opts) {
   opts = opts || {};
   const rot = opts.rotulo || 'do clube';
-  const exp = typeof opts.detalheHtml === 'function';
-  const corpo = linhas.map((x, i) => {
+  const sort = opts.sort || (opts.sort = { k: 'uniao', dir: 'desc' });
+  const ord = ordenarSub(linhas, sort);
+
+  const cabecas = SR_COLS.map(c => {
+    const activa = c.k === sort.k;
+    const seta = activa ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const cls = [
+      c.k === 'nome' ? 'h-nome' : '',
+      activa ? 'ord' : '',
+      c.k === 'total' ? 'sr-total' : '',
+      c.k === 'explorar' ? 'sr-explorar' : '',
+      c.k === 'n' ? 'sr-membros' : '',
+    ].filter(Boolean).join(' ');
+    const asort = activa ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    return `<th data-sort="${c.k}"${cls ? ` class="${cls}"` : ''} aria-sort="${asort}">${esc(c.k === 'uniao' ? rot : c.rot)}${seta}</th>`;
+  }).join('');
+
+  const corpo = ord.map(x => {
     const nomeCel = (opts.linkKey && x.key)
       ? `<a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.nome)}</a>`
       : `<span class="sr-nome">${esc(x.nome)}</span>`;
+    const explorar = x.total != null ? x.total - x.uniao : null;
     const lid = x.lider ? `${tile(x.lider)}${esc(x.lider)}` : '';
-    // linha expansível: o ▸ é um <button> real, para o teclado lá chegar e o
-    // Enter/Espaço dispararem o mesmo clique. aria-label leva o nome porque a
-    // célula do nome pode ser só um <span> (sub-regiões estrangeiras, sem página).
-    const tri = exp
-      ? `<button type="button" class="sr-tri" aria-expanded="false" aria-label="detalhe de ${esc(x.nome)}">▸</button>`
-      : '';
-    const linha = `<tr class="sr-row${exp ? ' exp' : ''}"${exp ? ` data-i="${i}"` : ''}>
-      <td>${tri}${nomeCel}</td>
+    return `<tr>
+      <td>${nomeCel}</td>
       <td class="pct">${pctfmt(x.pct, opts.pctOpts)}</td>
       <td class="num">${nfmt(x.uniao)}</td>
       <td class="num sr-total">${x.total != null ? nfmt(x.total) : ''}</td>
+      <td class="num sr-explorar">${explorar != null ? nfmt(explorar) : ''}</td>
       <td class="num sr-membros">${x.n != null ? x.n : ''}</td>
       <td class="uni">${lid}</td>
     </tr>`;
-    const det = exp
-      ? `<tr class="sr-det" data-i="${i}" hidden><td colspan="6">${opts.detalheHtml(x)}</td></tr>`
-      : '';
-    return linha + det;
   }).join('');
-  return `<table class="reg-rank${exp ? ' sr-exp' : ''}">
-    <thead><tr><th class="h-nome">lugar</th><th>%</th><th>${esc(rot)}</th>
-      <th class="sr-total">total</th><th class="sr-membros">membros</th>
-      <th>líder</th></tr></thead>
-    <tbody>${corpo}</tbody></table>`;
+
+  return `<div class="sr-scroll"><table class="reg-rank sr-sort">
+    <thead><tr>${cabecas}</tr></thead>
+    <tbody>${corpo}</tbody></table></div>`;
 }
 
-// Liga a expansão numa tabela do tabelaSubRegioes({detalheHtml}). O clique
-// vale na linha toda (rato) e o <button.sr-tri> trata do teclado (Enter/Espaço
-// disparam clique nativo, que borbulha para aqui).
-function ligarExpansao(tabela) {
-  if (!tabela) return;
-  tabela.addEventListener('click', e => {
-    // clique num link dentro da linha (ex: o nome do distrito, que também
-    // liga à página) navega, não expande.
-    if (e.target.closest('a')) return;
-    const row = e.target.closest('.sr-row.exp');
-    if (!row || !tabela.contains(row)) return;
-    const det = tabela.querySelector(`.sr-det[data-i="${row.dataset.i}"]`);
-    if (!det) return;
-    det.hidden = !det.hidden;
-    row.classList.toggle('aberto', !det.hidden);
-    const tri = row.querySelector('.sr-tri');
-    if (tri) tri.setAttribute('aria-expanded', String(!det.hidden));
+// Liga clique/tecla nos cabeçalhos <th data-sort>. Mesmo k alterna asc/desc;
+// k novo começa desc nos numéricos e asc no nome/líder. `render()` volta a
+// desenhar a tabela (mesmo padrão do desenhar() das tabelas do perfil).
+function ligarOrdenacaoSub(container, sort, render) {
+  if (!container) return;
+  container.querySelectorAll('th[data-sort]').forEach(th => {
+    th.tabIndex = 0;
+    const activar = () => {
+      const k = th.dataset.sort;
+      if (sort.k === k) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+      else { sort.k = k; sort.dir = (k === 'nome' || k === 'lider') ? 'asc' : 'desc'; }
+      render();
+    };
+    th.onclick = activar;
+    th.onkeydown = e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activar(); }
+    };
   });
 }
