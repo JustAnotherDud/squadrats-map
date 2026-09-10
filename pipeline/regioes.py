@@ -40,36 +40,46 @@ PAIS_NOME = {
     "NL": "Países Baixos", "PL": "Polónia", "IT": "Itália",
 }
 
-# fronteira do lugar para o botão "ver no mapa" do club.html: a mesma cópia
-# simplificada que o analise.html desenha (data/*.geojson, no main), uma
-# feature por lugar, identificada pelo nome (mesma string do regioes_index).
-# Vai dentro do regioes/<key>.json; a página de lugar ignora-o, só o
-# club.html a usa. País não tem (grande de mais, nem há botão).
-DATA_GEOJSON_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+# fronteira do lugar para o botão "ver no mapa" do club.html: uma feature por
+# lugar, identificada pelo nome (mesma string do regioes_index), gravada
+# dentro do regioes/<key>.json. A página de lugar ignora-o, só o club.html a
+# usa. País não tem (grande de mais, nem há botão).
+#
+# Fonte por nível: os níveis finos (concelho PT, zona estrangeira) leem a
+# geometria PRECISA de refdata/ -- a cópia simplificada de data/ (feita pelo
+# prep.py para o analise.html desenhar a zoom de país) perde lóbulos de
+# municípios pequenos, e o traço encostado aos squares reais mostrava-o
+# (Lobios ~1 km a norte, Montijo perdia um lobo). Distrito, região
+# estrangeira e país ficam em data/: o square está sempre longe da fronteira,
+# a diferença é invisível.
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_GEOJSON_DIR = os.path.join(_REPO, "data")
+REFDATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "refdata")
 FRONTEIRA_FILES = {
-    ("PT", "concelho"): ("concelhos_pt.geojson", "NAME_2"),
-    ("PT", "distrito"): ("distritos_pt.geojson", "district"),
-    ("ES", "regiao"): ("provincias_es.geojson", "region"),
-    ("ES", "zona"): ("municipios_es.geojson", "region"),
-    ("DE", "regiao"): ("laender_de.geojson", "region"),
-    ("DE", "zona"): ("municipios_de.geojson", "region"),
-    ("MA", "regiao"): ("regioes_ma.geojson", "region"),
-    ("MA", "zona"): ("cercles_ma.geojson", "region"),
-    ("AD", "regiao"): ("paroquias_ad.geojson", "region"),
-    ("AD", "zona"): ("paroquias_ad.geojson", "region"),
+    ("PT", "concelho"): ("refdata", "concelhos_pt.geojson", "NAME_2"),
+    ("PT", "distrito"): ("data", "distritos_pt.geojson", "district"),
+    ("ES", "regiao"): ("data", "provincias_es.geojson", "region"),
+    ("ES", "zona"): ("refdata", "foreign_muni/ES.geojson", "region"),
+    ("DE", "regiao"): ("data", "laender_de.geojson", "region"),
+    ("DE", "zona"): ("refdata", "foreign_muni/DE.geojson", "region"),
+    ("MA", "regiao"): ("data", "regioes_ma.geojson", "region"),
+    ("MA", "zona"): ("refdata", "foreign_muni/MA.geojson", "region"),
+    ("AD", "regiao"): ("data", "paroquias_ad.geojson", "region"),
+    ("AD", "zona"): ("data", "paroquias_ad.geojson", "region"),
 }
 _fronteira_cache = {}
 
 
-def _geojson_features(fname):
-    if fname not in _fronteira_cache:
+def _geojson_features(base, rel):
+    chave = (base, rel)
+    if chave not in _fronteira_cache:
+        raiz = REFDATA_DIR if base == "refdata" else DATA_GEOJSON_DIR
         try:
-            with open(os.path.join(DATA_GEOJSON_DIR, fname), encoding="utf-8") as f:
-                _fronteira_cache[fname] = json.load(f).get("features", [])
+            with open(os.path.join(raiz, rel), encoding="utf-8") as f:
+                _fronteira_cache[chave] = json.load(f).get("features", [])
         except (FileNotFoundError, json.JSONDecodeError):
-            _fronteira_cache[fname] = []
-    return _fronteira_cache[fname]
+            _fronteira_cache[chave] = []
+    return _fronteira_cache[chave]
 
 
 def _simplificar(geom, alvo=4000):
@@ -103,11 +113,11 @@ def _simplificar(geom, alvo=4000):
 
 def fronteira_de(cc, nivel, nome):
     """Geometria GeoJSON (dict) da fronteira do lugar, ou None."""
-    par = FRONTEIRA_FILES.get((cc, nivel))
-    if not par:
+    trio = FRONTEIRA_FILES.get((cc, nivel))
+    if not trio:
         return None
-    fname, prop = par
-    for feat in _geojson_features(fname):
+    base, rel, prop = trio
+    for feat in _geojson_features(base, rel):
         if (feat.get("properties") or {}).get(prop) == nome:
             return _simplificar(feat.get("geometry"))
     return None
