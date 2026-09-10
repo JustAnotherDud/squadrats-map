@@ -63,17 +63,16 @@
 <main id="regioes-idx">
   <h1>Regiões</h1>
   <dl class="meta" id="meta"></dl>
-  <p class="idx-paises">por país<a href="pais-pt.html">Portugal</a><a href="pais-es.html">Espanha</a></p>
+  <p class="idx-paises" id="idx-paises">por país</p>
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
-  <p class="idx-nota">Número e ordem: squadratinhos que o clube cobre na região
-    (união dos membros, sem repetir os partilhados), e a seguir a fracção da
-    região que isso representa (só Portugal: no estrangeiro a % contra uma
-    província inteira não diz nada). Carrega num distrito ou país para ver as
-    sub-regiões. Só regiões onde algum atleta tem pelo menos um squadratinho.
-    Concelho ou distrito de Portugal têm página; as províncias/regiões
-    estrangeiras não, só o resumo aqui e a
-    <a href="pais-es.html">página de país</a>. A ouro: regiões com troca de
-    posição no ranking (ver o <a href="../historico.html">histórico</a>).</p>
+  <p class="idx-nota">Número e ordem: squadratinhos que o clube cobre no lugar
+    (união dos membros, sem repetir os partilhados), e a seguir a fracção do
+    lugar que isso representa (só Portugal e países inteiros; contra uma
+    província estrangeira a % não diz nada). Carrega num distrito, província
+    ou país para ver as sub-regiões. Só lugares onde algum atleta tem pelo
+    menos um squadratinho, agora com página própria em todos os níveis.
+    A ouro: com troca de posição no ranking (ver o
+    <a href="../historico.html">histórico</a>).</p>
 </main>
 <script src="../nav.js"></script>
 <script src="../shared.js"></script>
@@ -82,146 +81,102 @@
 (function () {
   'use strict';
   // dadosUrl / mainUrl / NC / carregarJson / mostrarErroDados /
-  // avisoDadosVelhos: shared.js
-  // cor / esc / nfmt / carregarCores: shared.js; pctfmt: comum.js. O índice mantém o seu
-  // render agrupado (distrito/país = cabeçalho, sub-regiões por baixo, agora
-  // colapsáveis com ligarExpansao), não a tabela plana do tabelaSubRegioes.
+  // avisoDadosVelhos / cor / esc / nfmt / carregarCores: shared.js
+  // pctfmt: comum.js. Render agrupado (país/distrito/província = cabeçalho
+  // colapsável, sub-regiões por baixo), não a tabela plana do tabelaSubRegioes.
+  // Tudo vem do regioes_index.json (Fase 3: já inclui estrangeiro e país).
   const pct = p => pctfmt(p, { compacto: true });
-  // países com página: só ES tem regiões estrangeiras e página (PT à parte)
-  const PAIS_KEY = { ES: 'pais-es.html' };
-  // ordem dos grupos estrangeiros
-  const CC_ORDEM = ['ES', 'DE', 'MA', 'AD'];
+  const pctPais = p => pctfmt(p, { casas: 2, piso: true });
+  const CC_ORDEM = ['PT', 'ES', 'DE', 'MA', 'AD'];
+  // no índice, a % de uma província estrangeira contra o seu total não diz
+  // nada (ver nota); só se mostra para PT e para o nível país.
+  const mostraPct = x => x.uniao_pct != null && (x.cc === 'PT' || x.nivel === 'pais');
+  const celPct = x => x.nivel === 'pais'
+    ? (x.uniao_pct != null ? pctPais(x.uniao_pct) : '')
+    : (mostraPct(x) ? pct(x.uniao_pct) : '');
 
   function lider(nome) {
     if (!nome) return '<span class="idx-lider"></span>';
     return `<span class="idx-lider"><span class="tile" style="background:${cor(nome)}"></span>${esc(nome)}</span>`;
   }
-  // linha de sub-região. `x`: {regiao, uniao, uniao_pct?, lider, key?, disp?}.
-  // com key -> nome liga a <key>.html (concelhos PT); sem key -> texto (regiões
-  // estrangeiras, sem página). uniao_pct só em PT.
-  function row(x, extraCls) {
-    const nomeCel = x.key
-      ? `<a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>`
-      : `<span class="idx-nome${x.disp ? ' disp' : ''}">${esc(x.regiao)}</span>`;
-    return `<div class="idx-row${extraCls ? ' ' + extraCls : ''}">
-      ${nomeCel}
+  // linha (folha): nome liga sempre à página do lugar (todos os níveis têm
+  // página desde a Fase 3).
+  function row(x) {
+    return `<div class="idx-row">
+      <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
       <span class="idx-z">${nfmt(x.uniao)}</span>
-      <span class="idx-pct">${x.uniao_pct != null ? pct(x.uniao_pct) : ''}</span>${lider(x.lider)}</div>`;
+      <span class="idx-pct">${celPct(x)}</span>${lider(x.lider)}</div>`;
   }
-
-  // cabeçalho de grupo colapsável (distrito ou país). `i` = índice único para
-  // o ligarExpansao casar o .sr-det.
-  function grupoCab(x, i, linkKey, extraCls) {
-    const nomeCel = linkKey
-      ? `<a class="idx-nome${x.disp ? ' disp' : ''}" href="${linkKey}">${esc(x.regiao)}</a>`
-      : `<span class="idx-nome">${esc(x.regiao)}</span>`;
+  // cabeçalho de grupo colapsável (país, distrito ou província). `i` = índice
+  // único para o ligarExpansao casar o .sr-det.
+  function grupoCab(x, i, extraCls) {
     return `<div class="idx-row idx-dist sr-row exp${extraCls ? ' ' + extraCls : ''}" data-i="${i}">
-      <button type="button" class="sr-tri" aria-expanded="false" aria-label="ver sub-regiões de ${esc(x.regiao)}">▸</button>${nomeCel}
+      <button type="button" class="sr-tri" aria-expanded="false" aria-label="ver sub-regiões de ${esc(x.regiao)}">▸</button>
+      <a class="idx-nome${x.disp ? ' disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a>
       <span class="idx-z">${nfmt(x.uniao)}</span>
-      <span class="idx-pct">${x.uniao_pct != null ? pct(x.uniao_pct) : ''}</span>${lider(x.lider)}</div>`;
+      <span class="idx-pct">${celPct(x)}</span>${lider(x.lider)}</div>`;
   }
   const grupoDet = (i, filhosHtml) =>
     `<div class="sr-det idx-conc" data-i="${i}" hidden>${filhosHtml}</div>`;
+  const vazio = t => `<div class="idx-row idx-conc"><span class="reg-vazio">${t}</span></div>`;
 
-  // regiões estrangeiras a partir do club_regioes.json: união (uniao.by_region)
-  // + líder (atleta com mais capturado). Mesmo que a página de país mostra.
-  function gruposEstrangeiros(cr) {
-    const uniByCc = (cr.uniao || {}).by_region || {};
-    const capByCcReg = {};  // "es|Teruel" -> {atleta: n}
-    for (const [nome, info] of Object.entries(cr.atletas || {})) {
-      for (const [ccl, regs] of Object.entries(info.by_region || {})) {
-        for (const [reg, n] of Object.entries(regs)) {
-          if (n > 0) (capByCcReg[ccl + '|' + reg] = capByCcReg[ccl + '|' + reg] || {})[nome] = n;
-        }
-      }
-    }
-    const grupos = [];
-    for (const [ccl, regs] of Object.entries(uniByCc)) {
-      const ccu = ccl.toUpperCase();
-      const filhos = Object.entries(regs).map(([reg, uniao]) => {
-        const ord = Object.entries(capByCcReg[ccl + '|' + reg] || {}).sort((a, b) => b[1] - a[1]);
-        return { regiao: reg, uniao, lider: ord.length ? ord[0][0] : null };
-      }).sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
-      if (!filhos.length) continue;
-      grupos.push({
-        cc: ccu, regiao: PAIS_NOME[ccu] || ccu, key: PAIS_KEY[ccu] || null,
-        uniao: filhos.reduce((s, f) => s + f.uniao, 0), filhos,
-      });
-    }
-    grupos.sort((a, b) => {
-      const ia = CC_ORDEM.indexOf(a.cc), ib = CC_ORDEM.indexOf(b.cc);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
-    return grupos;
-  }
+  function pintar(idx) {
+    const rows = idx.regioes || [];
+    const porPai = {};
+    for (const r of rows) (porPai[r.pai_key] = porPai[r.pai_key] || []).push(r);
+    const ordU = (a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt');
 
-  function pintar(d, cr) {
-    const regs = d.regioes || [];
-    const dist = regs.filter(x => x.nivel === 'distrito')
-      .sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
-    const concPorPai = {};
-    for (const x of regs) if (x.nivel === 'concelho') (concPorPai[x.pai_key] = concPorPai[x.pai_key] || []).push(x);
-    const conc = regs.length - dist.length;
-    const estr = gruposEstrangeiros(cr || {});
-    const estrN = estr.reduce((s, g) => s + g.filhos.length, 0);
+    const paises = rows.filter(r => r.nivel === 'pais')
+      .sort((a, b) => (CC_ORDEM.indexOf(a.cc) + 99) - (CC_ORDEM.indexOf(b.cc) + 99));
+    document.getElementById('idx-paises').innerHTML = 'por país'
+      + paises.map(p => `<a href="${p.key}.html">${esc(p.regiao)}</a>`).join('');
 
+    const nPT = rows.filter(r => r.cc === 'PT' && r.nivel !== 'pais').length;
+    const nDist = (porPai['pais-pt'] || []).length;
+    const estr = paises.filter(p => p.cc !== 'PT');
+    const nEstr = rows.filter(r => r.cc !== 'PT' && r.nivel !== 'pais').length;
     document.getElementById('meta').innerHTML =
-      `<dt>com actividade</dt><dd>${regs.length + estrN} regiões`
-        + (estrN ? ` (${regs.length} em Portugal, ${estrN} no estrangeiro)` : '') + '</dd>'
-      + `<dt>nível</dt><dd>${dist.length} distritos, ${conc} concelhos`
-        + (estrN ? `, ${estrN} regiões estrangeiras (${estr.map(g => `${g.cc} ${g.filhos.length}`).join(', ')})` : '') + '</dd>'
-      + `<dt>actualizado</dt><dd>${fmtDataHora(d.gerado)}</dd>`;
-    avisoDadosVelhos(d.gerado);  // shared.js
+      `<dt>com actividade</dt><dd>${nPT + nEstr} lugares`
+        + (nEstr ? ` (${nPT} em Portugal, ${nEstr} no estrangeiro)` : '') + '</dd>'
+      + `<dt>nível</dt><dd>${nDist} distritos, ${nPT - nDist} concelhos`
+        + (nEstr ? `, ${nEstr} no estrangeiro (${estr.map(p => `${p.cc} ${(porPai[p.key] || []).length}`).join(', ')})` : '') + '</dd>'
+      + `<dt>actualizado</dt><dd>${fmtDataHora(idx.gerado)}</dd>`;
+    avisoDadosVelhos(idx.gerado);  // shared.js
 
     let html = '';
     let i = 0;
-    for (const dd of dist) {
-      const filhos = (concPorPai[dd.key] || [])
-        .sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
-      html += `<div class="idx-grupo">${grupoCab(dd, i, dd.key + '.html')}`;
-      html += grupoDet(i, filhos.length ? filhos.map(c => row(c)).join('') : '<div class="idx-row idx-conc"><span class="reg-vazio">sem concelhos com actividade</span></div>');
-      html += '</div>';
+    // PT: distritos (colapsáveis) -> concelhos
+    for (const dd of (porPai['pais-pt'] || []).slice().sort(ordU)) {
+      const filhos = (porPai[dd.key] || []).slice().sort(ordU);
+      html += `<div class="idx-grupo">${grupoCab(dd, i)}`
+        + grupoDet(i, filhos.length ? filhos.map(row).join('') : vazio('sem concelhos com actividade'))
+        + '</div>';
       i++;
     }
-    // concelhos cujo distrito-pai não tem página (não devia acontecer em PT)
-    const orfaos = (concPorPai['null'] || []).concat(
-      Object.entries(concPorPai)
-        .filter(([k]) => k !== 'null' && !dist.some(dd => dd.key === k))
-        .flatMap(([, v]) => v));
-    if (orfaos.length) {
-      orfaos.sort((a, b) => (b.uniao - a.uniao) || a.regiao.localeCompare(b.regiao, 'pt'));
-      html += `<div class="idx-grupo">${grupoCab({ regiao: 'Sem distrito', uniao: orfaos.reduce((s, o) => s + o.uniao, 0) }, i)}`;
-      html += grupoDet(i, orfaos.map(c => row(c)).join(''));
-      html += '</div>';
-      i++;
-    }
-    // grupos estrangeiros: país = cabeçalho, províncias/regiões por baixo
-    for (const g of estr) {
-      html += `<div class="idx-grupo">${grupoCab(g, i, g.key, 'idx-pais-h')}`;
-      html += grupoDet(i, g.filhos.map(f => row(f)).join(''));
-      html += '</div>';
+    // estrangeiro: país (colapsável, linkado) -> províncias/regiões (linkadas)
+    for (const p of estr) {
+      const provs = (porPai[p.key] || []).slice().sort(ordU);
+      html += `<div class="idx-grupo">${grupoCab(p, i, 'idx-pais-h')}`
+        + grupoDet(i, provs.length ? provs.map(row).join('') : vazio('sem regiões com actividade'))
+        + '</div>';
       i++;
     }
 
     const lista = document.getElementById('lista');
     lista.innerHTML = html;
-    ligarExpansao(lista);  // comum.js, mesmo padrão das províncias na página de país
+    ligarExpansao(lista);  // comum.js
   }
 
   (async function () {
     await carregarCores(mainUrl('membros_cores.json'), NC);
     let idx;
     try {
-      idx = await carregarJson(dadosUrl('regioes_index.json'));  // primário
+      idx = await carregarJson(dadosUrl('regioes_index.json'));
     } catch (e) {
       mostrarErroDados(document.getElementById('regioes-idx'), e);
       return;
     }
-    // club_regioes.json = só o estrangeiro; se falhar, o índice mostra PT na
-    // mesma (sem grupos estrangeiros)
-    const cr = await carregarJson(dadosUrl('club_regioes.json'))
-      .catch(e => { console.warn('club_regioes.json:', e.message); return {}; });
-    pintar(idx, cr);
+    pintar(idx);
   })();
 })();
 </script>

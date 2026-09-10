@@ -85,11 +85,19 @@ function slugify(s) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-// URL da página de uma região PT. `nivel`: 'concelho' | 'distrito'. O prefixo
-// c-/d- desambigua os 18 nomes que são concelho E distrito (Santarém, Coimbra,
-// …). Só há página para regiões com actividade, quem chama decide se linka.
-function regiaoHref(nivel, nome) {
-  return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+// URL da página de um lugar. Espelha o pipeline/regioes.py::key_de:
+//   PT           c-<slug> (concelho) / d-<slug> (distrito), sem cc (os
+//                bookmarks e os links antigos já assim, não mudam)
+//   país         pais-<ccl>
+//   estrangeiro  <ccl>-r-<slug> (nível 2) / <ccl>-z-<slug> (nível 3)
+// `cc` é opcional: sem ele assume PT, por isso as chamadas antigas de 2
+// argumentos continuam a devolver exactamente o mesmo.
+function regiaoHref(nivel, nome, cc) {
+  cc = (cc || 'PT').toUpperCase();
+  if (nivel === 'pais') return `regioes/pais-${cc.toLowerCase()}.html`;
+  if (cc === 'PT') return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+  const p = (nivel === 'zona' || nivel === 'concelho' || nivel === 'municipio') ? 'z' : 'r';
+  return `regioes/${cc.toLowerCase()}-${p}-${slugify(nome)}.html`;
 }
 
 // --- primitivas de render partilhadas ---

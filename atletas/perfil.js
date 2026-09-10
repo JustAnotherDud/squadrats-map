@@ -32,7 +32,7 @@
 
   // Países com página própria em regioes/pais-<cc>.html. Só se linka os que
   // existem, tal como as regiões/zonas.
-  const PAIS_COM_PAGINA = new Set(['PT', 'ES']);
+  const PAIS_COM_PAGINA = new Set(['PT', 'ES', 'DE', 'MA']);
 
   // Ganhos diários: quantos dias mostrar antes do "mostrar todos". O sparkline
   // por cima continua a cobrir o período todo.
@@ -128,10 +128,14 @@
   function linhaGeo(r, nivel) {
     const ehPais = r.cc === r.nome;
     const txt = ehPais ? paisNome(r.cc) : esc(r.nome);
-    // regiao -> distrito, zona -> concelho; só PT tem página
-    const ligaRegiao = (nivel === 'regiao' || nivel === 'zona') && r.cc === 'PT' && !ehPais;
-    const nome = ligaRegiao
-      ? `<a href="../${regiaoHref(nivel === 'regiao' ? 'distrito' : 'concelho', r.nome)}">${txt}</a>`
+    // todos os níveis têm página desde a Fase 3. Em PT o nível chama-se
+    // distrito/concelho, no estrangeiro regiao/zona; o regiaoHref trata disso
+    // pelo cc.
+    const hrefNivel = r.cc === 'PT'
+      ? (nivel === 'regiao' ? 'distrito' : 'concelho')
+      : nivel;
+    const nome = (nivel === 'regiao' || nivel === 'zona') && !ehPais
+      ? `<a href="../${regiaoHref(hrefNivel, r.nome, r.cc)}">${txt}</a>`
       : (ehPais && PAIS_COM_PAGINA.has(r.cc))
         ? `<a href="../regioes/pais-${r.cc.toLowerCase()}.html">${txt}</a>`
         : txt;

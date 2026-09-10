@@ -1,7 +1,8 @@
 // Vocabulário e componentes partilhados pelas páginas de regiões: o índice
-// (index.html), as páginas de região (regiao.js) e as de país (pais.js).
-// Carregar SEMPRE depois de shared.js e antes desses. Não é um módulo:
-// define no scope global do <script>, como o shared.js.
+// (index.html) e o renderer de lugares (regiao.js, que desde a Fase 3 também
+// faz as páginas de país). Carregar SEMPRE depois de shared.js e antes
+// desses. Não é um módulo: define no scope global do <script>, como o
+// shared.js.
 
 /* eslint-disable no-unused-vars */
 
