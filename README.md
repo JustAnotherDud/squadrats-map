@@ -194,11 +194,17 @@ git checkout origin/data -- data/
     (tile centre). Output committed to `refdata/grid_totals.json`, recompute
     whenever the borders OR the classification rule (`classify.py`) change, so
     the totals never diverge from the criterion used on the captured ones.
-  - `compute_adjacency.py`: **one-off**: adjacency between
-    municipalities/districts/ES provinces (`geom.buffer(eps).intersects()`) +
-    greedy coloring over `analise.html`'s categorical palette, so neighbours
-    never share a colour in the "Colours: region" mode. Output committed to
-    `data/adjacency.json`. Recompute only if the borders change.
+  - `compute_adjacency.py`: **one-off**: adjacency (which regions share a
+    border, `geom.buffer(eps).intersects()`) + greedy coloring over
+    `analise.html`'s categorical palette so neighbours never share a colour in
+    "Colours: region" mode. Output committed to `data/adjacency.json`. Buckets:
+    `concelhos`/`distritos` (PT), `provincias_es`/`laender_de`/`regioes_ma`/
+    `paroquias_ad` (foreign level 2), `municipios_es`/`municipios_de`/
+    `municipios_ma` (foreign level 3, computed over the **clipped**
+    `foreign_muni/<CC>.geojson` — re-run this whenever `clip.py` changes that
+    set), and `paises` (country-country borders, from
+    `outlines/europe.geojson`, for the neighbours section of country pages).
+    Recompute if borders change or the clip set changes.
   - `refdata/`: municipality/district borders at classification precision
     (coordinates rounded to 6 dp / ~0.1 m, which is lossless for the
     max-area classify — 0 flips in 310 k boundary tiles of every foreign
@@ -417,6 +423,8 @@ The full cycle:
    points live there), then `py pipeline/refdata/clip.py CH` (or no argument
    for all). It rewrites `foreign_muni/<CC>.geojson` and prunes
    `grid_totals.json`. Commit both. Idempotent.
+4. **If the kept set changed,** re-run `py pipeline/compute_adjacency.py` so
+   `municipios_<cc>` in `adjacency.json` matches, and commit that too.
 
 **Degradation is visible, not silent.** If a member captures squares in a
 country that *has* a `foreign_muni` file but outside the 10 km clip, those

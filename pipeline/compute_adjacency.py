@@ -1,8 +1,14 @@
-"""One-off: calcula adjacência (concelhos/distritos/províncias ES que partilham
-fronteira) e aplica greedy coloring, para vizinhos nunca partilharem cor.
-Corre uma vez, commita o output (data/adjacency.json). Nunca recalculado pelo
-pipeline. A paleta vai dentro do próprio adjacency.json (campo `palette`),
-o analise.html lê-a de lá, não tem cópia inline.
+"""One-off: calcula adjacência (que regiões partilham fronteira) e aplica
+greedy coloring, para vizinhos nunca partilharem cor. Corre uma vez, commita
+o output (data/adjacency.json). Nunca recalculado pelo pipeline. A paleta vai
+dentro do próprio adjacency.json (campo `palette`), o analise.html lê-a de lá,
+não tem cópia inline.
+
+Buckets: concelhos/distritos (PT), provincias_es/laender_de/regioes_ma/
+paroquias_ad (nível 2 estrangeiro), municipios_es/municipios_de/municipios_ma
+(nível 3 estrangeiro, sobre o ficheiro JÁ RECORTADO pelo clip.py — reexecutar
+isto sempre que o clip mudar o conjunto), e paises (fronteiras país-país, de
+refdata/outlines/europe.geojson).
 
 Uso: py compute_adjacency.py
 """
@@ -104,6 +110,7 @@ def process(label, geojson_path, name_prop):
 
 
 def main():
+    fm = os.path.join(REFDATA_DIR, "foreign_muni")
     result = {
         "palette": CATEGORY_PALETTE,
         "concelhos": process("concelhos", os.path.join(REFDATA_DIR, "concelhos_pt.geojson"), "NAME_2"),
@@ -112,6 +119,14 @@ def main():
         "laender_de": process("laender_de", os.path.join(REFDATA_DIR, "foreign", "DE.geojson"), "region"),
         "regioes_ma": process("regioes_ma", os.path.join(REFDATA_DIR, "foreign", "MA.geojson"), "region"),
         "paroquias_ad": process("paroquias_ad", os.path.join(REFDATA_DIR, "foreign", "AD.geojson"), "region"),
+        # nível 3 estrangeiro: sobre o ficheiro já recortado (só a zona
+        # visitada + 10 km). Um vizinho fora do recorte não aparece; quando o
+        # clip crescer, correr isto outra vez.
+        "municipios_es": process("municipios_es", os.path.join(fm, "ES.geojson"), "region"),
+        "municipios_de": process("municipios_de", os.path.join(fm, "DE.geojson"), "region"),
+        "municipios_ma": process("municipios_ma", os.path.join(fm, "MA.geojson"), "region"),
+        # fronteiras país-país, para a secção de vizinhos das páginas de país
+        "paises": process("paises", os.path.join(REFDATA_DIR, "outlines", "europe.geojson"), "country"),
     }
 
     out_path = os.path.join(DATA_DIR, "adjacency.json")
