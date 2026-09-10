@@ -125,7 +125,7 @@ jobs:
       - name: Varrer e gerar tudo (mapa detalhado + totais do clube + club)
         env:
           # nomes → firebase UID dos atletas do clube; fora do código porque é
-          # informação de terceiros (ver pipeline/athletes.py). Ordem do JSON =
+          # informação de terceiros (ver pipeline/atletas.py). Ordem do JSON =
           # ordem dos bits do bitmask, não mexer sem regenerar data/club.json.
           ATHLETES_JSON: ${{ secrets.ATHLETES_JSON }}
         run: python3 pipeline/run_all.py data
