@@ -187,13 +187,23 @@ h1 {
 }
 h2, h3 { font-family: var(--f-tit); font-weight: 600; }
 
-/* aviso de dados velhos (shared.js avisoDadosVelhos), igual em todo o lado */
+/* barras de aviso no topo (shared.js: avisoDadosVelhos, avisoPorClassificar) */
+#aviso-stale, #aviso-classificar {
+  padding: 8px 14px; font-size: 12.5px; line-height: 1.45; text-align: center;
+}
 #aviso-stale {
   position: sticky; top: 46px; z-index: 2500;
   background: #2c2513; border-bottom: 1px solid #574517; color: var(--ouro);
-  padding: 8px 14px; font-size: 12.5px; line-height: 1.45; text-align: center;
 }
 #aviso-stale.overlay { position: fixed; left: 0; right: 0; top: 0; z-index: 5000; }
+/* "por classificar" = alguém foi a um sítio que precisa de trabalho manual
+   no pipeline. Tom mais alaranjado para distinguir do "dados velhos". Não
+   sticky: é um FYI, não precisa de ficar preso ao scroll. */
+#aviso-classificar {
+  background: #331c10; border-bottom: 1px solid #6b3a1c; color: #e8a06a;
+}
+#aviso-classificar.overlay { position: fixed; left: 0; right: 0; top: 0; z-index: 5000; }
+#aviso-classificar a { color: inherit; }
 
 /* erro de carregamento de dados (shared.js mostrarErroDados) */
 .erro-dados {

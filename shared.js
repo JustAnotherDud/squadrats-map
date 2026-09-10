@@ -237,10 +237,25 @@ function mostrarErroDados(alvo, e) {
     + `vê o <a href="https://github.com/JustAnotherDud/squadrats-map/actions">estado das corridas</a>.</p>`;
 }
 
-// --- aviso de dados velhos ---
+// --- barras de aviso no topo ---
+// Insere uma barra logo a seguir à navbar sticky (o fluxo põe-na nos 46px
+// certos e o sticky segura-a lá; antes da navbar no DOM sobrepunham-se). Sem
+// navbar (analise.html) ou navbar em overlay (club.html): fixa no topo. As
+// barras empilham por ordem de inserção.
+function _barraTopo(el) {
+  const nav = document.getElementById('site-nav');
+  const antes = document.getElementById('aviso-stale');
+  if (nav && document.body.dataset.nav !== 'overlay') {
+    (antes || nav).after(el);
+  } else {
+    el.classList.add('overlay');
+    document.body.insertBefore(el, (antes && antes.nextSibling) || document.body.firstChild);
+  }
+}
+
 // Se o snapshot tem mais de DADOS_VELHOS_H horas, o cron pode ter falhado e
-// os números estão a mostrar o dia anterior com ar de frescos. Injeta uma
-// barra no topo, igual em todas as páginas. Era só no historico.html.
+// os números estão a mostrar o dia anterior com ar de frescos. Era só no
+// historico.html.
 const DADOS_VELHOS_H = 6;
 function avisoDadosVelhos(iso) {
   const antigo = document.getElementById('aviso-stale');
@@ -253,17 +268,35 @@ function avisoDadosVelhos(iso) {
   el.textContent = `⚠ Os dados têm mais de ${DADOS_VELHOS_H} h. O pipeline pode não `
     + `ter corrido, e os números aqui podem estar a repetir o dia anterior. `
     + `Última actualização há ~${h.toFixed(0)} h.`;
-  const nav = document.getElementById('site-nav');
-  if (nav && document.body.dataset.nav !== 'overlay') {
-    // navbar sticky normal: a barra entra logo a seguir, o fluxo põe-na nos
-    // 46px certos e o sticky segura-a lá. Antes da navbar no DOM, o sticker
-    // (top:46px) e a navbar (top:0) sobrepunham-se e a navbar tapava-a.
-    nav.after(el);
-  } else {
-    // sem navbar (analise.html) ou navbar em overlay (club.html): a barra
-    // também tem de ser fixa (.overlay), senão fica por baixo do mapa absoluto.
-    el.classList.add('overlay');
-    document.body.insertBefore(el, document.body.firstChild);
-  }
+  _barraTopo(el);
+  return true;
+}
+
+// --- aviso de squares por classificar ---
+// O pipeline avisa quando alguém foi a um sítio que precisa de trabalho
+// manual (clip_misses = fora do recorte de 10 km; sem_dados_regiao = país
+// sem geometria de região), mas só nos logs do Actions. Isto torna-o visível
+// a quem abre o site. `avisos` vem de club_regioes.json.avisos (classify_club.py).
+function avisoPorClassificar(avisos) {
+  const antigo = document.getElementById('aviso-classificar');
+  if (antigo) antigo.remove();
+  avisos = avisos || {};
+  const partes = [];
+  const total = o => Object.values(o || {}).reduce((s, n) => s + n, 0);
+  const lista = o => Object.entries(o || {}).map(([cc, n]) => `${cc} ${n}`).join(', ');
+  const nClip = total(avisos.clip_misses), nSem = total(avisos.sem_dados_regiao);
+  if (nClip) partes.push(`${lista(avisos.clip_misses)} fora do recorte de 10 km`);
+  if (nSem) partes.push(`${lista(avisos.sem_dados_regiao)} num país sem dados de região`);
+  if (!partes.length) return false;
+  const el = document.createElement('div');
+  el.id = 'aviso-classificar';
+  el.textContent = `⚠ ${nClip + nSem} squadratinho${nClip + nSem === 1 ? '' : 's'} por `
+    + `classificar (${partes.join('; ')}). Falta trabalho manual no pipeline — `
+    + `ver o README e o `;
+  const a = document.createElement('a');
+  a.href = 'https://github.com/JustAnotherDud/squadrats-map/actions';
+  a.textContent = 'estado das corridas';
+  el.append(a, document.createTextNode('.'));
+  _barraTopo(el);
   return true;
 }

@@ -133,6 +133,11 @@
     carregarCores(mainUrl('membros_cores.json'), NC)
       .then(roster)
       .catch(function (e) { console.warn('membros_cores.json:', e.message); });
+    // aviso de squares por classificar (classify_club.py -> club_regioes.avisos);
+    // ficheiro pequeno, degrada em silêncio se faltar
+    carregarJson(dadosUrl('club_regioes.json'))
+      .then(function (j) { avisoPorClassificar(j && j.avisos); })
+      .catch(function (e) { console.warn('club_regioes.json:', e.message); });
     carregarJson(dadosUrl('club.json'))
       .then(function (j) {
         if (j.atletas) {

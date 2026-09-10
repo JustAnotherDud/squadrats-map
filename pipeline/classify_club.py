@@ -68,7 +68,8 @@ def classify_uniao(classifier, squares, atletas):
     # curto, precisa de correr o clip outra vez.
     muni_countries_geo = ({c for c, _ in classifier.foreign_muni.names}
                           if classifier.foreign_muni else set())
-    clip_misses = {}
+    clip_misses = {}          # {cc: n} região sem município num país com ficheiro
+    sem_dados_regiao = {}     # {cc: n} país detetado por contorno, sem geometria de região
     for x, y, mask in squares:
         if not mask:
             continue
@@ -88,6 +89,8 @@ def classify_uniao(classifier, squares, atletas):
 
         if not info["in_portugal"]:
             reg = info["region"]
+            if cc and not reg and cc not in classifier._paises_com_regiao:
+                sem_dados_regiao[cc] = sem_dados_regiao.get(cc, 0) + 1
             if cc and reg:
                 # cc minúsculo, como o by_region por atleta (classify_athlete)
                 mr = by_region.setdefault(cc.lower(), {})
@@ -128,7 +131,7 @@ def classify_uniao(classifier, squares, atletas):
                        "by_pais": exc_pais, "by_region": exc_region,
                        "by_municipio": exc_municipio},
         "centros": centros,
-    }, clip_misses
+    }, clip_misses, sem_dados_regiao
 
 
 def classify_athlete(classifier, squares):
@@ -189,13 +192,26 @@ def main(out_dir):
         atletas_out[nome] = classify_athlete(classifier, squares)
         print(f"{nome}: {len(squares)} squares classificados")
 
-    uniao, clip_misses = classify_uniao(classifier, club["squares"], [nome for nome, _uid in ATLETAS])
+    uniao, clip_misses, sem_dados_regiao = classify_uniao(
+        classifier, club["squares"], [nome for nome, _uid in ATLETAS])
     print(f"união: {len(club['squares'])} squares distintos classificados")
     if clip_misses:
         detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(clip_misses.items()))
         print(f"AVISO: {detalhe} square(s) num país COM ficheiro de município mas "
               f"fora do recorte de 10 km — correr `py pipeline/refdata/clip.py "
               f"{' '.join(sorted(clip_misses))}` (ver README, secção do clip)")
+    if sem_dados_regiao:
+        detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(sem_dados_regiao.items()))
+        print(f"AVISO: {detalhe} square(s) num país sem geometria de região — "
+              f"preparar refdata/foreign/<CC>.geojson (ver README)")
+
+    # avisos: o que o site mostra a quem não lê os logs do Actions (Fase 5).
+    # Só entra no JSON quando há algo; um dict vazio não aparece.
+    avisos = {}
+    if clip_misses:
+        avisos["clip_misses"] = dict(sorted(clip_misses.items()))
+    if sem_dados_regiao:
+        avisos["sem_dados_regiao"] = dict(sorted(sem_dados_regiao.items()))
 
     resultado = {
         "atualizado": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -203,6 +219,8 @@ def main(out_dir):
         "atletas": atletas_out,
         "uniao": uniao,
     }
+    if avisos:
+        resultado["avisos"] = avisos
     out_path = os.path.join(out_dir, "club_regioes.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(resultado, f, ensure_ascii=False, separators=(",", ":"))

@@ -292,6 +292,7 @@
     const q = gerado ? fmtDataHora(gerado) : '?';
     m.innerHTML = `<dt>actualizado</dt><dd>${q}</dd><dt>histórico desde</dt><dd>26 jul 2026</dd>`;
     avisoDadosVelhos(gerado);  // shared.js
+    avisoPorClassificar(regioes && regioes.avisos);  // shared.js
   }
 
   function render() {
