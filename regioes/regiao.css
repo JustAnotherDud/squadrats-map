@@ -42,6 +42,13 @@ a:hover { text-decoration-color: var(--tinta); }
 .reg-rank .nome a { color: var(--tinta); text-decoration: none; font-weight: 500; }
 .reg-rank .nome a:hover { text-decoration: underline; text-decoration-color: var(--marca); }
 .reg-rank .tira { color: var(--tinta-2); }         /* fallback; style inline manda */
+.reg-rank .sr-total { width: 68px; }
+.reg-rank .sr-membros { width: 62px; color: var(--tinta-3); }
+.reg-rank th.sr-membros { color: var(--tinta-3); }
+/* ecrã estreito: total e membros são o contexto menos essencial da tabela */
+@media (max-width: 560px) {
+  .reg-rank .sr-total, .reg-rank .sr-membros { display: none; }
+}
 
 /* linha de cobertura da região */
 .reg-cobre { margin: 14px 0 0; font-size: 12.5px; color: var(--tinta-2); }

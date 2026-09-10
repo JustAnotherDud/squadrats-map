@@ -134,7 +134,7 @@
 
     const temSubs = ['distrito', 'regiao', 'pais'].includes(d.nivel);
     const filhosTabela = filhos && filhos.length
-      ? tabelaSubRegioes(filhos, { rotulo: 'cobre', linkKey: true, pctOpts })
+      ? tabelaSubRegioes(filhos, { linkKey: true, pctOpts })
         + `<p class="reg-viz-nota">União do clube em cada sub-região e a fracção
            que representa, por ordem de união.${d.nivel === 'distrito' ? ' A ouro: concelho com troca de posição no ranking.' : ''}</p>`
       : (temSubs ? '<p class="reg-vazio">Sem sub-regiões com actividade.</p>' : '');
@@ -193,7 +193,8 @@
         .then(j => (j.regioes || [])
           .filter(x => x.pai_key === KEY)
           .map(x => ({ nome: x.regiao, key: x.key, uniao: x.uniao,
-                       pct: x.uniao_pct, lider: x.lider, n: x.n, disp: x.disp }))
+                       pct: x.uniao_pct, total: x.total, lider: x.lider,
+                       n: x.n, disp: x.disp }))
           .sort((a, b) => (b.uniao - a.uniao) || a.nome.localeCompare(b.nome, 'pt')))
         .catch(e => { console.warn('regioes_index.json:', e.message); return []; });
     }

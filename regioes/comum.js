@@ -38,11 +38,11 @@ function barraCobertura(pct) {
     + `${cels}</span>`;
 }
 
-// Tabela de sub-regiões: nome (link opcional) | união do clube | líder | %.
+// Tabela de sub-regiões: Lugar | % | do clube | Total | Membros | Líder.
 // É o mesmo componente nos concelhos de uma página de distrito e nas
-// províncias de uma página de país.
-//   linhas: [{nome, key?, uniao, pct, lider, n?, disp?}], já ordenada
-//   opts.rotulo      cabeçalho da coluna da união (default "cobre")
+// sub-regiões de uma página de país.
+//   linhas: [{nome, key?, uniao, pct, total?, lider, n?, disp?}], já ordenada
+//   opts.rotulo      cabeçalho da coluna da união (default "do clube")
 //   opts.linkKey     se true e a linha tem `key`, o nome liga a <key>.html
 //   opts.pctOpts     passado a pctfmt (ex. {casas:2, piso:true} nas províncias)
 //   opts.detalheHtml fn(linha) -> html: torna cada linha expansível (▸),
@@ -50,7 +50,7 @@ function barraCobertura(pct) {
 //                    ligarExpansao() depois de inserir no DOM.
 function tabelaSubRegioes(linhas, opts) {
   opts = opts || {};
-  const rot = opts.rotulo || 'cobre';
+  const rot = opts.rotulo || 'do clube';
   const exp = typeof opts.detalheHtml === 'function';
   const corpo = linhas.map((x, i) => {
     const nomeCel = (opts.linkKey && x.key)
@@ -59,24 +59,27 @@ function tabelaSubRegioes(linhas, opts) {
     const lid = x.lider ? `${tile(x.lider)}${esc(x.lider)}` : '';
     // linha expansível: o ▸ é um <button> real, para o teclado lá chegar e o
     // Enter/Espaço dispararem o mesmo clique. aria-label leva o nome porque a
-    // célula do nome pode ser só um <span> (províncias, sem página).
+    // célula do nome pode ser só um <span> (sub-regiões estrangeiras, sem página).
     const tri = exp
       ? `<button type="button" class="sr-tri" aria-expanded="false" aria-label="detalhe de ${esc(x.nome)}">▸</button>`
       : '';
     const linha = `<tr class="sr-row${exp ? ' exp' : ''}"${exp ? ` data-i="${i}"` : ''}>
       <td>${tri}${nomeCel}</td>
-      <td class="num">${nfmt(x.uniao)}</td>
-      <td class="uni">${lid}</td>
       <td class="pct">${pctfmt(x.pct, opts.pctOpts)}</td>
+      <td class="num">${nfmt(x.uniao)}</td>
+      <td class="num sr-total">${x.total != null ? nfmt(x.total) : ''}</td>
+      <td class="num sr-membros">${x.n != null ? x.n : ''}</td>
+      <td class="uni">${lid}</td>
     </tr>`;
     const det = exp
-      ? `<tr class="sr-det" data-i="${i}" hidden><td colspan="4">${opts.detalheHtml(x)}</td></tr>`
+      ? `<tr class="sr-det" data-i="${i}" hidden><td colspan="6">${opts.detalheHtml(x)}</td></tr>`
       : '';
     return linha + det;
   }).join('');
   return `<table class="reg-rank${exp ? ' sr-exp' : ''}">
-    <thead><tr><th class="h-nome">região</th><th>${esc(rot)}</th>
-      <th>líder</th><th>%</th></tr></thead>
+    <thead><tr><th class="h-nome">lugar</th><th>%</th><th>${esc(rot)}</th>
+      <th class="sr-total">total</th><th class="sr-membros">membros</th>
+      <th>líder</th></tr></thead>
     <tbody>${corpo}</tbody></table>`;
 }
 
