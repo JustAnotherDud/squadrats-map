@@ -42,7 +42,7 @@
      estreitos, como a .perfil-scroll. */
   .idx-scroll { overflow-x: auto; max-width: 100%; }
   .idx-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .idx-scroll .idx-t { min-width: 560px; }
+  .idx-scroll .idx-t { min-width: 620px; }
   .idx-t thead th {
     text-align: right; font-family: var(--f-mono); font-weight: 400;
     color: var(--tinta-3); font-size: 10.5px; padding: 6px 6px;
@@ -78,15 +78,16 @@
   <div class="seg" id="idx-nivel"></div>
   <button class="idx-toggle" id="idx-disp">Só disputados (2+ membros)</button>
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
-  <p class="idx-nota"><b>Cobre</b> = squadratinhos que o clube cobre no lugar
+  <p class="idx-nota"><b>do clube</b> = squadratinhos que o clube cobre no lugar
     (união dos membros, sem repetir os partilhados); <b>Total</b> = o tamanho do
-    lugar; <b>Membros</b> = quantos têm lá pelo menos um squadratinho. A <b>%</b>
-    é <b>Cobre</b> a dividir pelo <b>Total</b>: a fração do lugar que o clube tem.
-    Numa província ou município estrangeiro conta contra o lugar inteiro, tal
-    como num distrito ou concelho de Portugal, por isso são comparáveis; costuma
-    ser pequena só porque uma província é grande. Escolhe o nível em cima; clica
-    num cabeçalho de coluna para ordenar. A ouro: com troca de posição no
-    ranking (ver o <a href="../historico.html">histórico</a>).</p>
+    lugar; <b>por explorar</b> = Total menos do clube, o que ninguém do clube
+    tem ainda; <b>Membros</b> = quantos têm lá pelo menos um squadratinho. A
+    <b>%</b> é <b>do clube</b> a dividir pelo <b>Total</b>: a fração do lugar
+    que o clube tem. Numa província ou município estrangeiro conta contra o
+    lugar inteiro, tal como num distrito ou concelho de Portugal, por isso são
+    comparáveis; costuma ser pequena só porque uma província é grande. Escolhe
+    o nível em cima; clica num cabeçalho de coluna para ordenar. A ouro: com
+    troca de posição no ranking (ver o <a href="../historico.html">histórico</a>).</p>
 </main>
 <script src="../nav.js"></script>
 <script src="../shared.js"></script>
@@ -121,12 +122,16 @@
     return NIVEIS.some(([k]) => k === h) ? h : 'regiao';   // por omissão: Região
   };
 
-  // colunas ordenáveis. Lugar e Líder não ordenam.
+  // colunas ordenáveis, mesma ordem/nome que a tabela de sub-regiões das
+  // páginas de lugar (comum.js). Lugar e Líder não ordenam.
+  //   % ordena pelo rácio fresco (uniao/total), não pelo uniao_pct arredondado
+  //   por explorar = Total menos do clube
   const COLS = [
-    { k: 'n', label: 'Membros', val: x => x.n },
-    { k: 'uniao', label: 'Cobre', val: x => x.uniao },
+    { k: 'uniao_pct', label: '%', val: x => (x.uniao != null && x.total ? x.uniao / x.total : null) },
+    { k: 'uniao', label: 'do clube', val: x => x.uniao },
     { k: 'total', label: 'Total', val: x => x.total },
-    { k: 'uniao_pct', label: '%', val: x => x.uniao_pct },
+    { k: 'explorar', label: 'por explorar', val: x => (x.total != null && x.uniao != null ? x.total - x.uniao : null) },
+    { k: 'n', label: 'Membros', val: x => x.n },
   ];
 
   const estado = {
@@ -155,12 +160,14 @@
   }
 
   function linha(x) {
+    const explorar = (x.total != null && x.uniao != null) ? x.total - x.uniao : null;
     return `<tr>
       <td class="idx-t-lugar">${bandeiraSvg(x.cc, 14, 10)}<a class="${x.disp ? 'disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a></td>
-      <td class="idx-t-n">${x.n}</td>
-      <td class="idx-t-n">${num(x.uniao)}</td>
-      <td class="idx-t-n fraco">${num(x.total)}</td>
       <td class="idx-t-n">${celPct(x)}</td>
+      <td class="idx-t-n">${num(x.uniao)}</td>
+      <td class="idx-t-n">${num(x.total)}</td>
+      <td class="idx-t-n">${num(explorar)}</td>
+      <td class="idx-t-n fraco">${x.n}</td>
       <td class="idx-t-lid">${lider(x.lider)}</td></tr>`;
   }
 
@@ -209,7 +216,7 @@
 
     const corpo = rows.length
       ? rows.map(linha).join('')
-      : `<tr><td colspan="6" class="idx-t-vazio">${estado.soDisputados ? 'nenhum com 2+ membros neste nível' : 'sem lugares neste nível'}</td></tr>`;
+      : `<tr><td colspan="7" class="idx-t-vazio">${estado.soDisputados ? 'nenhum com 2+ membros neste nível' : 'sem lugares neste nível'}</td></tr>`;
 
     const lista = document.getElementById('lista');
     lista.innerHTML = `<div class="idx-scroll"><table class="idx-t">${thead()}<tbody>${corpo}</tbody></table></div>`;
