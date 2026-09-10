@@ -49,8 +49,8 @@ def main(out_dir):
     disputadas = regioes.disputadas_de(
         (_carrega(os.path.join(out_dir, "events.json")) or {}).get("eventos", []))
 
-    n = 0
     indice = []
+    n = 0
     for nivel in regioes.NIVEIS:
         for nome in sorted(ativas[nivel]):
             reg = regioes.construir(nivel, nome, novo, stats, adjacency,
@@ -59,15 +59,7 @@ def main(out_dir):
             indice.append(regioes.linha_indice(reg, disputadas))
             n += 1
 
-    regioes.escrever_indice(out_dir, indice, gerado)
-    print(f"append_regioes: {n} regiões, {len(disputadas)} disputadas "
-          f"-> regioes_index.json")
-
-    # --- estrangeiro (Fase 2): escreve data/regioes/<ccl>-r-*.json e
-    # <ccl>-z-*.json com dados reais, MAS fora do regioes_index.json e sem
-    # stub HTML (o gen_regiao_stubs.py ignora estas keys por agora). O
-    # renderer, a ligação a partir do índice e as páginas de país são da
-    # Fase 3; isto só deixa os dados prontos na branch `data` para inspecção.
+    # estrangeiro: província/Land/région (regiao) e município/cercle (zona).
     ativas_estr = regioes.ativas_estrangeiro(novo)
     ne = 0
     for ccl, niveis in sorted(ativas_estr.items()):
@@ -79,10 +71,20 @@ def main(out_dir):
                     ccl, nivel, nome, novo, stats, adjacency, ativas_estr,
                     pmap.get(nome))
                 regioes.escrever(out_dir, reg, gerado)
+                indice.append(regioes.linha_indice(reg, disputadas))
                 ne += 1
-    if ne:
-        print(f"append_regioes: +{ne} ficheiros de região/zona estrangeira "
-              f"(fora do índice e sem stub, Fase 2)")
+
+    # país: PT + cada estrangeiro com actividade (uniao.by_pais). As
+    # sub-regiões vêm do índice por pai_key, não vão no ficheiro de país.
+    paises = sorted((novo.get("uniao") or {}).get("by_pais") or {})
+    for cc in paises:
+        reg = regioes.construir_pais(cc, novo, stats, adjacency, set(paises))
+        regioes.escrever(out_dir, reg, gerado)
+        indice.append(regioes.linha_indice(reg, disputadas))
+
+    regioes.escrever_indice(out_dir, indice, gerado)
+    print(f"append_regioes: {n} PT + {ne} estrangeiras + {len(paises)} países, "
+          f"{len(disputadas)} disputadas -> regioes_index.json")
 
 
 if __name__ == "__main__":

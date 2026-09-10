@@ -1,11 +1,11 @@
-"""Gera os stubs HTML das páginas de região: regioes/<key>.html, um por
-ficheiro em data/regioes/. Cada stub é só casca, carrega ../nav.js,
-../shared.js (MESES/fmtData/regiaoHref) e ../regiao.js, que lê
-data/regioes/<key>.json da branch `data`.
+"""Gera os stubs HTML das páginas de lugar: regioes/<key>.html, um por
+ficheiro em data/regioes/ (concelho/distrito PT, região/zona estrangeira,
+país). Cada stub é só casca: carrega ../nav.js, ../shared.js e ../regiao.js,
+que lê data/regioes/<key>.json da branch `data` e trata dos cinco níveis.
 
 Corre no fetch-map-data.yml a seguir ao append_regioes; commita para o `main`
-só se a lista de regiões tiver mudado (padrão do gen_profile_stubs.py).
-Apaga stubs de regiões que já não têm ficheiro de dados.
+só se a lista de lugares tiver mudado (padrão do gen_profile_stubs.py).
+Apaga stubs de lugares que já não têm ficheiro de dados.
 
 Uso: py gen_regiao_stubs.py [pasta_repo] [pasta_dados]
 """
@@ -13,16 +13,9 @@ import argparse
 import glob
 import json
 import os
-import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.path.dirname(HERE)
-
-# regiões/zonas estrangeiras (<ccl>-r-*, <ccl>-z-*): o append_regioes já
-# escreve os .json na branch `data`, mas o stub e o renderer só na Fase 3.
-# Ignora-as aqui (nem gera nem apaga) para o cron não commitar páginas
-# meio-feitas.
-ADIAR_FASE3 = re.compile(r"^[a-z]{2}-[rz]-")
 
 STUB = """<!DOCTYPE html>
 <html lang="pt">
@@ -57,13 +50,11 @@ def main(repo_dir, dados_dir):
     destino = os.path.join(repo_dir, "regioes")
     os.makedirs(destino, exist_ok=True)
 
-    # index.html (índice) e pais-*.html (páginas por país) são à mão, não
-    # geradas a partir de data/regioes/, nunca as apagar
-    escritos = {"index.html", "pais-pt.html", "pais-es.html"}
+    # só o index.html é à mão; as pais-*.html passaram a geradas (têm
+    # data/regioes/pais-<ccl>.json desde a Fase 3).
+    escritos = {"index.html"}
     for p in sorted(glob.glob(os.path.join(dados_dir, "regioes", "*.json"))):
         key = os.path.splitext(os.path.basename(p))[0]  # <key>.json -> <key>
-        if ADIAR_FASE3.match(key):
-            continue
         with open(p, encoding="utf-8") as f:
             d = json.load(f)
         with open(os.path.join(destino, key + ".html"), "w", encoding="utf-8", newline="\n") as f:
@@ -72,12 +63,9 @@ def main(repo_dir, dados_dir):
         print(f"stub: regioes/{key}.html")
 
     for ficheiro in os.listdir(destino):
-        if not ficheiro.endswith(".html") or ficheiro in escritos:
-            continue
-        if ADIAR_FASE3.match(os.path.splitext(ficheiro)[0]):
-            continue  # não mexer nas keys adiadas para a Fase 3
-        os.remove(os.path.join(destino, ficheiro))
-        print(f"removido (regiao sem actividade): regioes/{ficheiro}")
+        if ficheiro.endswith(".html") and ficheiro not in escritos:
+            os.remove(os.path.join(destino, ficheiro))
+            print(f"removido (lugar sem actividade): regioes/{ficheiro}")
 
 
 if __name__ == "__main__":

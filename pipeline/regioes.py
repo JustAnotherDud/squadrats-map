@@ -30,6 +30,16 @@ BUCKET_ATLETA_ESTR = {"regiao": "by_region", "zona": "by_municipio"}
 ADJ_REGIAO = {"es": "provincias_es", "de": "laender_de", "ma": "regioes_ma", "ad": "paroquias_ad"}
 ADJ_ZONA = {"es": "municipios_es", "de": "municipios_de", "ma": "municipios_ma", "ad": "paroquias_ad"}
 
+# nome do país para o campo `regiao` da página de país, pai_nome/avo_nome e o
+# nome dos vizinhos-país. Os com actividade (PT + by_pais) mais os que possam
+# aparecer como vizinhos em adjacency['paises'] (nomes pt, ver shared.js).
+PAIS_NOME = {
+    "PT": "Portugal", "ES": "Espanha", "AD": "Andorra", "DE": "Alemanha",
+    "MA": "Marrocos", "FR": "França", "AT": "Áustria", "BE": "Bélgica",
+    "CH": "Suíça", "CZ": "Chéquia", "DK": "Dinamarca", "LU": "Luxemburgo",
+    "NL": "Países Baixos", "PL": "Polónia", "IT": "Itália",
+}
+
 
 def key_de(cc, nivel, nome):
     """<key> do ficheiro de um lugar, base do nome regioes/<key>.html|json e
@@ -135,12 +145,13 @@ def construir_estrangeiro(ccl, nivel, nome, snapshot, stats, adjacency,
     for vn in (adjacency.get(adjbkt, {}).get(nome, {}) or {}).get("neighbors", []) if adjbkt else []:
         viz.append({"nome": vn, "key": key_de(cc, nivel, vn), "tem_pagina": vn in pagina_de})
 
-    pais_key = key_de(cc, "pais", cc)
+    pais_key, pais_nome = key_de(cc, "pais", cc), PAIS_NOME.get(cc, cc)
     if nivel == "regiao":
-        pai_key, avo_key = pais_key, None
+        pai_key, pai_nome, avo_key, avo_nome = pais_key, pais_nome, None, None
     else:
         pai_key = key_de(cc, "regiao", parent) if parent else pais_key
-        avo_key = pais_key
+        pai_nome = parent or pais_nome
+        avo_key, avo_nome = pais_key, pais_nome
 
     return {
         "key": key_de(cc, nivel, nome),
@@ -148,7 +159,54 @@ def construir_estrangeiro(ccl, nivel, nome, snapshot, stats, adjacency,
         "nivel": nivel,
         "regiao": nome,
         "pai_key": pai_key,
+        "pai_nome": pai_nome,
         "avo_key": avo_key,
+        "avo_nome": avo_nome,
+        "totais": {"z14": z14, "z17": z17},
+        "uniao": {"z17": uni, "pct": uni_pct},
+        "ranking": ranking,
+        "vizinhos": viz,
+    }
+
+
+def construir_pais(cc, snapshot, stats, adjacency, paises_com_pagina):
+    """Dict de uma página de país (nivel 'pais'). Ranking por atleta do bucket
+    `country`, união de uniao.by_pais, exclusivos, vizinhos de
+    adjacency['paises']. As sub-regiões (distritos PT / províncias
+    estrangeiras) vêm do regioes_index.json por pai_key, como os concelhos de
+    um distrito, não vão aqui."""
+    ccl = cc.lower()
+    pais_stats = stats.get(f"country_{ccl}") or {}
+    z14 = (pais_stats.get("z14") or {}).get("total")
+    z17 = (pais_stats.get("z17") or {}).get("total")
+
+    uni_b = snapshot.get("uniao") or {}
+    uni = (uni_b.get("by_pais") or {}).get(cc, 0)
+    uni_pct = round(100 * uni / z17, 2) if z17 else None
+    exc = ((uni_b.get("exclusivos") or {}).get("by_pais") or {}).get(cc, {})
+
+    pares = [(atleta, (info.get("country") or {}).get(cc, 0))
+             for atleta, info in snapshot.get("atletas", {}).items()]
+    ranking = [
+        {"nome": a, "captured": n, "exclusivos": exc.get(a, 0),
+         "pct": round(100 * n / z17, 2) if z17 else None}
+        for a, n in _ordena_ranking([(a, n) for a, n in pares if n > 0])
+    ]
+
+    viz = []
+    for vn in (adjacency.get("paises", {}).get(cc, {}) or {}).get("neighbors", []):
+        viz.append({"nome": PAIS_NOME.get(vn, vn), "key": f"pais-{vn.lower()}",
+                    "tem_pagina": vn in paises_com_pagina})
+
+    return {
+        "key": f"pais-{ccl}",
+        "cc": cc,
+        "nivel": "pais",
+        "regiao": PAIS_NOME.get(cc, cc),
+        "pai_key": None,
+        "pai_nome": None,
+        "avo_key": None,
+        "avo_nome": None,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
         "ranking": ranking,
@@ -198,17 +256,27 @@ def construir(nivel, nome, snapshot_atual, stats, adjacency,
         viz.append({"nome": vn, "key": key_de("PT", nivel, vn),
                     "tem_pagina": vn in ativas[nivel]})
 
+    # hierarquia acima, uniforme com o estrangeiro: pai_key/pai_nome e
+    # avo_key/avo_nome. Concelho -> distrito -> Portugal; distrito -> Portugal.
     pai = _distrito_pai(concelhos_geojson_path, nome) if nivel == "concelho" else None
+    if nivel == "concelho" and pai:
+        pai_key, pai_nome = key_de("PT", "distrito", pai), pai
+        avo_key, avo_nome = "pais-pt", "Portugal"
+    else:  # distrito (ou concelho sem distrito conhecido, não devia acontecer)
+        pai_key, pai_nome = "pais-pt", "Portugal"
+        avo_key, avo_nome = None, None
 
-    # `key` fica só para o escrever() saber o nome do ficheiro, não vai para
-    # o JSON (é o próprio nome do ficheiro). `cc` era sempre "PT", `slug` é
-    # derivável, `desde` é constante, nada disso era lido pelo regiao.js.
+    # `key` fica só para o escrever() saber o nome do ficheiro, não vai para o
+    # JSON (é o próprio nome do ficheiro).
     return {
         "key": key_de("PT", nivel, nome),
+        "cc": "PT",
         "nivel": nivel,
         "regiao": nome,
-        "distrito_pai": pai,
-        "distrito_pai_key": key_de("PT", "distrito", pai) if pai else None,
+        "pai_key": pai_key,
+        "pai_nome": pai_nome,
+        "avo_key": avo_key,
+        "avo_nome": avo_nome,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
         "ranking": ranking,
@@ -227,20 +295,23 @@ def escrever(out_dir, regiao_dict, gerado):
 
 
 def linha_indice(reg, disputadas):
-    """Resumo de uma região para o regioes_index.json. `reg` é o dict de
-    construir(); `disputadas` = {(nivel, nome)} com evento de troca real."""
+    """Resumo de um lugar para o regioes_index.json (PT, estrangeiro e país).
+    `reg` = dict de construir()/construir_estrangeiro()/construir_pais();
+    `disputadas` = {(cc, nivel, nome)} com evento de troca real."""
     rk = reg["ranking"]
+    cc = reg.get("cc", "PT")
     return {
         "key": reg["key"],
+        "cc": cc,
         "nivel": reg["nivel"],
         "regiao": reg["regiao"],
-        "pai": reg["distrito_pai"],
-        "pai_key": reg["distrito_pai_key"],
+        "pai": reg.get("pai_nome"),
+        "pai_key": reg.get("pai_key"),
         "uniao": reg["uniao"]["z17"],
         "uniao_pct": reg["uniao"]["pct"],
         "lider": rk[0]["nome"] if rk else None,
         "n": len(rk),
-        "disp": (reg["nivel"], reg["regiao"]) in disputadas,
+        "disp": (cc, reg["nivel"], reg["regiao"]) in disputadas,
     }
 
 
@@ -253,6 +324,6 @@ def escrever_indice(out_dir, linhas, gerado):
 
 
 def disputadas_de(eventos):
-    """{(nivel, regiao)} das regiões com ultrapassagem ou novo líder."""
-    return {(e["nivel"], e["regiao"]) for e in (eventos or [])
+    """{(cc, nivel, regiao)} das regiões com ultrapassagem ou novo líder."""
+    return {(e.get("cc", "PT"), e["nivel"], e["regiao"]) for e in (eventos or [])
             if e.get("tipo") in ("ultrapassagem", "novo_lider")}
