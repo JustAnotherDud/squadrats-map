@@ -1,10 +1,10 @@
-/* Página de região (regioes/<key>.html) e de país (pais-*.html).
-   Tokens, grelha, fontes e primitivas vêm do site.css. Aqui só o que é
-   próprio destas páginas. */
+/* Páginas de lugar (regioes/<key>.html: concelho/distrito, região/zona,
+   país). Tokens, grelha, fontes e primitivas vêm do site.css. Aqui só o que
+   é próprio destas páginas. */
 
 a:hover { text-decoration-color: var(--tinta); }
 
-#regiao, #pais {
+#regiao {
   max-width: 820px; margin: 0 auto; padding: 22px 18px 72px;
   overflow-x: clip;
 }

@@ -59,18 +59,6 @@
   const diaCurto = iso => fmtData(iso).replace(/\s\d{4}$/, '');
 
   function pintar(d, eventos, filhos) {
-    // compat com os JSON antigos (distrito_pai/_key, sem cc/pai_key) enquanto
-    // a branch `data` não é republicada pela 1.ª corrida do pipeline pós-Fase 3.
-    // Removível a seguir a essa corrida.
-    if (!d.pai_key && (d.nivel === 'concelho' || d.nivel === 'distrito')) {
-      d.cc = d.cc || 'PT';
-      if (d.nivel === 'concelho' && d.distrito_pai) {
-        d.pai_key = d.distrito_pai_key; d.pai_nome = d.distrito_pai;
-        d.avo_key = 'pais-pt'; d.avo_nome = 'Portugal';
-      } else {
-        d.pai_key = 'pais-pt'; d.pai_nome = 'Portugal';
-      }
-    }
     const cc = d.cc || 'PT';
     const ehPais = d.nivel === 'pais';
     const q = fmtDataHora(d.gerado);
