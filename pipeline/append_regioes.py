@@ -39,6 +39,9 @@ def main(out_dir):
         return
 
     ativas = regioes.regioes_ativas(novo)
+    # as fronteiras (regioes.fronteira_de) saem das cópias simplificadas em
+    # data/*.geojson, que ficam ao lado dos JSON de saída
+    regioes.DATA_GEOJSON_DIR = out_dir
     stats = _carrega(os.path.join(out_dir, "stats.json")) or {}
     adjacency = _carrega(os.path.join(REPO, "data", "adjacency.json")) or {}
     gerado = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

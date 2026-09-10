@@ -122,12 +122,13 @@
     }).join(' ') : '<span class="reg-vazio">sem vizinhos com página</span>';
     const algumVizDisp = d.vizinhos.some(vizDisp);
 
-    // "ver no mapa": salta o club.html até ao centróide da união do clube
-    // aqui (regioes.py -> centro_de, de club_regioes.uniao.centros). A página
-    // de lugar não tem mapa, por isso é um <a> que navega, com o mesmo alvo
-    // do botão do leaderboard (site.css, .lb-saltar). País não tem centróide.
+    // "ver no mapa": o club.html recebe #lugar=<key>, vai buscar este mesmo
+    // regioes/<key>.json e usa o `centro` (setView) e a `fronteira` (traço por
+    // cima dos squares). A página de lugar não tem mapa, por isso é um <a> que
+    // navega, com o mesmo alvo do botão do leaderboard (site.css, .lb-saltar).
+    // País não tem centróide, logo não tem botão.
     const saltar = Array.isArray(d.centro)
-      ? ` <a class="lb-saltar" href="../club.html#c=${d.centro[0]},${d.centro[1]}"
+      ? ` <a class="lb-saltar" href="../club.html#lugar=${encodeURIComponent(KEY)}"
            aria-label="ver ${esc(d.regiao)} no mapa do clube"></a>`
       : '';
 

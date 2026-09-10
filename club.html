@@ -573,12 +573,30 @@ document.getElementById('painel-cabeca').onclick = function () {
   renderAtletas();
   renderPainel();
 
-  // deep-link da página de lugar: #c=<x>,<y> (tiles no zoom do club.json)
-  // centra o mapa nesse lugar, o mesmo salto do botão do leaderboard. Único
+  // deep-link da página de lugar (regiao.js): #lugar=<key>. Vai buscar o
+  // regioes/<key>.json (o mesmo que a página de lugar já usa), centra o mapa
+  // pelo `centro` e desenha a `fronteira` por cima dos squares. Único
   // deep-link do club.html; o botão vive no regiao.js porque a página de
   // lugar não tem mapa.
-  const mCentro = location.hash.match(/^#c=(\d+),(\d+)$/);
-  if (mCentro) map.setView(tileNoroeste(+mCentro[1], +mCentro[2], dados.zoom), 11);
+  const mLugar = location.hash.match(/^#lugar=([a-z0-9-]{2,60})$/i);
+  if (mLugar) {
+    carregarJson(dadosUrl(`regioes/${mLugar[1]}.json`)).then(reg => {
+      if (Array.isArray(reg.centro)) {
+        // sem animação: é uma chegada por link, o salto instantâneo é mais
+        // legível do que um zoom-out-in de duas casas
+        map.setView(tileNoroeste(reg.centro[0], reg.centro[1], dados.zoom), 11, { animate: false });
+      }
+      if (reg.fronteira) {
+        // overlayPane (z 400) fica por cima da camada de squares (GridLayer,
+        // z 200) sem mexer em z-index. Traço ouro, sem preenchimento, não
+        // intercepta cliques.
+        L.geoJSON({ type: 'Feature', geometry: reg.fronteira }, {
+          interactive: false,
+          style: { color: '#e6bd63', weight: 2.5, opacity: 0.9, fill: false },
+        }).addTo(map);
+      }
+    }).catch(e => console.warn('fronteira do lugar:', e.message));
+  }
 
   // detalhe geográfico: opcional, carregado à parte e sem bloquear o resto,
   // club_regioes.json é mais recente que club.json (2026-08-15) e pode ainda

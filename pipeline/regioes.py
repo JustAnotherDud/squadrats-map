@@ -40,6 +40,78 @@ PAIS_NOME = {
     "NL": "Países Baixos", "PL": "Polónia", "IT": "Itália",
 }
 
+# fronteira do lugar para o botão "ver no mapa" do club.html: a mesma cópia
+# simplificada que o analise.html desenha (data/*.geojson, no main), uma
+# feature por lugar, identificada pelo nome (mesma string do regioes_index).
+# Vai dentro do regioes/<key>.json; a página de lugar ignora-o, só o
+# club.html a usa. País não tem (grande de mais, nem há botão).
+DATA_GEOJSON_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+FRONTEIRA_FILES = {
+    ("PT", "concelho"): ("concelhos_pt.geojson", "NAME_2"),
+    ("PT", "distrito"): ("distritos_pt.geojson", "district"),
+    ("ES", "regiao"): ("provincias_es.geojson", "region"),
+    ("ES", "zona"): ("municipios_es.geojson", "region"),
+    ("DE", "regiao"): ("laender_de.geojson", "region"),
+    ("DE", "zona"): ("municipios_de.geojson", "region"),
+    ("MA", "regiao"): ("regioes_ma.geojson", "region"),
+    ("MA", "zona"): ("cercles_ma.geojson", "region"),
+    ("AD", "regiao"): ("paroquias_ad.geojson", "region"),
+    ("AD", "zona"): ("paroquias_ad.geojson", "region"),
+}
+_fronteira_cache = {}
+
+
+def _geojson_features(fname):
+    if fname not in _fronteira_cache:
+        try:
+            with open(os.path.join(DATA_GEOJSON_DIR, fname), encoding="utf-8") as f:
+                _fronteira_cache[fname] = json.load(f).get("features", [])
+        except (FileNotFoundError, json.JSONDecodeError):
+            _fronteira_cache[fname] = []
+    return _fronteira_cache[fname]
+
+
+def _simplificar(geom, alvo=4000):
+    """Encolhe uma fronteira gorda para ~`alvo` bytes. Duas causas de gordura:
+      - MultiPolygon com muitas ilhas minúsculas (Funchal traz as Selvagens,
+        178 partes) -> fica só com as partes >= 1% da maior;
+      - contorno com demasiados vértices (regiões MA, sub-simplificadas no
+        prep.py) -> Douglas-Peucker com a tolerância a subir até caber.
+    A fronteira é um traço a zoom <= 11, ilhéus e sub-km não contam. Sem
+    shapely, devolve como está."""
+    def compacto(g):
+        return len(json.dumps(g, separators=(",", ":")))
+    if not geom or compacto(geom) <= alvo:
+        return geom
+    try:
+        from shapely.geometry import shape, mapping, MultiPolygon
+    except ImportError:
+        return geom
+    forma = shape(geom)
+    if isinstance(forma, MultiPolygon) and len(forma.geoms) > 4:
+        maior = max(p.area for p in forma.geoms)
+        grandes = [p for p in forma.geoms if p.area >= maior * 0.01]
+        forma = MultiPolygon(grandes) if len(grandes) > 1 else grandes[0]
+    s = mapping(forma)
+    for tol in (0.002, 0.004, 0.006, 0.01):
+        if compacto(s) <= alvo:
+            break
+        s = mapping(forma.simplify(tol, preserve_topology=True))
+    return s
+
+
+def fronteira_de(cc, nivel, nome):
+    """Geometria GeoJSON (dict) da fronteira do lugar, ou None."""
+    par = FRONTEIRA_FILES.get((cc, nivel))
+    if not par:
+        return None
+    fname, prop = par
+    for feat in _geojson_features(fname):
+        if (feat.get("properties") or {}).get(prop) == nome:
+            return _simplificar(feat.get("geometry"))
+    return None
+
 
 def key_de(cc, nivel, nome):
     """<key> do ficheiro de um lugar, base do nome regioes/<key>.html|json e
@@ -182,6 +254,7 @@ def construir_estrangeiro(ccl, nivel, nome, snapshot, stats, adjacency,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
         "centro": centro_de(snapshot, cc, nivel, nome),
+        "fronteira": fronteira_de(cc, nivel, nome),
         "ranking": ranking,
         "vizinhos": viz,
     }
@@ -228,6 +301,7 @@ def construir_pais(cc, snapshot, stats, adjacency, paises_com_pagina):
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
         "centro": None,
+        "fronteira": None,
         "ranking": ranking,
         "vizinhos": viz,
     }
@@ -299,6 +373,7 @@ def construir(nivel, nome, snapshot_atual, stats, adjacency,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
         "centro": centro_de(snapshot_atual, "PT", nivel, nome),
+        "fronteira": fronteira_de("PT", nivel, nome),
         "ranking": ranking,
         "vizinhos": viz,
     }

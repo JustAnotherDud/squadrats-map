@@ -32,3 +32,32 @@ def test_pais_nunca_tem_centro():
 def test_lugar_sem_entrada_devolve_none():
     assert regioes.centro_de(SNAP, "PT", "concelho", "Óbidos") is None
     assert regioes.centro_de({"uniao": {}}, "PT", "distrito", "Leiria") is None
+
+
+# --- fronteira_de: a feature certa do data/*.geojson, pelo nome ---
+
+def test_fronteira_pt_concelho_e_distrito():
+    g = regioes.fronteira_de("PT", "concelho", "Lisboa")
+    assert g and g["type"] in ("Polygon", "MultiPolygon") and g["coordinates"]
+    assert regioes.fronteira_de("PT", "distrito", "Leiria")["type"] in ("Polygon", "MultiPolygon")
+
+
+def test_fronteira_estrangeiro():
+    assert regioes.fronteira_de("ES", "regiao", "Valencia")["coordinates"]
+    assert regioes.fronteira_de("ES", "zona", "València")["coordinates"]
+
+
+def test_fronteira_pais_e_desconhecido_none():
+    assert regioes.fronteira_de("PT", "pais", "Portugal") is None
+    assert regioes.fronteira_de("PT", "concelho", "Nãoexiste") is None
+
+
+def test_fronteira_gorda_e_simplificada():
+    """Funchal traz 178 partes (as Selvagens) e uma região MA vem com o
+    contorno denso; ambas têm de sair abaixo de ~4,5 KB."""
+    import json
+    for cc, nivel, nome in [("PT", "concelho", "Funchal"),
+                            ("MA", "regiao", "Drâa-Tafilalet")]:
+        g = regioes.fronteira_de(cc, nivel, nome)
+        assert g, f"{nome} sem fronteira"
+        assert len(json.dumps(g, separators=(",", ":"))) < 5000, f"{nome} não encolheu"
