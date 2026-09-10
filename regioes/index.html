@@ -80,11 +80,13 @@
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
   <p class="idx-nota"><b>Cobre</b> = squadratinhos que o clube cobre no lugar
     (união dos membros, sem repetir os partilhados); <b>Total</b> = o tamanho do
-    lugar; <b>Membros</b> = quantos têm lá pelo menos um squadratinho. A % só
-    para Portugal e países inteiros (contra uma província estrangeira não diz
-    nada). Escolhe o nível em cima; clica num cabeçalho de coluna para ordenar.
-    A ouro: com troca de posição no ranking (ver o
-    <a href="../historico.html">histórico</a>).</p>
+    lugar; <b>Membros</b> = quantos têm lá pelo menos um squadratinho. A <b>%</b>
+    é <b>Cobre</b> a dividir pelo <b>Total</b>: a fração do lugar que o clube tem.
+    Numa província ou município estrangeiro conta contra o lugar inteiro, tal
+    como num distrito ou concelho de Portugal, por isso são comparáveis; costuma
+    ser pequena só porque uma província é grande. Escolhe o nível em cima; clica
+    num cabeçalho de coluna para ordenar. A ouro: com troca de posição no
+    ranking (ver o <a href="../historico.html">histórico</a>).</p>
 </main>
 <script src="../nav.js"></script>
 <script src="../shared.js"></script>
@@ -95,13 +97,15 @@
   // dadosUrl / carregarJson / mostrarErroDados / avisoDadosVelhos / cor / esc /
   // nfmt / bandeiraSvg / carregarCores / fmtDataHora: shared.js. pctfmt: comum.js.
   // Tudo vem do regioes_index.json (Fase 3: já inclui estrangeiro e país).
-  const pct = p => pctfmt(p, { compacto: true });
-  const pctPais = p => pctfmt(p, { casas: 2, piso: true });
-  // a % de uma província estrangeira contra o seu total não diz nada; só se
-  // mostra para PT e para o nível país (2 casas + piso).
-  const celPct = x => x.nivel === 'pais'
-    ? (x.uniao_pct != null ? pctPais(x.uniao_pct) : '')
-    : ((x.uniao_pct != null && x.cc === 'PT') ? pct(x.uniao_pct) : '');
+  // % = Cobre / Total, calculada da própria linha (uniao e total são z17, mesma
+  // unidade e mesmo classificador). Não usa o uniao_pct do JSON, que vem
+  // arredondado a 2 casas no pipeline e perde os valores minúsculos (um país
+  // inteiro coberto a 0,001%). casas:2 lê os pequenos (0,05%); piso dá "<0,01%"
+  // ao não-zero minúsculo; compacto mantém os grandes de PT em inteiro.
+  const celPct = x => {
+    if (x.uniao == null || !x.total) return '';
+    return pctfmt(100 * x.uniao / x.total, { casas: 2, piso: true, compacto: true });
+  };
   const num = v => (v == null ? '' : nfmt(v));
 
   // três níveis, o mesmo par país/região/zona do leaderboard do club.html.
