@@ -32,7 +32,7 @@ def main(out_dir, branch):
     print(f"{len(dias)} dias com snapshot, {dias[0]} -> {dias[-1]}")
 
     # marcos de totais: snapshots do squadrats.json (só existe de facto na
-    # branch `data`, sem reconstrução — antes disso não há marco de totais).
+    # branch `data`, sem reconstrução: antes disso não há marco de totais).
     sq_por_dia = {}
     try:
         sq_por_dia, _ = eventos.snapshots_por_dia(REPO, branch, path="data/squadrats.json")

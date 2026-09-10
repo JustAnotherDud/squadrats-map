@@ -32,7 +32,7 @@ def _n_commits_club_regioes(repo=REPO, branch="origin/data"):
     """Quantos commits de data/club_regioes.json existem em `branch`. 0 se a
     ref ou o ficheiro ainda não existem lá. Serve para distinguir 'nunca
     houve snapshot' (primeiro run, normal) de 'o histórico devia estar cá'
-    (checkout shallow — anomalia)."""
+    (checkout shallow, anomalia)."""
     r = subprocess.run(
         ["git", "-C", repo, "log", branch, "--format=%H", "--", "data/club_regioes.json"],
         capture_output=True, text=True, encoding="utf-8",
@@ -79,7 +79,7 @@ def main(out_dir):
     #     (1 par, tudo em `hoje`). É o backfill_events.py quem seeda a sério.
     #   - events.json já com eventos -> já publicámos snapshots antes, logo o
     #     histórico DEVIA estar acessível e não está: checkout shallow demais,
-    #     branch reescrita, ou blobs em falta. Abortar — o fallback do topo
+    #     branch reescrita, ou blobs em falta. Abortar: o fallback do topo
     #     atribuiria dias de mudanças todos a hoje, com datas erradas, e o run
     #     passava como sucesso. Antes um job vermelho (que se cura sozinho no
     #     run seguinte) do que um feed silenciosamente errado.
@@ -87,7 +87,7 @@ def main(out_dir):
         if atual["eventos"]:
             n_commits = _n_commits_club_regioes()
             raise SystemExit(
-                "append_events: ANOMALIA — origin/data devia trazer o histórico de "
+                "append_events: ANOMALIA, origin/data devia trazer o histórico de "
                 f"club_regioes.json e não traz (ultimo={ultimo}, hoje={hoje}; "
                 f"{n_commits} commit(s) do ficheiro na branch, {len(saltados)} ilegível(is); "
                 f"events.json com {len(atual['eventos'])} evento(s)). "
@@ -106,10 +106,10 @@ def main(out_dir):
             print("append_events: arranque sem snapshot anterior, só actualiza 'gerado'")
 
     # histórico lido em parte (uns commits ilegíveis, mas >=2 dias no total):
-    # não aborta — um único commit corrompido lá atrás não deve travar o
-    # pipeline diário para sempre — mas fica dito, pode ter colapsado um dia.
+    # não aborta: um único commit corrompido lá atrás não deve travar o
+    # pipeline diário para sempre, mas fica dito, pode ter colapsado um dia.
     if saltados and len(dias) >= 2:
-        print(f"append_events: AVISO — {len(saltados)} snapshot(s) do histórico "
+        print(f"append_events: AVISO, {len(saltados)} snapshot(s) do histórico "
               "ilegível(is); um dia pode ter colapsado no anterior (ver snapshots_por_dia acima)")
 
     # marcos de totais (squadratinhos do atleta e união do clube): snapshots do

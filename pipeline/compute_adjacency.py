@@ -6,7 +6,7 @@ não tem cópia inline.
 
 Buckets: concelhos/distritos (PT), provincias_es/laender_de/regioes_ma/
 paroquias_ad (nível 2 estrangeiro), municipios_es/municipios_de/municipios_ma
-(nível 3 estrangeiro, sobre o ficheiro JÁ RECORTADO pelo clip.py — reexecutar
+(nível 3 estrangeiro, sobre o ficheiro JÁ RECORTADO pelo clip.py; reexecutar
 isto sempre que o clip mudar o conjunto), e paises (fronteiras país-país, de
 refdata/outlines/europe.geojson).
 

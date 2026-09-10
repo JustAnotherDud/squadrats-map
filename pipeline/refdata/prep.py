@@ -4,7 +4,7 @@ Duas transformações, nenhuma toca na fonte (GADM 4.1, ver README) nem a vai
 buscar: só reprocessa o que já está commitado.
 
   1. refdata/ (verdade da classificação): arredonda coordenadas a 6 casas
-     decimais (~0,1 m) e minifica. Lossless para o classify.py — um square
+     decimais (~0,1 m) e minifica. Lossless para o classify.py: um square
      z17 tem ~150 m de lado e a atribuição é por maior área de intersecção,
      um desvio de 0,1 m não muda a que região um square pertence (testado:
      0 flips em ~310 mil tiles de fronteira dos municípios que o clube tocou).
@@ -15,7 +15,7 @@ buscar: só reprocessa o que já está commitado.
      zoom de país, não se vê a diferença; nunca classifica com estes
      ficheiros. Mesmo padrão que o data/distritos_pt.geojson (45 KB) já usava,
      agora aplicado a tudo. Nota: a simplificação é por polígono, não
-     topológica — dois municípios vizinhos podem ficar com um vão sub-pixel
+     topológica: dois municípios vizinhos podem ficar com um vão sub-pixel
      na fronteira partilhada; invisível ao desenhar, e a classificação não
      usa estes ficheiros.
 
@@ -102,7 +102,7 @@ OUTLINES_PATH = "pipeline/refdata/outlines/europe.geojson"
 
 def _fetch_outlines():
     """(re)gera outlines/europe.geojson da Natural Earth. Único ficheiro que o
-    prep vai buscar à fonte — é domínio público e a NE é versionada/estável."""
+    prep vai buscar à fonte: é domínio público e a NE é versionada/estável."""
     raw = urllib.request.urlopen(NE_URL, timeout=60).read()
     doc = json.loads(raw)
     tol = NE_TOL_M * DEG_PER_M

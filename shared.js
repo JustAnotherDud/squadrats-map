@@ -291,8 +291,8 @@ function avisoPorClassificar(avisos) {
   const el = document.createElement('div');
   el.id = 'aviso-classificar';
   el.textContent = `⚠ ${nClip + nSem} squadratinho${nClip + nSem === 1 ? '' : 's'} por `
-    + `classificar (${partes.join('; ')}). Falta trabalho manual no pipeline — `
-    + `ver o README e o `;
+    + `classificar (${partes.join('; ')}). Falta trabalho manual no pipeline. `
+    + `Ver o README e o `;
   const a = document.createElement('a');
   a.href = 'https://github.com/JustAnotherDud/squadrats-map/actions';
   a.textContent = 'estado das corridas';

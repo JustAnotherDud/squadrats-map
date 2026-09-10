@@ -2,7 +2,7 @@
 distrito de Portugal, e, quando houver geometria disponível, região
 estrangeira (ex: província espanhola). Sem geometria de região para o país,
 mas com `outlines_path` (Natural Earth, refdata/outlines/europe.geojson),
-devolve pelo menos country=<CC> com region=None — o square passa a aparecer
+devolve pelo menos country=<CC> com region=None: o square passa a aparecer
 no mapa/club com bandeira e "sem dados por região". Sem nada, fica tudo None
 (in_portugal=False, country=None, region=None).
 
@@ -178,7 +178,7 @@ class Classifier:
 
         Se nada intersecta, fallback de proximidade dentro de
         COASTAL_BUFFER_DEG, mas SÓ a municípios do MESMO país (o `country` já
-        foi resolvido pela camada de região) — assim não cruza fronteira, e
+        foi resolvido pela camada de região): assim não cruza fronteira, e
         apanha os squares na orla marítima logo a seguir ao limite terrestre
         de um município costeiro (a praia/porto de València, p.ex.), como o
         `_concelho` faz em PT."""
@@ -221,7 +221,7 @@ class Classifier:
 
         # Nenhuma região conhecida apanha o tile: antes de desistir, ver se
         # cai dentro de um contorno de país (Natural Earth). Só para países
-        # SEM camada de região própria — em PT/ES/DE/MA/AD a geometria fina é
+        # SEM camada de região própria: em PT/ES/DE/MA/AD a geometria fina é
         # que manda, e um tile sobre água ali deve ir ao fallback de
         # proximidade, não ao contorno grosso.
         if self.outlines is not None and d_area == 0.0 and f_area == 0.0:

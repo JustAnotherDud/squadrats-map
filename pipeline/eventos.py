@@ -59,7 +59,7 @@ def snapshots_por_dia(repo, branch="origin/data", desde=None,
     anterior, por isso não deve passar despercebido.
 
     Levanta RuntimeError se o `git log` listou commits e NENHUM deu para ler
-    (histórico presente na branch mas inacessível no clone — quase sempre um
+    (histórico presente na branch mas inacessível no clone, quase sempre um
     `git fetch --depth` curto demais). Um clone sem qualquer commit do
     ficheiro devolve ({}, []) sem erro: é o primeiro run, não uma anomalia.
 
@@ -102,7 +102,7 @@ def snapshots_por_dia(repo, branch="origin/data", desde=None,
     if saltados:
         from collections import Counter
         resumo = Counter(m for _, m in saltados)
-        print(f"snapshots_por_dia: {len(saltados)}/{len(shas)} commit(s) saltado(s) — "
+        print(f"snapshots_por_dia: {len(saltados)}/{len(shas)} commit(s) saltado(s), "
               + "; ".join(f"{n}x {m}" for m, n in resumo.most_common()))
 
     if shas and not por_dia:

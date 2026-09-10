@@ -209,8 +209,8 @@ def run_from_geoms(geoms, out_dir, counts=None):
         by_concelho_captured, by_distrito_captured = {}, {}
         by_foreign_captured = {}  # {country: {region: count}}
         by_foreign_municipio_captured = {}  # {country: {municipio: count}}
-        by_country_nodata = {}  # {country: count} — país detetado por contorno, sem dados de região
-        muni_clip_misses = {}   # {country: count} — tem ficheiro de município mas o clip não apanhou o square
+        by_country_nodata = {}  # {country: count}: país detetado por contorno, sem dados de região
+        muni_clip_misses = {}   # {country: count}: tem ficheiro de município mas o clip não apanhou o square
         unclassified_foreign = 0
         pt_captured = foreign_captured = 0
         for x, y, lon, lat in squares:
@@ -363,7 +363,7 @@ def run_from_geoms(geoms, out_dir, counts=None):
     if clip_misses_total:
         detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(clip_misses_total.items()))
         print(f"AVISO: {detalhe} square(s) num país COM ficheiro de município mas "
-              f"fora do recorte de 10 km — correr `py pipeline/refdata/clip.py "
+              f"fora do recorte de 10 km, correr `py pipeline/refdata/clip.py "
               f"{' '.join(sorted(clip_misses_total))}` para acrescentar as zonas novas "
               f"(ver stats.foreign.*.muni_clip_misses)")
 

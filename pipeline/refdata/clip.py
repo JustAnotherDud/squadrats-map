@@ -30,7 +30,7 @@ novos ficam a nível de região (Land/província) até se voltar a correr isto.
 `AVISO: <CC>: N square(s) ... fora do recorte de 10 km` no fim do run, e o
 número fica em stats.foreign.*.muni_clip_misses. É o sinal de "correr o clip
 outra vez" (que, ao contrário de antes, volta a incluir o que for preciso da
-fonte completa — o recorte já não é irreversível).
+fonte completa: o recorte já não é irreversível).
 
 Uso:
   py clip.py            reconstrói todos os foreign_muni/<CC>.geojson
@@ -67,7 +67,7 @@ def _clean(g):
 def _pontos_capturados():
     """(lon, lat) no centro de cada square do club.json. Seed do clip:
     mantêm-se os municípios a <10 km DESTES pontos (não os municípios já
-    classificados — isso era circular: um square sem match de município não
+    classificados: isso era circular, um square sem match de município não
     entrava no seed e ficava de fora do recorte para sempre).
 
     Devolve os pares crus (não um array de Point): o clip_pais reprojecta-os

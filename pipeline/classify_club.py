@@ -198,11 +198,11 @@ def main(out_dir):
     if clip_misses:
         detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(clip_misses.items()))
         print(f"AVISO: {detalhe} square(s) num país COM ficheiro de município mas "
-              f"fora do recorte de 10 km — correr `py pipeline/refdata/clip.py "
+              f"fora do recorte de 10 km, correr `py pipeline/refdata/clip.py "
               f"{' '.join(sorted(clip_misses))}` (ver README, secção do clip)")
     if sem_dados_regiao:
         detalhe = ", ".join(f"{cc}: {n}" for cc, n in sorted(sem_dados_regiao.items()))
-        print(f"AVISO: {detalhe} square(s) num país sem geometria de região — "
+        print(f"AVISO: {detalhe} square(s) num país sem geometria de região, "
               f"preparar refdata/foreign/<CC>.geojson (ver README)")
 
     # avisos: o que o site mostra a quem não lê os logs do Actions (Fase 5).
