@@ -40,10 +40,16 @@
   #painel.aberto #painel-corpo { display:block; }
   .linha-stat { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--hair); font-size:12.5px; }
   .linha-stat b { color:var(--tinta); font-family:var(--f-mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .linha-stat.saltavel { cursor:pointer; }
-  .linha-stat.saltavel:hover .txt { text-decoration:underline; text-decoration-color:var(--marca); }
   a.lnome { color:var(--tinta); text-decoration:none; }
   a.lnome:hover { text-decoration:underline; text-decoration-color:var(--marca); }
+  /* saltar o mapa até este sítio: alvo desenhado em CSS (anel + ponto), sem
+     glifo, para não competir com os quatro do feed. Botão real -> teclado. */
+  .lb-saltar { flex:0 0 auto; width:13px; height:13px; padding:0; margin:0 0 0 2px;
+    background:none; border:1.5px solid var(--tinta-3); border-radius:50%;
+    cursor:pointer; position:relative; }
+  .lb-saltar::after { content:""; position:absolute; inset:3px; background:var(--tinta-3); border-radius:50%; }
+  .lb-saltar:hover, .lb-saltar:focus-visible { border-color:var(--marca); }
+  .lb-saltar:hover::after, .lb-saltar:focus-visible::after { background:var(--marca); }
   .esq { display:flex; align-items:center; gap:8px; overflow:hidden; }
   .esq span.txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .titulo-seccao { margin-top:16px; margin-bottom:3px; padding-bottom:5px; border-bottom:1px solid var(--rule); font-family:var(--f-tit); font-weight:600; font-size:13px; color:var(--tinta); }
@@ -385,19 +391,15 @@ function renderPainel() {
   corpo.querySelectorAll('[data-leaderboard-nivel]').forEach(b => {
     b.onclick = () => { leaderboardNivel = b.dataset.leaderboardNivel; renderPainel(); };
   });
-  // carregar numa região do leaderboard salta o mapa até lá (o centróide vem
-  // do classify_club.py). Clique num link de atleta dentro da linha navega,
-  // não salta.
-  corpo.querySelectorAll('.linha-stat[data-centro]').forEach(el => {
-    const saltar = () => {
-      const [cx, cy] = el.dataset.centro.split(',').map(Number);
+  // botão do alvo: salta o mapa até ao centróide da região (classify_club.py).
+  // É um <button> real, portanto o teclado (Enter/Espaço) já dispara o clique.
+  // O nome ao lado é um <a> normal e navega.
+  corpo.querySelectorAll('.lb-saltar[data-centro]').forEach(btn => {
+    btn.onclick = () => {
+      const [cx, cy] = btn.dataset.centro.split(',').map(Number);
       map.setView(tileNoroeste(cx, cy, dados.zoom), 11);  // shared.js
       painel.classList.remove('aberto');
       hover.classList.remove('visivel');
-    };
-    el.onclick = e => { if (!e.target.closest('a')) saltar(); };
-    el.onkeydown = e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); saltar(); }
     };
   });
 }
@@ -516,19 +518,19 @@ function renderLeaderboard() {
         <span class="txt">${nome}</span></span>
         <b>${e.captured.toLocaleString('pt-PT')}${pct}</b></div>`;
     }).join('');
-    const nomeReg = (leaderboardNivel !== 'pais' && r.cc === 'PT')
-      ? `<a class="lnome" href="${regiaoHref(leaderboardNivel, r.nome)}">${r.nome}</a>`
-      : r.nome;
+    // o nome abre SEMPRE a página do sítio (todos os níveis/países têm página
+    // desde a Fase 3); o salto no mapa fica num botão à parte a seguir.
+    const nomeReg = `<a class="lnome" href="${regiaoHref(leaderboardNivel, r.nome, r.cc)}">${esc(r.nome)}</a>`;
     // BANDEIRA só tem os 5 conhecidos; um país detetado por contorno
     // (ver classify.py) entra na mesma via pivotRegioes, com bandeira
     // genérica e o nome de PAIS_NOME (shared.js, alargado à Europa).
     const flag = BANDEIRA[r.cc] || bandeiraSvg(r.cc, 13, 10);
     const centro = centroDe(leaderboardNivel, r.cc, r.nome);
-    const salt = centro
-      ? ` data-centro="${centro[0]},${centro[1]}" tabindex="0" role="button" aria-label="ver ${esc(r.nome)} no mapa"`
+    const saltarBtn = centro
+      ? `<button type="button" class="lb-saltar" data-centro="${centro[0]},${centro[1]}" aria-label="saltar para ${esc(r.nome)} no mapa"></button>`
       : '';
-    linhas.push(`<div class="grupo"><div class="linha-stat${centro ? ' saltavel' : ''}" style="font-weight:600"${salt}>
-      <span class="esq"><span class="txt">${flag} ${nomeReg}</span></span>
+    linhas.push(`<div class="grupo"><div class="linha-stat" style="font-weight:600">
+      <span class="esq"><span class="txt">${flag} ${nomeReg}</span>${saltarBtn}</span>
       <b class="fraco">${r.entradas.length} pessoas</b></div>${linhasAtletas}</div>`);
   });
 
