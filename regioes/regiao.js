@@ -47,8 +47,8 @@
   }
 
   // vizinho "disputado" = com evento de troca (ultrapassagem / novo líder),
-  // mesma definição da fila "Regiões disputadas" do historico.html. cc separa
-  // uma província ES de um distrito PT com o mesmo nome.
+  // mesma definição da coluna "Lugares contestados" do historico.html. cc
+  // separa uma província ES de um distrito PT com o mesmo nome.
   function temEventoTroca(eventos, cc, nivel, regiao) {
     return eventos.some(e =>
       (e.tipo === 'ultrapassagem' || e.tipo === 'novo_lider') &&
@@ -153,7 +153,7 @@
       ${algumVizDisp ? '<p class="reg-viz-nota">A ouro: vizinhos com troca de posição no ranking desde 26 jul.</p>' : ''}
 
       <p class="reg-rodape">
-        <a class="voltar" href="index.html">todas as regiões</a><br>
+        <a class="voltar" href="index.html">todos os lugares</a><br>
         ranking e % são de <b>squadratinhos</b> (zoom 17, ~201 m). <b>únicos</b> =
         sem mais nenhum membro do clube.${medidor ? ' O medidor a seguir à % é uma escada de '
           + 'patamares (0,05% a 18%), não uma barra proporcional: quase toda a gente '

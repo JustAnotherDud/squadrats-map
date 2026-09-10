@@ -37,7 +37,7 @@
   var DEST = [
     { id: 'mapa', label: 'Mapa', href: P + 'club.html' },
     { id: 'perfis', label: 'Perfis', href: P + 'atletas/' },
-    { id: 'regioes', label: 'Regiões', href: P + 'regioes/' },
+    { id: 'regioes', label: 'Lugares', href: P + 'regioes/' },
     { id: 'historico', label: 'Histórico', href: P + 'historico.html' },
   ];
 

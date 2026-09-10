@@ -34,7 +34,7 @@ git checkout origin/data -- data/
 
 - `index.html`: the landing/hub: cards for the club map, profiles and history.
   GitHub Pages serves it at the root.
-- `nav.js`: the shared top nav bar (hub · Mapa · Perfis · Regiões · Histórico),
+- `nav.js`: the shared top nav bar (hub · Mapa · Perfis · Lugares · Histórico),
   self-injecting, marks the current page. Loaded by every page **except**
   `analise.html`. Full-screen map pages set `<body data-nav="overlay">` so the bar
   is `position:fixed` and they offset their own layout by 38px. Also registers
@@ -104,7 +104,7 @@ git checkout origin/data -- data/
   `club_regioes.json["uniao"]`, written by `classify_club.py`), with the region
   coverage percentage shown muted beside it. Data from `data/regioes_index.json`
   (one aggregate file, written by `append_regioes.py`). Linked from the navbar
-  ("Regiões"), the hub, each region page's footer, and the history sidebar.
+  ("Lugares"), the hub, each region page's footer, and the history sidebar.
   `regioes/pais-pt.html` and `regioes/pais-es.html` are hand-written country
   pages sharing `pais.js`, built in the browser from `club_regioes.json`
   (`uniao.by_pais`, `uniao.by_region` for foreign provinces, per-athlete
