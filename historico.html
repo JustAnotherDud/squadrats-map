@@ -65,13 +65,6 @@
   .legenda span { white-space: nowrap; }
   .legenda b { color: var(--tinta-2); font-weight: 400; }
 
-  /* regiões disputadas: links, sem chips */
-  .disputadas { margin: 0 0 18px; font-size: 12.5px; line-height: 2; color: var(--tinta-3); }
-  .disputadas .rot { font-family: var(--f-mono); font-size: 11px; color: var(--tinta-3); margin-right: 8px; }
-  .disputadas a { color: var(--tinta); text-decoration: underline;
-    text-decoration-color: var(--ouro); text-underline-offset: 3px; margin-right: 10px; }
-  .disputadas a:hover { text-decoration-color: var(--tinta); }
-  .disputadas a .lvl { font-family: var(--f-mono); font-size: 9.5px; color: var(--tinta-3); margin-left: 4px; }
   .vazio { color: var(--tinta-3); padding: 22px 0; text-align: center; }
 
   /* sidebar */
@@ -101,8 +94,6 @@
     <span>📍 <b>primeira presença</b> numa região</span>
     <span>🚩 <b>marco</b> de squadratinhos (25/50/100/…)</span>
   </p>
-
-  <div class="disputadas" id="disputadas" hidden></div>
 
   <div class="cols">
     <div class="feed-col"><div id="feed"></div></div>
@@ -267,26 +258,6 @@
       </div>`).join('') || '<p class="vazio">Nenhuma região disputada.</p>';
   }
 
-  // regiões com troca de posição real desde 26 jul, as páginas de região com
-  // gráfico. Independente dos filtros; ordenadas pela troca mais recente.
-  function renderDisputadas() {
-    const box = document.getElementById('disputadas');
-    const porReg = new Map();
-    for (const e of eventos) {
-      if (e.tipo !== 'ultrapassagem' && e.tipo !== 'novo_lider') continue;
-      const k = e.nivel + '|' + e.regiao;
-      const cur = porReg.get(k);
-      if (!cur) porReg.set(k, { nivel: e.nivel, nome: e.regiao, data: e.data });
-      else if (e.data > cur.data) cur.data = e.data;
-    }
-    const arr = [...porReg.values()].sort((a, b) =>
-      b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome, 'pt'));
-    if (!arr.length) { box.hidden = true; return; }
-    box.hidden = false;
-    box.innerHTML = '<span class="rot">Regiões disputadas</span>' +
-      arr.map(r => `<a href="${regiaoHref(r.nivel, r.nome)}">${esc(r.nome)}<span class="lvl">${r.nivel}</span></a>`).join('');
-  }
-
   function renderMeta() {
     const m = document.getElementById('meta');
     const q = gerado ? fmtDataHora(gerado) : '?';
@@ -297,7 +268,6 @@
 
   function render() {
     renderMeta();
-    renderDisputadas();
     renderFiltros();
     renderFeed();
     renderRankings();
