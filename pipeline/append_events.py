@@ -112,15 +112,46 @@ def main(out_dir):
         print(f"append_events: AVISO — {len(saltados)} snapshot(s) do histórico "
               "ilegível(is); um dia pode ter colapsado no anterior (ver snapshots_por_dia acima)")
 
+    # marcos de totais (squadratinhos do atleta e união do clube): snapshots do
+    # squadrats.json pelo mesmo walk; a união vem dos club_regioes.json que já
+    # temos em por_dia. Lenient: se o histórico do squadrats.json não estiver
+    # acessível, salta os marcos de totais, não aborta.
+    sq_novo_path = os.path.join(out_dir, "squadrats.json")
+    sq_por_dia = {}
+    try:
+        sq_por_dia, _ = eventos.snapshots_por_dia(
+            REPO, "origin/data", desde=ultimo, path="data/squadrats.json")
+    except Exception as e:
+        print(f"append_events: histórico de squadrats.json indisponível, sem marcos de totais ({e})")
+    if os.path.exists(sq_novo_path):
+        with open(sq_novo_path, encoding="utf-8") as f:
+            sq_por_dia[hoje] = json.load(f)
+    if "_prev" in dias:
+        try:
+            sq_por_dia["_prev"] = json.loads(subprocess.run(
+                ["git", "-C", REPO, "show", "origin/data:data/squadrats.json"],
+                capture_output=True, text=True, encoding="utf-8", check=True).stdout)
+        except Exception:
+            pass
+
     novos = []
     if len(dias) >= 2:
         ja = {eventos.chave(e) for e in atual["eventos"]}
         for ontem, dia in zip(dias, dias[1:]):
-            for ev in eventos.detectar(por_dia[ontem], por_dia[dia], dia if dia != "_prev" else hoje):
+            data_ev = dia if dia != "_prev" else hoje
+            for ev in eventos.detectar(por_dia[ontem], por_dia[dia], data_ev):
                 k = eventos.chave(ev)
                 if k not in ja:
                     ja.add(k)
                     novos.append(ev)
+            if ontem in sq_por_dia and dia in sq_por_dia:
+                for ev in eventos.detectar_totais(
+                        eventos.totais_sqi(sq_por_dia[ontem]), eventos.totais_sqi(sq_por_dia[dia]),
+                        eventos.uniao_clube(por_dia[ontem]), eventos.uniao_clube(por_dia[dia]), data_ev):
+                    k = eventos.chave(ev)
+                    if k not in ja:
+                        ja.add(k)
+                        novos.append(ev)
 
     if novos:
         atual["eventos"].extend(novos)

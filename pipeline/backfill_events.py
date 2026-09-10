@@ -31,6 +31,15 @@ def main(out_dir, branch):
     dias = sorted(por_dia)
     print(f"{len(dias)} dias com snapshot, {dias[0]} -> {dias[-1]}")
 
+    # marcos de totais: snapshots do squadrats.json (só existe de facto na
+    # branch `data`, sem reconstrução — antes disso não há marco de totais).
+    sq_por_dia = {}
+    try:
+        sq_por_dia, _ = eventos.snapshots_por_dia(REPO, branch, path="data/squadrats.json")
+        print(f"squadrats.json: {len(sq_por_dia)} dias para marcos de totais")
+    except Exception as e:
+        print(f"squadrats.json indisponível, sem marcos de totais ({e})")
+
     todos, vistos = [], set()
     for ontem, hoje in zip(dias, dias[1:]):
         for ev in eventos.detectar(por_dia[ontem], por_dia[hoje], hoje):
@@ -38,6 +47,14 @@ def main(out_dir, branch):
             if k not in vistos:
                 vistos.add(k)
                 todos.append(ev)
+        if ontem in sq_por_dia and hoje in sq_por_dia:
+            for ev in eventos.detectar_totais(
+                    eventos.totais_sqi(sq_por_dia[ontem]), eventos.totais_sqi(sq_por_dia[hoje]),
+                    eventos.uniao_clube(por_dia[ontem]), eventos.uniao_clube(por_dia[hoje]), hoje):
+                k = eventos.chave(ev)
+                if k not in vistos:
+                    vistos.add(k)
+                    todos.append(ev)
     todos = eventos.ordenar_feed(eventos.colapsar_marcos(todos))
 
     resultado = {

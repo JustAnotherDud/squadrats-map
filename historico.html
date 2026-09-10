@@ -60,6 +60,16 @@
     white-space: nowrap; margin-left: 4px; font-variant-numeric: tabular-nums; }
   .ev .tile { width: 9px; height: 9px; }
 
+  /* marco de totais (squadratinhos do atleta ou do clube): notícia, faixa
+     destacada, sem tag de região nem ícone. */
+  .ev.destaque {
+    display: block; padding: 12px 0 12px 14px; margin: 4px 0;
+    border-left: 3px solid var(--ouro); background: var(--ch-1);
+    font-size: 14px; line-height: 1.5;
+  }
+  .ev.destaque .corpo b { font-family: var(--f-tit); font-weight: 700; color: var(--tinta); }
+  .ev.destaque .tile { width: 11px; height: 11px; }
+
   .legenda { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0 0 14px;
     font-size: 11.5px; color: var(--tinta-3); }
   .legenda span { white-space: nowrap; }
@@ -92,7 +102,8 @@
     <span>👑 <b>nova liderança da região</b></span>
     <span>⇅ <b>ultrapassagem</b> (troca de posição sem ser no topo)</span>
     <span>📍 <b>primeira presença</b> numa região</span>
-    <span>🚩 <b>marco</b> de squadratinhos (25/50/100/…)</span>
+    <span>🚩 <b>marco</b> de squadratinhos numa região (25/50/100/…)</span>
+    <span><b>faixa destacada</b>: marco de squadratinhos totais (do atleta ou do clube)</span>
   </p>
 
   <div class="cols">
@@ -159,7 +170,16 @@
   }
 
   function frase(e) {
-    const r = regiaoHtml(e.nivel, e.regiao), v = e.valores, quem = atletaHtml(e.quem);
+    const v = e.valores;
+    if (e.tipo === 'marco_total') {
+      return `${atletaHtml(e.quem)} chegou aos <b>${nfmt(v[0])}</b> squadratinhos
+        <span class="num">(${nfmt(v[1])})</span>`;
+    }
+    if (e.tipo === 'marco_clube') {
+      return `O clube passou os <b>${nfmt(v[0])}</b> squadratinhos
+        <span class="num">união dos ${roster().length}, ${nfmt(v[1])}</span>`;
+    }
+    const r = regiaoHtml(e.nivel, e.regiao), quem = atletaHtml(e.quem);
     if (e.tipo === 'ultrapassagem') {
       const alvos = e.sobre.map(atletaHtml).join(' e ');
       return `${quem} passou ${alvos} em ${r}
@@ -179,7 +199,7 @@
 
   function renderFiltros() {
     const box = document.getElementById('filtros');
-    const regs = [...new Set(eventos.map(e => e.regiao))].sort((a, b) => a.localeCompare(b, 'pt'));
+    const regs = [...new Set(eventos.map(e => e.regiao))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt'));
     box.innerHTML = `
       <div class="grupo"><span class="rot">Atleta</span>
         ${roster().map(n => `<button class="chip ${estado.atleta === n ? 'on' : ''}" data-atleta="${esc(n)}">${tile(n)}${esc(n)}</button>`).join('')}
@@ -198,10 +218,15 @@
   }
 
   function filtrar(evs) {
-    return evs.filter(e =>
-      (!estado.atleta || e.quem === estado.atleta ||
-        (e.tipo === 'ultrapassagem' ? e.sobre.includes(estado.atleta) : e.sobre === estado.atleta)) &&
-      (!estado.regiao || e.regiao === estado.regiao));
+    return evs.filter(e => {
+      // marco do clube inteiro: aparece sempre, é notícia geral
+      if (e.tipo === 'marco_clube') return true;
+      const atl = !estado.atleta || e.quem === estado.atleta ||
+        (e.tipo === 'ultrapassagem' ? e.sobre.includes(estado.atleta) : e.sobre === estado.atleta);
+      // um filtro de região esconde os marcos de totais (não são de região)
+      const reg = !estado.regiao || e.regiao === estado.regiao;
+      return atl && reg;
+    });
   }
 
   function renderFeed() {
@@ -215,11 +240,15 @@
         diaActual = e.data;
         html += `<div class="dia-cab">${fmtData(e.data)}</div>`;
       }
-      html += `<div class="ev">
-        <span class="tag ${e.nivel}">${e.nivel}</span>
-        <span class="ico">${ICO[e.tipo] || ''}</span>
-        <span class="corpo">${frase(e)}</span>
-      </div>`;
+      if (e.tipo === 'marco_total' || e.tipo === 'marco_clube') {
+        html += `<div class="ev destaque"><span class="corpo">${frase(e)}</span></div>`;
+      } else {
+        html += `<div class="ev">
+          <span class="tag ${e.nivel}">${e.nivel}</span>
+          <span class="ico">${ICO[e.tipo] || ''}</span>
+          <span class="corpo">${frase(e)}</span>
+        </div>`;
+      }
     }
     feed.innerHTML = html;
   }

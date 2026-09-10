@@ -30,17 +30,27 @@ MARCOS = {
     "distrito": [50, 100, 250, 500, 1000, 2500],
 }
 
+# marcos de squadratinhos TOTAIS, fora do contexto de uma região (feed tratado
+# como notícias). Números muito maiores que os regionais, poucos disparos por
+# ano. MARCOS_TOTAL = por atleta (squadrats.json); MARCOS_CLUBE = união do
+# clube (soma de club_regioes.uniao.by_pais). Só squadratinhos, não squadrats.
+MARCOS_TOTAL = [1000, 2500, 5000, 7500, 10000, 15000, 20000, 30000, 50000, 75000, 100000]
+MARCOS_CLUBE = [5000, 10000, 25000, 50000, 100000, 250000]
+
 ATLETAS_ORDEM = ["Zé", "Xeira", "Carolina", "Inês S.", "Pedro"]
 
 DESDE = "2026-07-26"  # 1.º dia com club.json (o histórico < 15 ago é
                       # reconstruído do club.json, ver recon_snapshots.py)
 
 
-def snapshots_por_dia(repo, branch="origin/data", desde=None):
+def snapshots_por_dia(repo, branch="origin/data", desde=None,
+                      path="data/club_regioes.json"):
     """(por_dia, saltados).
 
-    `por_dia` = {data_utc: club_regioes_dict}, o ÚLTIMO snapshot commitado de
-    cada dia UTC na branch dada. Mesma regra que o backfill_daily_gains.py.
+    `por_dia` = {data_utc: dict}, o ÚLTIMO snapshot commitado de cada dia UTC
+    na branch dada (o dict é o JSON de `path`; tem de ter "atualizado").
+    Mesma regra que o backfill_daily_gains.py. Serve o club_regioes.json (por
+    defeito) e o squadrats.json (marcos de totais).
 
     `saltados` = [(sha, motivo), ...] dos commits que o `git log` listou mas
     que não deu para ler (blob em falta num checkout shallow, ou JSON/formato
@@ -63,14 +73,14 @@ def snapshots_por_dia(repo, branch="origin/data", desde=None):
     args = ["git", "-C", repo, "log", branch, "--format=%H"]
     if desde:
         args += [f"--since={desde}T00:00:00Z"]
-    args += ["--", "data/club_regioes.json"]
+    args += ["--", path]
     shas = subprocess.run(args, capture_output=True, text=True,
                           encoding="utf-8", check=True).stdout.split()
 
     por_dia, ts_por_dia, saltados = {}, {}, []
     for sha in shas:
         r = subprocess.run(
-            ["git", "-C", repo, "show", f"{sha}:data/club_regioes.json"],
+            ["git", "-C", repo, "show", f"{sha}:{path}"],
             capture_output=True, text=True, encoding="utf-8",
         )
         if r.returncode != 0:
@@ -233,25 +243,78 @@ def _ev(data, cc, nivel, reg, tipo, quem, sobre, valores):
     }
 
 
+# tipos de marco (incluem o patamar na chave e no colapso)
+MARCO_TIPOS = ("marco", "marco_total", "marco_clube")
+
+
+def totais_sqi(squadrats):
+    """{atleta: squadratinhos} de um snapshot de squadrats.json."""
+    return {n: (v or {}).get("squadratinhos", 0)
+            for n, v in (squadrats or {}).get("atletas", {}).items()}
+
+
+def uniao_clube(club_regioes):
+    """União do clube = soma dos squadratinhos que ≥1 membro tem, por país
+    (club_regioes.uniao.by_pais). None se o bloco não existir."""
+    by = ((club_regioes or {}).get("uniao") or {}).get("by_pais") or {}
+    return sum(by.values()) if by else None
+
+
+def detectar_totais(sq_ant, sq_hoje, uni_ant, uni_hoje, data):
+    """Marcos de squadratinhos TOTAIS ao passar de um snapshot para o seguinte.
+    `sq_*` = {atleta: squadratinhos} (de squadrats.json); `uni_*` = int, a
+    união do clube (ou None se indisponível). Eventos sem região:
+      marco_total  um atleta cruzou um patamar de MARCOS_TOTAL (quem = atleta)
+      marco_clube  a união do clube cruzou um patamar de MARCOS_CLUBE (quem = None)
+    Um atleta que aparece pela 1.ª vez no snapshot não gera marco (mesma guarda
+    de estreante do detectar()).
+    """
+    def _cruzado(patamares, antes, agora):
+        c = [T for T in patamares if antes < T <= agora]
+        return max(c) if c else None
+
+    out = []
+    estreantes = set(sq_hoje) - set(sq_ant)
+    for atl, agora in sq_hoje.items():
+        if atl in estreantes:
+            continue
+        T = _cruzado(MARCOS_TOTAL, sq_ant.get(atl, 0), agora)
+        if T is not None:
+            out.append({"data": data, "cc": None, "nivel": "total",
+                        "regiao": None, "tipo": "marco_total", "quem": atl,
+                        "sobre": None, "valores": [T, agora]})
+    if uni_ant is not None and uni_hoje is not None:
+        T = _cruzado(MARCOS_CLUBE, uni_ant, uni_hoje)
+        if T is not None:
+            out.append({"data": data, "cc": None, "nivel": "total",
+                        "regiao": None, "tipo": "marco_clube", "quem": None,
+                        "sobre": None, "valores": [T, uni_hoje]})
+    return out
+
+
 def chave(ev):
     """Identidade por DIA, o que torna o append idempotente entre os 6 runs
-    do mesmo dia. Um marco inclui o patamar; os outros o par de atletas."""
-    extra = ev["valores"][0] if ev["tipo"] == "marco" else (ev.get("sobre") or "")
-    return (ev["data"], ev.get("cc", "PT"), ev["nivel"], ev["regiao"],
-            ev["tipo"], ev["quem"], str(extra))
+    do mesmo dia. Um marco (de qualquer tipo) inclui o patamar; os outros o
+    par de atletas."""
+    extra = ev["valores"][0] if ev["tipo"] in MARCO_TIPOS else (ev.get("sobre") or "")
+    return (ev["data"], ev.get("cc") or "", ev["nivel"], ev.get("regiao") or "",
+            ev["tipo"], ev.get("quem") or "", str(extra))
 
 
-# ordem de leitura dentro de um dia: primeiro os movimentos de ranking, depois
-# a estreia, e o marco no fim (é o "e ainda"). O feed é mais-recente-primeiro
-# por dia; dentro do dia segue esta ordem, agrupado por região.
-ORDEM_TIPO = {"novo_lider": 0, "ultrapassagem": 1, "primeira_presenca": 2, "marco": 3}
+# ordem de leitura DENTRO de uma região/dia: movimentos de ranking, depois a
+# estreia, e o marco regional no fim. Os marcos de totais (marco_clube,
+# marco_total) não usam isto: vão ao topo do dia, ver ordenar_feed.
+ORDEM_TIPO = {"marco_clube": -2, "marco_total": -1,
+              "novo_lider": 0, "ultrapassagem": 1, "primeira_presenca": 2, "marco": 3}
 
 
 def ordenar_feed(evs):
-    """Ordena para o feed: dia desc, depois país, nivel, região, tipo (ver
-    ORDEM_TIPO)."""
+    """Ordena para o feed: dia desc; dentro do dia os marcos de totais primeiro
+    (notícia), depois os eventos regionais agrupados por país/nível/região."""
     return sorted(evs, key=lambda e: (
-        e["data"], e.get("cc", "PT"), e["nivel"], e["regiao"],
+        e["data"],
+        0 if e["tipo"] in ("marco_total", "marco_clube") else 1,
+        e.get("cc") or "", e["nivel"], e.get("regiao") or "",
         ORDEM_TIPO.get(e["tipo"], 9), str(e.get("sobre") or ""),
     ))
 
@@ -259,13 +322,14 @@ def ordenar_feed(evs):
 def colapsar_marcos(evs):
     """Por (data, cc, nivel, regiao, quem) mantém só o marco de patamar mais
     alto. Um sync grande pode gerar 25 e 50 de uma vez, ou runs sucessivos do
-    mesmo dia tê-los acrescentado em separado, o 50 já implica o 25."""
+    mesmo dia tê-los acrescentado em separado, o 50 já implica o 25. Vale para
+    os três tipos de marco (regional, total do atleta, união do clube)."""
     melhor = {}
     for i, e in enumerate(evs):
-        if e["tipo"] != "marco":
+        if e["tipo"] not in MARCO_TIPOS:
             continue
-        k = (e["data"], e.get("cc", "PT"), e["nivel"], e["regiao"], e["quem"])
+        k = (e["data"], e.get("cc") or "", e["nivel"], e.get("regiao") or "", e.get("quem") or "")
         if k not in melhor or e["valores"][0] > evs[melhor[k]]["valores"][0]:
             melhor[k] = i
     manter = set(melhor.values())
-    return [e for i, e in enumerate(evs) if e["tipo"] != "marco" or i in manter]
+    return [e for i, e in enumerate(evs) if e["tipo"] not in MARCO_TIPOS or i in manter]

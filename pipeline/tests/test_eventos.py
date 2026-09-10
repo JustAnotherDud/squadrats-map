@@ -102,6 +102,52 @@ def test_colapsar_marcos_nao_mistura_paises():
     assert {(e["cc"], e["valores"][0]) for e in out} == {("ES", 50), ("PT", 25)}
 
 
+# --- marcos de totais (squadratinhos do atleta / união do clube) -----------
+
+def test_marco_total_do_atleta():
+    a = {"Zé": 4800, "Xeira": 6100}
+    b = {"Zé": 5050, "Xeira": 6100}
+    evs = eventos.detectar_totais(a, b, None, None, "2026-09-10")
+    assert len(evs) == 1
+    e = evs[0]
+    assert e["tipo"] == "marco_total" and e["quem"] == "Zé"
+    assert e["valores"] == [5000, 5050] and e["regiao"] is None
+
+
+def test_marco_total_so_o_patamar_mais_alto():
+    """Um salto grande (backlog de sync) cruza 5000 e 7500 de uma vez: só sai
+    o 7500, e o colapso confirma."""
+    evs = eventos.detectar_totais({"Zé": 4900}, {"Zé": 7600}, None, None, "2026-09-10")
+    assert [e["valores"][0] for e in evs] == [7500]
+
+
+def test_marco_clube_uniao():
+    evs = eventos.detectar_totais({}, {}, 9800, 10200, "2026-09-10")
+    assert len(evs) == 1
+    assert evs[0]["tipo"] == "marco_clube" and evs[0]["quem"] is None
+    assert evs[0]["valores"] == [10000, 10200]
+
+
+def test_marco_total_estreante_nao_gera():
+    evs = eventos.detectar_totais({"Zé": 4900}, {"Zé": 5100, "Novo": 5200}, None, None, "2026-09-10")
+    assert {e["quem"] for e in evs} == {"Zé"}  # "Novo" não gera nada
+
+
+def test_ordenar_feed_marcos_de_totais_no_topo_do_dia():
+    ev = lambda tipo, **kw: {"data": "2026-09-10", "nivel": kw.get("nivel", "concelho"),
+        "regiao": kw.get("regiao"), "cc": kw.get("cc"), "tipo": tipo,
+        "quem": kw.get("quem", "Zé"), "sobre": kw.get("sobre"), "valores": [1, 2]}
+    baralhado = [
+        ev("marco", regiao="Arouca", cc="PT"),
+        ev("marco_total", nivel="total"),
+        ev("novo_lider", regiao="Arouca", cc="PT", sobre="Pedro"),
+        ev("marco_clube", nivel="total", quem=None),
+    ]
+    tipos = [e["tipo"] for e in eventos.ordenar_feed(baralhado)]
+    assert tipos[:2] == ["marco_clube", "marco_total"]  # totais primeiro
+    assert tipos[2:] == ["novo_lider", "marco"]         # regionais a seguir, na ordem normal
+
+
 def test_ultrapassagem_fora_do_topo():
     ant = _snap({
         "Zé":    {"distrito": {"Leiria": 100}},
