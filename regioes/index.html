@@ -64,6 +64,10 @@
     font-size: 11px; padding: 0 7px 0 0; vertical-align: 1px;
   }
   .idx-t-cab.aberto .sr-tri { color: var(--tinta-2); }
+  .idx-t-cab .bandeira {
+    width: 15px; height: 11px; margin-right: 7px; vertical-align: -1px;
+    border-radius: 1px; flex: none;
+  }
   .idx-t-cab td.idx-t-n { color: var(--tinta-2); }
   tbody.idx-t-grupo:first-of-type .idx-t-cab td.idx-t-lugar { padding-top: 4px; }
 
@@ -155,7 +159,7 @@
     if (estado.soDisputados) leaves = leaves.filter(x => x.n >= 2);
     leaves = ordenar(leaves);
     const cab = `<tbody class="idx-t-grupo"><tr class="idx-t-cab sr-row exp${aberto ? ' aberto' : ''}" data-i="${g.key}">
-      <td class="idx-t-lugar"><button type="button" class="sr-tri" aria-expanded="${aberto}" aria-label="ver ${esc(g.regiao)}">▸</button><a class="${g.disp ? 'disp' : ''}" href="${g.key}.html">${esc(g.regiao)}</a></td>
+      <td class="idx-t-lugar"><button type="button" class="sr-tri" aria-expanded="${aberto}" aria-label="ver ${esc(g.regiao)}">▸</button>${bandeiraSvg(g.cc, 15, 11)}<a class="${g.disp ? 'disp' : ''}" href="${g.key}.html">${esc(g.regiao)}</a></td>
       ${celulasNum(g)}</tr></tbody>`;
     const corpo = leaves.length
       ? leaves.map(linhaFolha).join('')
