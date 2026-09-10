@@ -18,7 +18,17 @@
   .idx-estado { color: var(--tinta-2); padding: 44px 0; text-align: center; }
   .idx-erro { color: #e88a6a; }
 
-  /* toggle "só disputadas", mesmo espírito do .perfil-toggle dos perfis */
+  /* controlo de nível: o mesmo .seg do club.html, sem o fundo translúcido
+     (aqui está sobre a página, não sobre o mapa) */
+  .seg { display: flex; gap: 5px; flex-wrap: wrap; margin: 14px 0 6px; }
+  .seg button {
+    background: none; color: var(--tinta-2); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 6px 10px; font-size: 11.5px;
+    font-family: var(--f-mono); cursor: pointer;
+  }
+  .seg button.on { color: var(--tinta); border-color: var(--marca); }
+
+  /* toggle "só disputados", mesmo espírito do .perfil-toggle dos perfis */
   .idx-toggle {
     background: none; border: 1px solid var(--rule); border-radius: 3px;
     color: var(--tinta-2); font-family: var(--f-mono); font-size: 11.5px;
@@ -27,8 +37,8 @@
   .idx-toggle.on { color: var(--tinta); border-color: var(--marca); }
 
   /* tabela densa e ordenável, modelada no .perfil-tabela da secção 04 dos
-     perfis. Cada grupo (distrito / país estrangeiro) é um <tbody> cabeçalho
-     + um <tbody.sr-det> colapsável com as folhas. Scroll horizontal em ecrãs
+     perfis. Lista plana do nível escolhido (sem grupos): o drill-down para
+     as sub-divisões vive na página de cada lugar. Scroll horizontal em ecrãs
      estreitos, como a .perfil-scroll. */
   .idx-scroll { overflow-x: auto; max-width: 100%; }
   .idx-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -51,25 +61,12 @@
   .idx-t td.idx-t-lugar a { color: var(--tinta); text-decoration: none; }
   .idx-t td.idx-t-lugar a:hover { text-decoration: underline; text-decoration-color: var(--marca); }
   .idx-t td.idx-t-lugar a.disp { text-decoration: underline; text-decoration-color: var(--ouro); text-underline-offset: 3px; }
+  .idx-t td.idx-t-lugar .bandeira {
+    width: 14px; height: 10px; margin-right: 7px; vertical-align: -1px; border-radius: 1px;
+  }
   .idx-t td.idx-t-lid { text-align: right; white-space: nowrap; color: var(--tinta-2); font-size: 11.5px; }
   .idx-t-lider .tile { width: 8px; height: 8px; margin-right: 5px; }
-  .idx-t td.idx-t-vazio { color: var(--tinta-3); text-align: center; padding: 8px 6px; }
-
-  /* linha-cabeçalho de grupo: colapsável (sr-tri + ligarExpansao local) */
-  .idx-t-cab td { border-bottom: 1px solid var(--rule); }
-  .idx-t-cab td.idx-t-lugar { padding-top: 14px; }
-  .idx-t-cab td.idx-t-lugar a { font-family: var(--f-tit); font-weight: 600; font-size: 14.5px; }
-  .idx-t-cab .sr-tri {
-    background: none; border: 0; color: var(--tinta-3); cursor: pointer;
-    font-size: 11px; padding: 0 7px 0 0; vertical-align: 1px;
-  }
-  .idx-t-cab.aberto .sr-tri { color: var(--tinta-2); }
-  .idx-t-cab .bandeira {
-    width: 15px; height: 11px; margin-right: 7px; vertical-align: -1px;
-    border-radius: 1px; flex: none;
-  }
-  .idx-t-cab td.idx-t-n { color: var(--tinta-2); }
-  tbody.idx-t-grupo:first-of-type .idx-t-cab td.idx-t-lugar { padding-top: 4px; }
+  .idx-t td.idx-t-vazio { color: var(--tinta-3); text-align: center; padding: 22px 6px; }
 
   .idx-nota { font-size: 11.5px; color: var(--tinta-3); margin: 22px 0 0; max-width: 66ch; line-height: 1.7; }
 </style>
@@ -78,14 +75,15 @@
 <main id="regioes-idx">
   <h1>Lugares</h1>
   <dl class="meta" id="meta"></dl>
+  <div class="seg" id="idx-nivel"></div>
   <button class="idx-toggle" id="idx-disp">Só disputados (2+ membros)</button>
   <div id="lista"><p class="idx-estado">A carregar…</p></div>
   <p class="idx-nota"><b>Cobre</b> = squadratinhos que o clube cobre no lugar
     (união dos membros, sem repetir os partilhados); <b>Total</b> = o tamanho do
     lugar; <b>Membros</b> = quantos têm lá pelo menos um squadratinho. A % só
     para Portugal e países inteiros (contra uma província estrangeira não diz
-    nada). Clica num cabeçalho para ordenar; num distrito ou país para abrir as
-    sub-divisões. A ouro: com troca de posição no ranking (ver o
+    nada). Escolhe o nível em cima; clica num cabeçalho de coluna para ordenar.
+    A ouro: com troca de posição no ranking (ver o
     <a href="../historico.html">histórico</a>).</p>
 </main>
 <script src="../nav.js"></script>
@@ -95,17 +93,29 @@
 (function () {
   'use strict';
   // dadosUrl / carregarJson / mostrarErroDados / avisoDadosVelhos / cor / esc /
-  // nfmt / carregarCores / fmtDataHora: shared.js. pctfmt: comum.js.
+  // nfmt / bandeiraSvg / carregarCores / fmtDataHora: shared.js. pctfmt: comum.js.
   // Tudo vem do regioes_index.json (Fase 3: já inclui estrangeiro e país).
   const pct = p => pctfmt(p, { compacto: true });
   const pctPais = p => pctfmt(p, { casas: 2, piso: true });
-  const CC_ORDEM = ['PT', 'ES', 'DE', 'MA', 'AD'];
   // a % de uma província estrangeira contra o seu total não diz nada; só se
   // mostra para PT e para o nível país (2 casas + piso).
   const celPct = x => x.nivel === 'pais'
     ? (x.uniao_pct != null ? pctPais(x.uniao_pct) : '')
     : ((x.uniao_pct != null && x.cc === 'PT') ? pct(x.uniao_pct) : '');
   const num = v => (v == null ? '' : nfmt(v));
+
+  // três níveis, o mesmo par país/região/zona do leaderboard do club.html.
+  // PT e estrangeiro usam strings de nível diferentes para o mesmo patamar.
+  const NIVEIS = [['pais', 'País'], ['regiao', 'Região'], ['zona', 'Zona']];
+  const NIVEL_MATCH = {
+    pais: r => r.nivel === 'pais',
+    regiao: r => r.nivel === 'distrito' || r.nivel === 'regiao',
+    zona: r => r.nivel === 'concelho' || r.nivel === 'zona',
+  };
+  const nivelDoHash = () => {
+    const h = (location.hash || '').replace('#', '');
+    return NIVEIS.some(([k]) => k === h) ? h : 'regiao';   // por omissão: Região
+  };
 
   // colunas ordenáveis. Lugar e Líder não ordenam.
   const COLS = [
@@ -116,9 +126,9 @@
   ];
 
   const estado = {
+    nivel: nivelDoHash(),
     sort: { k: 'uniao', dir: 'desc' },
     soDisputados: false,
-    abertos: new Set(),   // keys dos grupos expandidos, para o sort não os fechar
   };
   let IDX = null;
 
@@ -140,31 +150,14 @@
     return `<span class="idx-t-lider"><span class="tile" style="background:${cor(nome)}"></span>${esc(nome)}</span>`;
   }
 
-  const celulasNum = x =>
-    `<td class="idx-t-n">${x.n}</td>`
-    + `<td class="idx-t-n">${num(x.uniao)}</td>`
-    + `<td class="idx-t-n fraco">${num(x.total)}</td>`
-    + `<td class="idx-t-n">${celPct(x)}</td>`
-    + `<td class="idx-t-lid">${lider(x.lider)}</td>`;
-
-  function linhaFolha(x) {
+  function linha(x) {
     return `<tr>
-      <td class="idx-t-lugar"><a class="${x.disp ? 'disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a></td>
-      ${celulasNum(x)}</tr>`;
-  }
-
-  function grupo(g, filhos) {
-    const aberto = estado.abertos.has(g.key);
-    let leaves = filhos;
-    if (estado.soDisputados) leaves = leaves.filter(x => x.n >= 2);
-    leaves = ordenar(leaves);
-    const cab = `<tbody class="idx-t-grupo"><tr class="idx-t-cab sr-row exp${aberto ? ' aberto' : ''}" data-i="${g.key}">
-      <td class="idx-t-lugar"><button type="button" class="sr-tri" aria-expanded="${aberto}" aria-label="ver ${esc(g.regiao)}">▸</button>${bandeiraSvg(g.cc, 15, 11)}<a class="${g.disp ? 'disp' : ''}" href="${g.key}.html">${esc(g.regiao)}</a></td>
-      ${celulasNum(g)}</tr></tbody>`;
-    const corpo = leaves.length
-      ? leaves.map(linhaFolha).join('')
-      : `<tr><td colspan="6" class="idx-t-vazio">${estado.soDisputados ? 'nenhum com 2+ membros' : 'sem sub-divisões com actividade'}</td></tr>`;
-    return cab + `<tbody class="sr-det" data-i="${g.key}"${aberto ? '' : ' hidden'}>${corpo}</tbody>`;
+      <td class="idx-t-lugar">${bandeiraSvg(x.cc, 14, 10)}<a class="${x.disp ? 'disp' : ''}" href="${x.key}.html">${esc(x.regiao)}</a></td>
+      <td class="idx-t-n">${x.n}</td>
+      <td class="idx-t-n">${num(x.uniao)}</td>
+      <td class="idx-t-n fraco">${num(x.total)}</td>
+      <td class="idx-t-n">${celPct(x)}</td>
+      <td class="idx-t-lid">${lider(x.lider)}</td></tr>`;
   }
 
   function thead() {
@@ -178,37 +171,44 @@
     </tr></thead>`;
   }
 
-  function pintar() {
-    const rows = IDX.regioes || [];
-    const porPai = {};
-    for (const r of rows) (porPai[r.pai_key] = porPai[r.pai_key] || []).push(r);
-
-    const paises = rows.filter(r => r.nivel === 'pais')
-      .sort((a, b) => (CC_ORDEM.indexOf(a.cc) + 99) - (CC_ORDEM.indexOf(b.cc) + 99));
-
-    const nPT = rows.filter(r => r.cc === 'PT' && r.nivel !== 'pais').length;
-    const nDist = (porPai['pais-pt'] || []).length;
-    const estr = paises.filter(p => p.cc !== 'PT');
-    const nEstr = rows.filter(r => r.cc !== 'PT' && r.nivel !== 'pais').length;
+  function meta(rows) {
+    const naoPais = rows.filter(r => r.nivel !== 'pais');
+    const nPT = naoPais.filter(r => r.cc === 'PT').length;
+    const nDist = rows.filter(r => r.nivel === 'distrito').length;
+    const nEstr = naoPais.length - nPT;
+    const estr = [...new Set(naoPais.filter(r => r.cc !== 'PT').map(r => r.cc))];
+    const porCC = cc => rows.filter(r => r.cc === cc && r.nivel === 'regiao').length;
     document.getElementById('meta').innerHTML =
       `<dt>com actividade</dt><dd>${nPT + nEstr} lugares`
         + (nEstr ? ` (${nPT} em Portugal, ${nEstr} no estrangeiro)` : '') + '</dd>'
       + `<dt>nível</dt><dd>${nDist} distritos, ${nPT - nDist} concelhos`
-        + (nEstr ? `, ${nEstr} no estrangeiro (${estr.map(p => `${p.cc} ${(porPai[p.key] || []).length}`).join(', ')})` : '') + '</dd>'
+        + (nEstr ? `, ${nEstr} no estrangeiro (${estr.map(cc => `${cc} ${porCC(cc)}`).join(', ')})` : '') + '</dd>'
       + `<dt>actualizado</dt><dd>${fmtDataHora(IDX.gerado)}</dd>`;
-    avisoDadosVelhos(IDX.gerado);  // shared.js
+  }
 
-    // grupos PT (distritos) e depois estrangeiros (países), cada bloco pela
-    // mesma ordenação escolhida
-    const distritos = ordenar(porPai['pais-pt'] || []);
-    const paisesEstr = ordenar(estr);
-    let html = `<div class="idx-scroll"><table class="idx-t">${thead()}`;
-    for (const dd of distritos) html += grupo(dd, porPai[dd.key] || []);
-    for (const p of paisesEstr) html += grupo(p, porPai[p.key] || []);
-    html += '</table></div>';
+  function segNivel() {
+    const box = document.getElementById('idx-nivel');
+    box.innerHTML = NIVEIS.map(([k, rot]) =>
+      `<button type="button" data-nivel="${k}" class="${estado.nivel === k ? 'on' : ''}">${rot}</button>`).join('');
+    box.querySelectorAll('[data-nivel]').forEach(b => b.onclick = () => {
+      estado.nivel = b.dataset.nivel;
+      history.replaceState(null, '', '#' + estado.nivel);
+      segNivel();
+      pintar();
+    });
+  }
+
+  function pintar() {
+    let rows = (IDX.regioes || []).filter(NIVEL_MATCH[estado.nivel]);
+    if (estado.soDisputados) rows = rows.filter(x => x.n >= 2);
+    rows = ordenar(rows);
+
+    const corpo = rows.length
+      ? rows.map(linha).join('')
+      : `<tr><td colspan="6" class="idx-t-vazio">${estado.soDisputados ? 'nenhum com 2+ membros neste nível' : 'sem lugares neste nível'}</td></tr>`;
 
     const lista = document.getElementById('lista');
-    lista.innerHTML = html;
+    lista.innerHTML = `<div class="idx-scroll"><table class="idx-t">${thead()}<tbody>${corpo}</tbody></table></div>`;
 
     lista.querySelectorAll('.idx-t th[data-sort]').forEach(th => {
       th.onclick = () => {
@@ -217,22 +217,6 @@
         else estado.sort = { k, dir: 'desc' };
         pintar();
       };
-    });
-    // expansão local (não o ligarExpansao do comum.js): precisa de manter o
-    // estado.abertos para o sort não fechar os grupos. Mesmo padrão sr-tri.
-    lista.querySelector('.idx-t').addEventListener('click', e => {
-      if (e.target.closest('a') || e.target.closest('th')) return;
-      const row = e.target.closest('.idx-t-cab.sr-row.exp');
-      if (!row) return;
-      const k = row.dataset.i;
-      const det = lista.querySelector(`tbody.sr-det[data-i="${CSS.escape(k)}"]`);
-      if (!det) return;
-      const abrir = det.hidden;
-      det.hidden = !abrir;
-      row.classList.toggle('aberto', abrir);
-      const tri = row.querySelector('.sr-tri');
-      if (tri) tri.setAttribute('aria-expanded', String(abrir));
-      if (abrir) estado.abertos.add(k); else estado.abertos.delete(k);
     });
   }
 
@@ -250,6 +234,9 @@
       mostrarErroDados(document.getElementById('regioes-idx'), e);
       return;
     }
+    meta(IDX.regioes || []);
+    avisoDadosVelhos(IDX.gerado);  // shared.js
+    segNivel();
     pintar();
   })();
 })();
