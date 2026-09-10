@@ -60,6 +60,23 @@ def key_de(cc, nivel, nome):
     return f"{ccl}-{pref}{slugify(nome)}"
 
 
+def centro_de(snapshot, cc, nivel, nome):
+    """[x, y] em tiles (zoom do club.json) do centro da união do clube neste
+    lugar, para o botão "ver no mapa" da página de lugar saltar o club.html.
+    None quando não há: país (grande de mais, o club.html também o exclui) ou
+    lugar sem entrada em club_regioes.uniao.centros. Mesmas chaves que o
+    centroDe() do club.html."""
+    if nivel == "pais":
+        return None
+    centros = ((snapshot.get("uniao") or {}).get("centros")) or {}
+    ccl = cc.lower()
+    if nivel in ("distrito", "regiao"):
+        chave = f"distrito|{nome}" if cc == "PT" else f"region|{ccl}|{nome}"
+    else:  # concelho / zona
+        chave = f"concelho|{nome}" if cc == "PT" else f"municipio|{ccl}|{nome}"
+    return centros.get(chave)
+
+
 def regioes_ativas(club_regioes):
     """{nivel: set(nomes)} das regiões PT com pelo menos um atleta a >0."""
     fora = {n: set() for n in NIVEIS}
@@ -164,6 +181,7 @@ def construir_estrangeiro(ccl, nivel, nome, snapshot, stats, adjacency,
         "avo_nome": avo_nome,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
+        "centro": centro_de(snapshot, cc, nivel, nome),
         "ranking": ranking,
         "vizinhos": viz,
     }
@@ -209,6 +227,7 @@ def construir_pais(cc, snapshot, stats, adjacency, paises_com_pagina):
         "avo_nome": None,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
+        "centro": None,
         "ranking": ranking,
         "vizinhos": viz,
     }
@@ -279,6 +298,7 @@ def construir(nivel, nome, snapshot_atual, stats, adjacency,
         "avo_nome": avo_nome,
         "totais": {"z14": z14, "z17": z17},
         "uniao": {"z17": uni, "pct": uni_pct},
+        "centro": centro_de(snapshot_atual, "PT", nivel, nome),
         "ranking": ranking,
         "vizinhos": viz,
     }

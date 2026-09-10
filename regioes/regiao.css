@@ -13,6 +13,9 @@ a:hover { text-decoration-color: var(--tinta); }
 
 /* cabeçalho */
 .reg-cab h1 { margin: 0; }
+/* alvo "ver no mapa" ao lado do título (site.css .lb-saltar); um pouco maior
+   e mais afastado do que na linha densa do leaderboard */
+.reg-cab h1 .lb-saltar { width: 15px; height: 15px; margin-left: 10px; vertical-align: 3px; }
 .reg-cab .sub {
   margin: 5px 0 0; font-family: var(--f-mono); font-size: 12px;
   color: var(--tinta-3); letter-spacing: .02em;

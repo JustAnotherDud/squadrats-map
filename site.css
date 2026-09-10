@@ -211,3 +211,19 @@ h2, h3 { font-family: var(--f-tit); font-weight: 600; }
   max-width: 60ch; margin: 44px auto; padding: 0 18px; text-align: center;
 }
 .erro-dados a { color: inherit; }
+
+/* "ver no mapa": alvo desenhado em CSS (anel + ponto), sem glifo. <button> no
+   leaderboard do club.html (salta o mapa local), <a> na página de lugar
+   (regiao.js, navega para o club.html#c=x,y porque não há mapa na página). */
+.lb-saltar {
+  flex: 0 0 auto; display: inline-block; box-sizing: border-box;
+  width: 13px; height: 13px; padding: 0; margin: 0 0 0 2px;
+  background: none; border: 1.5px solid var(--tinta-3); border-radius: 50%;
+  cursor: pointer; position: relative; vertical-align: middle;
+}
+.lb-saltar::after {
+  content: ""; position: absolute; inset: 3px;
+  background: var(--tinta-3); border-radius: 50%;
+}
+.lb-saltar:hover, .lb-saltar:focus-visible { border-color: var(--marca); }
+.lb-saltar:hover::after, .lb-saltar:focus-visible::after { background: var(--marca); }

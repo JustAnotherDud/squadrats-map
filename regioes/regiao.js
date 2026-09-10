@@ -122,6 +122,15 @@
     }).join(' ') : '<span class="reg-vazio">sem vizinhos com página</span>';
     const algumVizDisp = d.vizinhos.some(vizDisp);
 
+    // "ver no mapa": salta o club.html até ao centróide da união do clube
+    // aqui (regioes.py -> centro_de, de club_regioes.uniao.centros). A página
+    // de lugar não tem mapa, por isso é um <a> que navega, com o mesmo alvo
+    // do botão do leaderboard (site.css, .lb-saltar). País não tem centróide.
+    const saltar = Array.isArray(d.centro)
+      ? ` <a class="lb-saltar" href="../club.html#c=${d.centro[0]},${d.centro[1]}"
+           aria-label="ver ${esc(d.regiao)} no mapa do clube"></a>`
+      : '';
+
     const temSubs = ['distrito', 'regiao', 'pais'].includes(d.nivel);
     const filhosTabela = filhos && filhos.length
       ? tabelaSubRegioes(filhos, { rotulo: 'cobre', linkKey: true, pctOpts })
@@ -131,7 +140,7 @@
 
     alvo.innerHTML = `
       <div class="reg-cab">
-        <h1>${esc(d.regiao)}</h1>
+        <h1>${esc(d.regiao)}${saltar}</h1>
         <p class="sub">${rotulo(SUB, d.nivel, cc)}</p>
         <dl class="meta">
           ${paiRows}
