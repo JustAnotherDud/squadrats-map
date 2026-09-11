@@ -30,7 +30,7 @@
     ['ubersquadratinho', 'Übersquadratinho', 'Lado do maior quadrado NxN totalmente preenchido, em squadratinhos.'],
   ];
 
-  // Países com página própria em regioes/pais-<cc>.html. Só se linka os que
+  // Países com página própria em lugares/pais-<cc>.html. Só se linka os que
   // existem, tal como as regiões/zonas.
   const PAIS_COM_PAGINA = new Set(['PT', 'ES', 'DE', 'MA']);
 
@@ -137,7 +137,7 @@
     const nome = (nivel === 'regiao' || nivel === 'zona') && !ehPais
       ? `<a href="../${regiaoHref(hrefNivel, r.nome, r.cc)}">${txt}</a>`
       : (ehPais && PAIS_COM_PAGINA.has(r.cc))
-        ? `<a href="../regioes/pais-${r.cc.toLowerCase()}.html">${txt}</a>`
+        ? `<a href="../lugares/pais-${r.cc.toLowerCase()}.html">${txt}</a>`
         : txt;
     const cls = r.posicao <= 3 && r.de > 1 ? ` p${r.posicao}` : '';
     const subir = r.acima != null

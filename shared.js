@@ -79,7 +79,7 @@ const NIVEL_LABEL = { pais: 'País', regiao: 'Região', zona: 'Zona' };
 
 // Slug de uma região, igual ao pipeline/slugs.py::slugify (NFKD, sem acentos,
 // minúsculas, não-alfanumérico -> "-"). Tem de bater certo com os nomes dos
-// ficheiros regioes/<key>.html gerados no build.
+// ficheiros lugares/<key>.html gerados no build.
 function slugify(s) {
   return String(s).normalize('NFKD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -94,15 +94,15 @@ function slugify(s) {
 // argumentos continuam a devolver exactamente o mesmo.
 function regiaoHref(nivel, nome, cc) {
   cc = (cc || 'PT').toUpperCase();
-  if (nivel === 'pais') return `regioes/pais-${cc.toLowerCase()}.html`;
-  if (cc === 'PT') return `regioes/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
+  if (nivel === 'pais') return `lugares/pais-${cc.toLowerCase()}.html`;
+  if (cc === 'PT') return `lugares/${nivel === 'concelho' ? 'c' : 'd'}-${slugify(nome)}.html`;
   const p = (nivel === 'zona' || nivel === 'concelho' || nivel === 'municipio') ? 'z' : 'r';
-  return `regioes/${cc.toLowerCase()}-${p}-${slugify(nome)}.html`;
+  return `lugares/${cc.toLowerCase()}-${p}-${slugify(nome)}.html`;
 }
 
 // --- primitivas de render partilhadas ---
 // Estiveram copiadas em historico.html, index.html, atletas/perfil.js e
-// regioes/comum.js (quatro cópias de esc/nfmt/cor/dot). shared.js é carregado
+// lugares/comum.js (quatro cópias de esc/nfmt/cor/dot). shared.js é carregado
 // em todas as páginas, por isso a fonte única é aqui.
 
 // Cores de identidade dos atletas. Fonte em runtime: data/membros_cores.json,
@@ -136,9 +136,9 @@ const nfmt = n => (n == null ? '·' : n.toLocaleString('pt-PT'));
 const tile = n => `<span class="tile" style="background:${cor(n)}"></span>`;
 
 // link para o perfil do atleta. O ../ entra sozinho a partir de atletas/ ou
-// regioes/ (mesmo teste do nav.js: não conta segmentos, aguenta o prefixo do
+// lugares/ (mesmo teste do nav.js: não conta segmentos, aguenta o prefixo do
 // repo no GitHub Pages).
-const atl = n => `<a class="atl" href="${/\/(atletas|regioes)\//.test(location.pathname) ? '../' : ''}atletas/${slugify(n)}.html">${esc(n)}</a>`;
+const atl = n => `<a class="atl" href="${/\/(atletas|lugares)\//.test(location.pathname) ? '../' : ''}atletas/${slugify(n)}.html">${esc(n)}</a>`;
 
 // tira de quota: `frac` (0..1) -> N células na cor `corHex`, comparáveis em
 // comprimento dentro do mesmo grupo. NÃO é magnitude (o número mono leva
@@ -200,7 +200,7 @@ function tileNoroeste(x, y, z) {
 // não na branch `data`. Antes este bloco estava copiado em 8 sítios.
 const _RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
 const _LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-const _DATA_LOCAL = (/\/(atletas|regioes)\//.test(location.pathname) ? '../' : '') + 'data/';
+const _DATA_LOCAL = (/\/(atletas|lugares)\//.test(location.pathname) ? '../' : '') + 'data/';
 const NC = { cache: 'no-cache' };  // revalida sempre (304 quando não mudou)
 
 // ficheiro regenerado pelo cron (branch `data`): club.json, stats.json,

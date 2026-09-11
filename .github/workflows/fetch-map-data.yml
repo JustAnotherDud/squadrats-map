@@ -199,11 +199,11 @@ jobs:
           git commit --only atletas/ -m "chore: regenerar stubs dos perfis [skip ci]"
           git push origin HEAD:main
 
-      # Stubs das páginas de região (regioes/<key>.html), dependem da lista de
-      # regiões com actividade (data/regioes/, produzido no passo "Varrer").
+      # Stubs das páginas de lugar (lugares/<key>.html), dependem da lista de
+      # lugares com actividade (data/regioes/, produzido no passo "Varrer").
       # Nova região explorada -> novo stub -> commit ao main -> rebuild Pages.
       # Mesmo padrão condicional dos stubs dos perfis.
-      - name: Regenerar stubs das regiões (só commita se a lista mudou)
+      - name: Regenerar stubs dos lugares (só commita se a lista mudou)
         if: always()
         continue-on-error: true
         run: |
@@ -211,12 +211,12 @@ jobs:
 
           git config user.name "squadrats-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add regioes/
-          if git diff --cached --quiet -- regioes/; then
-            echo "stubs das regiões sem alterações, nada a commitar."
+          git add lugares/
+          if git diff --cached --quiet -- lugares/; then
+            echo "stubs dos lugares sem alterações, nada a commitar."
             exit 0
           fi
-          git commit --only regioes/ -m "chore: regenerar stubs das regiões [skip ci]"
+          git commit --only lugares/ -m "chore: regenerar stubs dos lugares [skip ci]"
           git push origin HEAD:main
 
       # GitHub desativa `schedule` em repos sem atividade há 60 dias, se isso

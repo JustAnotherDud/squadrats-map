@@ -2,7 +2,7 @@
 // detalhado pessoal, que fica de fora da navegação de propósito).
 //
 // Injecta-se a si própria: cada página só precisa de <script src="nav.js">
-// (ou "../nav.js" a partir de atletas/ e regioes/). Sem dependências.
+// (ou "../nav.js" a partir de atletas/ e lugares/). Sem dependências.
 //
 // Páginas de mapa em ecrã cheio (club.html) põem <body data-nav="overlay">:
 // a barra fica `position:fixed` e a página trata do offset do #map/#topbar.
@@ -12,23 +12,23 @@
 
   // Prefixo para os links (raiz vs subpasta). Deriva-se do src do PRÓPRIO
   // <script> desta página ("nav.js" na raiz, "../nav.js" em atletas/ e
-  // regioes/), é a mesma declaração de caminho relativo que o autor do HTML
+  // lugares/), é a mesma declaração de caminho relativo que o autor do HTML
   // já escreveu, por isso não pode discordar da localização real da página.
   // Contar segmentos de location.pathname não serve: no GitHub Pages o path
-  // tem o prefixo do repo (/squadrats-map/regioes/x.html = 3 segmentos) e
-  // localmente não (/regioes/x.html = 2), mesma página, contagem diferente.
+  // tem o prefixo do repo (/squadrats-map/lugares/x.html = 3 segmentos) e
+  // localmente não (/lugares/x.html = 2), mesma página, contagem diferente.
   var meSrc = (document.currentScript && document.currentScript.getAttribute('src')) || '';
   var P = meSrc
     ? (meSrc.match(/\.\.\//g) || []).join('')
-    : (/\/(atletas|regioes)\//.test(location.pathname) ? '../' : '');  // fallback
+    : (/\/(atletas|lugares)\//.test(location.pathname) ? '../' : '');  // fallback
 
-  // regioes/* e atletas/* acendem o seu item (a página está "debaixo" desse
+  // lugares/* e atletas/* acendem o seu item (a página está "debaixo" desse
   // destino), tal como um perfil acende "Perfis". As de subpasta têm de ser
-  // testadas ANTES do file==='index.html' (regioes/index.html não é o hub).
+  // testadas ANTES do file==='index.html' (lugares/index.html não é o hub).
   var file = (location.pathname.split('/').pop() || '').toLowerCase();
   var atual =
     /\/atletas\//.test(location.pathname) ? 'perfis' :
-    /\/regioes\//.test(location.pathname) ? 'regioes' :
+    /\/lugares\//.test(location.pathname) ? 'lugares' :
     file === 'club.html' ? 'mapa' :
     file === 'historico.html' ? 'historico' :
     (file === '' || file === 'index.html') ? 'hub' :
@@ -37,7 +37,7 @@
   var DEST = [
     { id: 'mapa', label: 'Mapa', href: P + 'club.html' },
     { id: 'perfis', label: 'Perfis', href: P + 'atletas/' },
-    { id: 'regioes', label: 'Lugares', href: P + 'regioes/' },
+    { id: 'lugares', label: 'Lugares', href: P + 'lugares/' },
     { id: 'historico', label: 'Histórico', href: P + 'historico.html' },
   ];
 

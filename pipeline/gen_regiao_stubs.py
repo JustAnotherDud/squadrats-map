@@ -1,7 +1,9 @@
-"""Gera os stubs HTML das páginas de lugar: regioes/<key>.html, um por
+"""Gera os stubs HTML das páginas de lugar: lugares/<key>.html, um por
 ficheiro em data/regioes/ (concelho/distrito PT, região/zona estrangeira,
 país). Cada stub é só casca: carrega ../nav.js, ../shared.js e ../regiao.js,
 que lê data/regioes/<key>.json da branch `data` e trata dos cinco níveis.
+(A pasta das páginas é lugares/; a dos dados na branch `data` continua
+regioes/ e não se toca, ninguém a vê.)
 
 Corre no fetch-map-data.yml a seguir ao append_regioes; commita para o `main`
 só se a lista de lugares tiver mudado (padrão do gen_profile_stubs.py).
@@ -47,7 +49,7 @@ STUB = """<!DOCTYPE html>
 
 
 def main(repo_dir, dados_dir):
-    destino = os.path.join(repo_dir, "regioes")
+    destino = os.path.join(repo_dir, "lugares")
     os.makedirs(destino, exist_ok=True)
 
     # só o index.html é à mão; as pais-*.html passaram a geradas (têm
@@ -60,12 +62,12 @@ def main(repo_dir, dados_dir):
         with open(os.path.join(destino, key + ".html"), "w", encoding="utf-8", newline="\n") as f:
             f.write(STUB.format(nome=d["regiao"], key=key, nivel=d["nivel"]))
         escritos.add(key + ".html")
-        print(f"stub: regioes/{key}.html")
+        print(f"stub: lugares/{key}.html")
 
     for ficheiro in os.listdir(destino):
         if ficheiro.endswith(".html") and ficheiro not in escritos:
             os.remove(os.path.join(destino, ficheiro))
-            print(f"removido (lugar sem actividade): regioes/{ficheiro}")
+            print(f"removido (lugar sem actividade): lugares/{ficheiro}")
 
 
 if __name__ == "__main__":
