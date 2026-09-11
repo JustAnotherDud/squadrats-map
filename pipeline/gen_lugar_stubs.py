@@ -9,7 +9,7 @@ Corre no fetch-map-data.yml a seguir ao append_regioes; commita para o `main`
 só se a lista de lugares tiver mudado (padrão do gen_profile_stubs.py).
 Apaga stubs de lugares que já não têm ficheiro de dados.
 
-Uso: py gen_regiao_stubs.py [pasta_repo] [pasta_dados]
+Uso: py gen_lugar_stubs.py [pasta_repo] [pasta_dados]
 """
 import argparse
 import glob

@@ -3,7 +3,7 @@
 Consumido por:
   - append_regioes.py    (passo do run_all.py: reescreve o estado actual de
                           cada região activa, idempotente)
-  - gen_regiao_stubs.py  (escreve regioes/<key>.html a partir de data/regioes/)
+  - gen_lugar_stubs.py   (escreve lugares/<key>.html a partir de data/regioes/)
 
 Cada região com actividade (algum atleta com >=1 square lá) tem um ficheiro
 data/regioes/<key>.json, onde key = "c-<slug>" (concelho) ou "d-<slug>"
