@@ -15,7 +15,7 @@
   // lugares/), é a mesma declaração de caminho relativo que o autor do HTML
   // já escreveu, por isso não pode discordar da localização real da página.
   // Contar segmentos de location.pathname não serve: no GitHub Pages o path
-  // tem o prefixo do repo (/squadrats-map/lugares/x.html = 3 segmentos) e
+  // tem o prefixo do repo (/squadrats-club/lugares/x.html = 3 segmentos) e
   // localmente não (/lugares/x.html = 2), mesma página, contagem diferente.
   var meSrc = (document.currentScript && document.currentScript.getAttribute('src')) || '';
   var P = meSrc

@@ -118,7 +118,7 @@
 //
 // Uma cor por atleta, no índice de bit que o club.json fixa
 // (pipeline/fetch_club_squares.py). As cores vêm da fonte única
-// data/membros_cores.json (partilhada com o club-koms), carregada no arranque
+// data/membros_cores.json (partilhada com o folha-do-clube), carregada no arranque
 // e mapeada por nome. Preenchido a partir de dados.atletas quando o club.json
 // chega; sem membros_cores.json fica o COR_FALLBACK do shared.js.
 let COR_ATLETA = [];
@@ -560,7 +560,7 @@ document.getElementById('painel-cabeca').onclick = function () {
   COR_ATLETA = dados.atletas.map(a => COR_FALLBACK[a.nome] || '#7d8598');
 
   // Cores dos membros: fonte única em data/membros_cores.json (branch main,
-  // partilhada com o club-koms). Remapeia COR_ATLETA por nome; se a fetch
+  // partilhada com o folha-do-clube). Remapeia COR_ATLETA por nome; se a fetch
   // falhar ou faltar um nome, fica o fallback do shared.js.
   try {
     const { cores } = await carregarJson(mainUrl('membros_cores.json'));

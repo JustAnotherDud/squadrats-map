@@ -19,7 +19,7 @@ from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-USER_AGENT = "squadrats-map-sync/1.0 (+github.com/JustAnotherDud/squadrats-map)"
+USER_AGENT = "squadrats-club-sync/1.0 (+github.com/JustAnotherDud/squadrats-club)"
 # dois limites separados: a descoberta (z4/z7/z10) é a cascata barata, só
 # desce de zoom dentro dos tiles que já mostraram cobertura, por isso varre
 # poucos candidatos por natureza. O fetch fino (FETCH_ZOOM, ver scan_athlete)

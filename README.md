@@ -1,7 +1,8 @@
-# squadrats-map
+# squadrats-club
 
-Map of captured squares (squadrats/squadratinhos), with % per
-municipality/district of Portugal, served via GitHub Pages.
+Club site for captured squares (squadrats/squadratinhos): profiles, places
+(municipality/district/country), history and personal analysis, served via
+GitHub Pages. Was `squadrats-map` until it outgrew the name.
 
 The cycle is automatic: `fetch-map-data.yml` runs 6×/day, fetches the data
 **directly from Squadrats' vector tiles** (no manual KML export) and publishes
@@ -15,7 +16,7 @@ branch, not `main`, committing on main made Pages (classic mode) rebuild
 on every run, and a code push of ours at the same time as the cron running
 collided with the bot's commit. The consumers (`analise.html`, `club.html`,
 `folha-do-clube`) read those files from
-`raw.githubusercontent.com/JustAnotherDud/squadrats-map/data/data/...`, not the
+`raw.githubusercontent.com/JustAnotherDud/squadrats-club/data/data/...`, not the
 Pages URL, faster (no rebuild) and without that collision risk. The border
 geojsons and `adjacency.json` are static, they stay only on `main`, normal
 relative path.
@@ -291,7 +292,7 @@ athletes made public and whose links they shared voluntarily (the map URL at
   more often. In practice most runs are well below this. Do not raise the
   frequency without recomputing this budget by the WORST case, not the
   average.
-- Identifiable `User-Agent` (`squadrats-map-sync/1.0 (+github.com/...)`, see
+- Identifiable `User-Agent` (`squadrats-club-sync/1.0 (+github.com/...)`, see
   `tiles_fetch.py`)
 - Low concurrency (`DISCOVERY_CONCURRENCY=4`/`FETCH_CONCURRENCY=6` in
   `tiles_fetch.py`, up from 4 on 2026-08-08, tested without 500s/new

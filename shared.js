@@ -198,7 +198,7 @@ function tileNoroeste(x, y, z) {
 // `git checkout origin/data -- data/`), para dar para testar sem publicar.
 // O membros_cores.json e o adjacency.json são a exceção: vivem no `main`,
 // não na branch `data`. Antes este bloco estava copiado em 8 sítios.
-const _RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-map/';
+const _RAW = 'https://raw.githubusercontent.com/JustAnotherDud/squadrats-club/';
 const _LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
 const _DATA_LOCAL = (/\/(atletas|lugares)\//.test(location.pathname) ? '../' : '') + 'data/';
 const NC = { cache: 'no-cache' };  // revalida sempre (304 quando não mudou)
@@ -234,7 +234,7 @@ function mostrarErroDados(alvo, e) {
   const detalhe = e && e.message ? ` (${esc(String(e.message))})` : '';
   el.innerHTML = `<p class="erro-dados">Não consegui carregar os dados${detalhe}. `
     + `Tenta recarregar a página. Se persistir, o pipeline pode estar em baixo: `
-    + `vê o <a href="https://github.com/JustAnotherDud/squadrats-map/actions">estado das corridas</a>.</p>`;
+    + `vê o <a href="https://github.com/JustAnotherDud/squadrats-club/actions">estado das corridas</a>.</p>`;
 }
 
 // --- barras de aviso no topo ---
@@ -294,7 +294,7 @@ function avisoPorClassificar(avisos) {
     + `classificar (${partes.join('; ')}). Falta trabalho manual no pipeline. `
     + `Ver o README e o `;
   const a = document.createElement('a');
-  a.href = 'https://github.com/JustAnotherDud/squadrats-map/actions';
+  a.href = 'https://github.com/JustAnotherDud/squadrats-club/actions';
   a.textContent = 'estado das corridas';
   el.append(a, document.createTextNode('.'));
   _barraTopo(el);

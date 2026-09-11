@@ -42,8 +42,8 @@ name: fetch-map-data
 # código ao mesmo tempo que o cron corria colidia com o commit do bot
 # (aconteceu de facto: `git pull --rebase` com conflito a meio de um fix).
 # Agora o bot só toca na branch `data`; código e docs continuam a viver só no
-# main. As páginas que lêem estes JSON (squadrats-map: analise.html, club.html,
-# historico.html, atletas/*, regioes/*; e o folha-do-clube) puxam de
+# main. As páginas que lêem estes JSON (squadrats-club: analise.html, club.html,
+# historico.html, atletas/*, lugares/*; e o folha-do-clube) puxam de
 # raw.githubusercontent.com/.../data/... (branch `data`) em vez do URL do
 # Pages, serve o JSON na hora, sem rebuild nenhum, e sem risco de colidir
 # com commits de código.

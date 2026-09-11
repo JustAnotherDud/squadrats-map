@@ -6,7 +6,7 @@
 // Registado pelo nav.js. Versão na cache: subir CACHE ao mudar a casca.
 const CACHE = 'squadrats-club-v2';
 
-// Âmbito do SW (…/squadrats-map/ no GitHub Pages, / em local).
+// Âmbito do SW (…/squadrats-club/ no GitHub Pages, / em local).
 const BASE = new URL('./', self.registration.scope).pathname;
 
 self.addEventListener('install', e => {
