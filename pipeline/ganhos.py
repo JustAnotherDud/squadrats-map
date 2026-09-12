@@ -1,35 +1,30 @@
-"""Cruza o feed de actividades do Strava (folha-do-clube/activities.json)
-com os ganhos de squadratinhos entre snapshots consecutivos de
+"""Janelas de ganho de squadratinhos entre snapshots consecutivos de
 squadrats.json, resolução por CORRIDA do pipeline, não por dia (ao
 contrário de eventos.snapshots_por_dia, que fica só com o último snapshot
-de cada dia UTC: aqui a resolução fina é o ponto todo, ver a investigação
-"Actividades do clube").
+de cada dia UTC: aqui a resolução fina é o ponto todo).
 
-Consumido por append_atividades.py (passo do run_all.py).
+Consumido por append_ganhos.py (passo do run_all.py).
 
 Uma "janela de ganho" é [inicio, fim] = os "atualizado" de dois snapshots
 consecutivos de squadrats.json, para um atleta com ganho > 0 de
-squadratinhos nesse intervalo. Cruza contra actividades cujo intervalo
-[startDate, startDate + duracao_s] se sobrepõe à janela:
-  - 0 actividades: ganho sem correspondência (bicicleta sem Strava, crédito
-    retroactivo do Squadrats, como o caso do Pedro em Grândola).
-  - 1 actividade: fica com o ganho todo, sem partilha.
-  - 2+ actividades: reparte o ganho na proporção do tempo de SOBREPOSIÇÃO de
-    cada uma com a janela (não a duração inteira da actividade), marcado
-    "repartido": True -- a UI tem de mostrar isto, nunca apresentar um
-    número repartido como exacto.
+squadratinhos nesse intervalo.
+
+(Até 2026-09-13 este módulo também cruzava as janelas com o feed de
+actividades do Strava via folha-do-clube/activities.json, gravado em
+data/atividades.json com uma actividade correspondente por janela quando
+havia. Removido: a taxa real de correspondência ficou em ~9% (7 de 83
+janelas), a coluna "sem actividade Strava correspondente" repetida em mais
+de 90% das linhas era mais ruído do que valor. O histórico continua no git,
+ver o commit que apagou cruzar()/append_atividades.py se um dia isto voltar
+a fazer sentido, ex. com o training_activities pessoal do dono da sessão.)
 """
 import json
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 def _iso(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
-
-
-def _fmt(dt):
-    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def snapshots_todos(repo, branch="origin/data", path="data/squadrats.json"):
@@ -89,54 +84,3 @@ def deltas_squadratinhos(snaps):
             if ganho > 0:
                 janelas.append({"atleta": nome, "inicio": t0, "fim": t1, "ganho": ganho})
     return janelas
-
-
-def _intervalo_atividade(a):
-    inicio = _iso(a["inicio"])
-    return inicio, inicio + timedelta(seconds=a.get("duracao_s") or 0)
-
-
-def _sobreposicao_s(a_inicio, a_fim, j_inicio, j_fim):
-    inicio, fim = max(a_inicio, j_inicio), min(a_fim, j_fim)
-    return max(0.0, (fim - inicio).total_seconds())
-
-
-def cruzar(janelas, atividades):
-    """Cada janela ganha "atividades" (lista, 0+) e "repartido" (bool). Ver
-    docstring do módulo para a regra. `atividades` = linhas de
-    activities.json (id/atleta/tipo/inicio/duracao_s/dist_km/ritmo)."""
-    por_atleta = {}
-    for a in atividades:
-        por_atleta.setdefault(a["atleta"], []).append(a)
-
-    resultado = []
-    for j in janelas:
-        candidatas = []
-        for a in por_atleta.get(j["atleta"], []):
-            a_inicio, a_fim = _intervalo_atividade(a)
-            sobre = _sobreposicao_s(a_inicio, a_fim, j["inicio"], j["fim"])
-            if sobre > 0:
-                candidatas.append((a, sobre))
-
-        repartido = len(candidatas) > 1
-        lista = []
-        if len(candidatas) == 1:
-            a, _ = candidatas[0]
-            lista.append({"id": a["id"], "tipo": a.get("tipo", ""),
-                          "dist_km": a.get("dist_km"), "ganho": j["ganho"]})
-        elif candidatas:
-            soma = sum(s for _, s in candidatas) or 1.0
-            restante = j["ganho"]
-            for i, (a, s) in enumerate(candidatas):
-                # a última fica com o resto, para a soma bater certo com
-                # j["ganho"] apesar do arredondamento das anteriores
-                fatia = round(j["ganho"] * s / soma) if i < len(candidatas) - 1 else restante
-                restante -= fatia
-                lista.append({"id": a["id"], "tipo": a.get("tipo", ""),
-                              "dist_km": a.get("dist_km"), "ganho": fatia})
-
-        resultado.append({
-            "atleta": j["atleta"], "inicio": _fmt(j["inicio"]), "fim": _fmt(j["fim"]),
-            "ganho": j["ganho"], "repartido": repartido, "atividades": lista,
-        })
-    return resultado

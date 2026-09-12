@@ -37,5 +37,5 @@ data/regioes/
 data/regioes_index.json
 # ganhos de squadratinhos por região/dia (append_gains_regioes.py), mesma regra
 data/gains_regioes.json
-# cruzamento actividades Strava x ganhos de squadratinhos (append_atividades.py), mesma regra
-data/atividades.json
+# janelas de ganho de squadratinhos (append_ganhos.py), mesma regra
+data/ganhos.json

@@ -31,7 +31,7 @@
     /\/lugares\//.test(location.pathname) ? 'lugares' :
     file === 'club.html' ? 'mapa' :
     file === 'historico.html' ? 'historico' :
-    file === 'atividades.html' ? 'atividades' :
+    file === 'ganhos.html' ? 'ganhos' :
     (file === '' || file === 'index.html') ? 'hub' :
     null;  // analise.html, nada destacado
 
@@ -40,7 +40,7 @@
     { id: 'perfis', label: 'Perfis', href: P + 'atletas/' },
     { id: 'lugares', label: 'Lugares', href: P + 'lugares/' },
     { id: 'historico', label: 'Histórico', href: P + 'historico.html' },
-    { id: 'atividades', label: 'Actividades', href: P + 'atividades.html' },
+    { id: 'ganhos', label: 'Ganhos', href: P + 'ganhos.html' },
   ];
 
   // Estilo: a barra segue o site.css (tokens, fontes). Nada de pill azul; o
