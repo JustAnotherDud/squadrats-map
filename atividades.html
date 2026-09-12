@@ -45,12 +45,14 @@
   .ativ-t td.ativ-tipo {
     font-family: var(--f-mono); font-size: 10.5px; color: var(--tinta-3); white-space: nowrap;
   }
+  .ativ-t td.ativ-tipo a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--tinta-3); }
+  .ativ-t td.ativ-tipo a:hover { color: var(--tinta); text-decoration: underline; text-decoration-color: var(--marca); border-bottom-color: transparent; }
   .ativ-t td.ativ-quando { text-align: left; white-space: nowrap; color: var(--tinta-3); font-size: 11.5px; }
 
   /* ganho: verde quando exacto, o mesmo tom mas com "~" e tooltip quando
      repartido entre 2+ actividades da mesma janela (ou a mesma actividade a
      atravessar 2+ janelas), cinza e um aviso claro quando não há nenhum. */
-  .ativ-ganho { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ativ-ganho { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .ativ-ganho.certo { color: var(--ganho); }
   .ativ-ganho.aprox { color: var(--ganho); cursor: help; border-bottom: 1px dotted var(--ganho); }
   .ativ-ganho.vazio { color: var(--tinta-3); }
@@ -80,7 +82,8 @@
     <a href="https://github.com/JustAnotherDud/folha-do-clube">folha-do-clube</a>
     (scraping diário do Strava, 05:30 UTC); o ritmo é sempre recalculado de
     distância e duração aqui, nunca o texto que a Strava manda (muda de
-    significado consoante o tipo de actividade).</p>
+    significado consoante o tipo de actividade). O <b>tipo</b> de cada linha
+    liga à actividade no Strava.</p>
 </main>
 <script src="nav.js"></script>
 <script src="shared.js"></script>
@@ -172,7 +175,7 @@
     return `<tr>
       <td class="ativ-quando">${fmtDataHoraLisboa(l.inicio)}</td>
       <td class="ativ-atleta">${tile(l.atleta)}${atl(l.atleta)}</td>
-      <td class="ativ-tipo">${esc(l.tipo || '?')}</td>
+      <td class="ativ-tipo"><a href="https://www.strava.com/activities/${esc(l.id)}" target="_blank" rel="noopener">${esc(l.tipo || '?')}</a></td>
       <td class="ativ-n fraco">${fmtKm(l.dist_km)}</td>
       <td class="ativ-n fraco">${fmtDuracao(l.duracao_s)}</td>
       <td class="ativ-n fraco">${calcRitmo(l.tipo, l.dist_km, l.duracao_s)}</td>
