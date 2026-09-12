@@ -24,38 +24,47 @@
   }
   .chip.on { color: var(--tinta); border-color: var(--marca); }
 
-  /* tabela densa, modelada no .perfil-tabela da secção 04 dos perfis */
+  /* tabela densa, modelada no .perfil-tabela da secção 04 dos perfis. 1 linha
+     por JANELA DE GANHO (não por actividade Strava, ver nota) -- a coluna
+     Actividade pode ter 2+ blocos dentro da mesma <tr> quando o ganho foi
+     repartido por 2+ actividades sobrepostas. */
   .ativ-scroll { overflow-x: auto; max-width: 100%; }
   .ativ-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .ativ-scroll .ativ-t { min-width: 640px; }
+  .ativ-scroll .ativ-t { min-width: 560px; }
   .ativ-t thead th {
     text-align: right; font-family: var(--f-mono); font-weight: 400;
     color: var(--tinta-3); font-size: 10.5px; padding: 6px 6px;
     border-bottom: 1px solid var(--rule); white-space: nowrap;
   }
-  .ativ-t thead th.ativ-atleta, .ativ-t thead th.ativ-tipo, .ativ-t thead th.ativ-quando { text-align: left; }
+  .ativ-t thead th.ativ-atleta, .ativ-t thead th.ativ-quando, .ativ-t thead th.ativ-ativ { text-align: left; }
   .ativ-t td { padding: 6px 6px; border-bottom: 1px solid var(--hair); vertical-align: baseline; }
-  .ativ-t td.ativ-n {
-    text-align: right; white-space: nowrap; font-family: var(--f-mono);
-    font-variant-numeric: tabular-nums; color: var(--tinta);
-  }
-  .ativ-t td.ativ-n.fraco { color: var(--tinta-3); }
   .ativ-t td.ativ-atleta { white-space: nowrap; }
   .ativ-t td.ativ-atleta .tile { margin-right: 6px; }
-  .ativ-t td.ativ-tipo {
-    font-family: var(--f-mono); font-size: 10.5px; color: var(--tinta-3); white-space: nowrap;
-  }
-  .ativ-t td.ativ-tipo a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--tinta-3); }
-  .ativ-t td.ativ-tipo a:hover { color: var(--tinta); text-decoration: underline; text-decoration-color: var(--marca); border-bottom-color: transparent; }
-  .ativ-t td.ativ-quando { text-align: left; white-space: nowrap; color: var(--tinta-3); font-size: 11.5px; }
+  .ativ-t td.ativ-quando { text-align: left; white-space: nowrap; color: var(--tinta-3); font-size: 11.5px; cursor: help; }
 
-  /* ganho: verde quando exacto, o mesmo tom mas com "~" e tooltip quando
-     repartido entre 2+ actividades da mesma janela (ou a mesma actividade a
-     atravessar 2+ janelas), cinza e um aviso claro quando não há nenhum. */
-  .ativ-ganho { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .ativ-ganho.certo { color: var(--ganho); }
-  .ativ-ganho.aprox { color: var(--ganho); cursor: help; border-bottom: 1px dotted var(--ganho); }
-  .ativ-ganho.vazio { color: var(--tinta-3); }
+  /* ganho: sempre o número real da janela, nunca aproximado -- é a
+     atribuição a uma actividade (coluna ao lado) que pode ser aproximada,
+     não o ganho em si. */
+  .ativ-t td.ativ-ganho {
+    text-align: right; white-space: nowrap; font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums; color: var(--ganho);
+  }
+
+  /* actividade correspondente: 1 bloco por actividade (normalmente 1, 2+
+     quando repartido), tipo liga ao Strava; sem correspondência = texto
+     simples, sem link. */
+  .ativ-t td.ativ-ativ { color: var(--tinta-2); }
+  .ativ-ativ-item { white-space: nowrap; }
+  .ativ-ativ-item + .ativ-ativ-item { margin-top: 2px; }
+  .ativ-ativ-item a { color: var(--tinta); text-decoration: none; border-bottom: 1px dotted var(--tinta-3); }
+  .ativ-ativ-item a:hover { text-decoration: underline; text-decoration-color: var(--marca); border-bottom-color: transparent; }
+  .ativ-ativ-item .n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; color: var(--tinta-3); }
+  .ativ-fatia { font-family: var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ganho); }
+  .ativ-repartido-tag {
+    display: inline-block; font-family: var(--f-mono); font-size: 10px; color: var(--tinta-3);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 0 5px; margin-bottom: 3px; cursor: help;
+  }
+  .ativ-vazio { color: var(--tinta-3); }
 
   .ativ-estado { color: var(--tinta-2); padding: 44px 0; text-align: center; }
   .ativ-nota { font-size: 11.5px; color: var(--tinta-3); margin: 22px 0 0; max-width: 70ch; line-height: 1.7; }
@@ -70,20 +79,25 @@
 
   <div id="lista"><p class="ativ-estado">A carregar…</p></div>
 
-  <p class="ativ-nota"><b>Ganho</b> = squadratinhos capturados na janela do
-    pipeline em que esta actividade caiu, cruzado a partir do histórico do
-    <a href="https://github.com/JustAnotherDud/squadrats-club/blob/main/pipeline/atividades.py">squadrats-club</a>.
-    Sublinhado a tracejado (<b>~N</b>): o ganho dessa janela foi repartido
-    entre 2+ actividades (ou esta actividade atravessou 2+ janelas), o número
-    é uma aproximação pelo tempo de sobreposição, não um valor exacto. Sem
-    correspondência: nenhuma janela de ganho bateu com o intervalo desta
-    actividade (bicicleta sem Strava, crédito atrasado do Squadrats, ou
-    simplesmente sem ganho nesse dia). Distância/duração vêm do
-    <a href="https://github.com/JustAnotherDud/folha-do-clube">folha-do-clube</a>
-    (scraping diário do Strava, 05:30 UTC); o ritmo é sempre recalculado de
-    distância e duração aqui, nunca o texto que a Strava manda (muda de
-    significado consoante o tipo de actividade). O <b>tipo</b> de cada linha
-    liga à actividade no Strava.</p>
+  <p class="ativ-nota">1 linha por <b>janela de ganho</b> de squadratinhos
+    (não por actividade Strava): o histórico completo vem do cruzamento do
+    <a href="https://github.com/JustAnotherDud/squadrats-club/blob/main/pipeline/atividades.py">squadrats-club</a>
+    contra os snapshots de <code>squadrats.json</code>, desde 26 jul, sem
+    buracos. <b>Ganho</b> é sempre o valor real dessa janela. Quando há uma
+    actividade do <a href="https://github.com/JustAnotherDud/folha-do-clube">folha-do-clube</a>
+    cujo intervalo se sobrepõe à janela, aparece na coluna Actividade (tipo
+    liga ao Strava; distância/duração vêm de lá, o ritmo é sempre recalculado
+    aqui, nunca o texto que a Strava manda). Repartido: 2+ actividades
+    caíram na mesma janela (ou a mesma actividade atravessou 2+ janelas); a
+    fatia de cada uma é uma aproximação pelo tempo de sobreposição, o ganho
+    total da janela continua exacto. Sem actividade Strava correspondente:
+    não é erro, o feed do folha-do-clube tem janelas de visibilidade
+    limitadas (ver o README de lá) e pode simplesmente não ter apanhado essa
+    corrida, ou o ganho veio de outra fonte (bicicleta sem Strava, crédito
+    atrasado do Squadrats). Uma actividade sem nenhum ganho associado (treino
+    num sítio já todo capturado) não aparece aqui: esta página é sobre
+    progresso de squadratinhos, o registo de treino completo fica no
+    folha-do-clube.</p>
 </main>
 <script src="nav.js"></script>
 <script src="shared.js"></script>
@@ -100,7 +114,7 @@
 
   const ROSTER = Object.keys(COR_FALLBACK);
   const estado = { atleta: null };
-  let LINHAS = [];
+  let JANELAS = [];
 
   // ritmo sempre recalculado de dist_km + duracao_s (Strava manda stat_two
   // com significados diferentes consoante o tipo: pace, velocidade, ou às
@@ -142,72 +156,66 @@
     return `${+p.day} ${MESES[+p.month - 1]} ${p.year}, ${p.hour}:${p.minute}`;
   }
 
-  // {id: {ganho, repartido, janelas}} a partir de data/atividades.json (as
-  // janelas de ganho já cruzadas com actividades pelo append_atividades.py).
-  // Uma actividade pode aparecer em mais de uma janela (ex.: uma caminhada
-  // longa a atravessar a fronteira de duas corridas do pipeline) -- os
-  // ganhos somam-se, e isso também conta como "repartido" (aproximado).
-  function indexarGanhos(atividadesData) {
-    const porId = {};
-    for (const j of (atividadesData.janelas || [])) {
-      for (const a of (j.atividades || [])) {
-        const cur = porId[a.id] || { ganho: 0, repartido: false, janelas: 0 };
-        cur.ganho += a.ganho;
-        cur.janelas += 1;
-        cur.repartido = cur.repartido || j.repartido || cur.janelas > 1;
-        porId[a.id] = cur;
-      }
-    }
-    return porId;
-  }
-
-  function celGanho(g) {
-    if (!g) return '<td class="ativ-ganho vazio">0</td>';
-    const classe = g.repartido ? 'aprox' : 'certo';
-    const titulo = g.repartido
-      ? ` title="aproximado: ganho da janela repartido pelo tempo de sobreposição (${g.janelas > 1 ? 'esta actividade atravessa 2+ janelas' : '2+ actividades na mesma janela'})"`
+  // coluna Actividade: 0, 1 ou 2+ blocos dentro da mesma <tr>. O atividades.json
+  // só guarda id/tipo/dist_km/ganho por correspondência (o cruzamento no
+  // pipeline não sabe duracao_s) -- por isso o lookup ao activities.json do
+  // folha-do-clube (a outra fonte que a página já busca) para a duração e o
+  // ritmo. Se por algum motivo o id já não estiver lá, mostra só o que o
+  // atividades.json já tinha, sem duração/ritmo, em vez de rebentar.
+  function celAtividade(j, activitiesById) {
+    const ativs = j.atividades || [];
+    if (!ativs.length) return '<td class="ativ-ativ ativ-vazio">sem actividade Strava correspondente</td>';
+    const tagRepartido = j.repartido
+      ? `<div class="ativ-repartido-tag" title="o ganho desta janela foi repartido entre as actividades a seguir, pelo tempo de sobreposição de cada uma com a janela: a fatia de cada uma é uma aproximação, o total já em cima é que é exacto">repartido</div>`
       : '';
-    const prefixo = g.repartido ? '~' : '+';
-    return `<td class="ativ-ganho ${classe}"${titulo}>${prefixo}${nfmt(g.ganho)}</td>`;
+    const itens = ativs.map(a => {
+      const cheia = activitiesById[a.id];
+      const partes = [
+        `<a href="https://www.strava.com/activities/${esc(a.id)}" target="_blank" rel="noopener">${esc(a.tipo || '?')}</a>`,
+        fmtKm(a.dist_km),
+        cheia ? fmtDuracao(cheia.duracao_s) : '',
+        cheia ? calcRitmo(a.tipo, a.dist_km, cheia.duracao_s) : '',
+      ].filter(Boolean).join(' <span class="n">·</span> ');
+      const fatia = j.repartido ? ` <span class="ativ-fatia">+${nfmt(a.ganho)}</span>` : '';
+      return `<div class="ativ-ativ-item">${partes}${fatia}</div>`;
+    }).join('');
+    return `<td class="ativ-ativ">${tagRepartido}${itens}</td>`;
   }
 
-  function linha(l, ganho) {
+  function linha(j, activitiesById) {
     return `<tr>
-      <td class="ativ-quando">${fmtDataHoraLisboa(l.inicio)}</td>
-      <td class="ativ-atleta">${tile(l.atleta)}${atl(l.atleta)}</td>
-      <td class="ativ-tipo"><a href="https://www.strava.com/activities/${esc(l.id)}" target="_blank" rel="noopener">${esc(l.tipo || '?')}</a></td>
-      <td class="ativ-n fraco">${fmtKm(l.dist_km)}</td>
-      <td class="ativ-n fraco">${fmtDuracao(l.duracao_s)}</td>
-      <td class="ativ-n fraco">${calcRitmo(l.tipo, l.dist_km, l.duracao_s)}</td>
-      ${celGanho(ganho)}
+      <td class="ativ-quando" title="entre ${esc(fmtDataHoraLisboa(j.inicio))} e ${esc(fmtDataHoraLisboa(j.fim))}">${fmtDataHoraLisboa(j.fim)}</td>
+      <td class="ativ-atleta">${tile(j.atleta)}${atl(j.atleta)}</td>
+      <td class="ativ-ganho">+${nfmt(j.ganho)}</td>
+      ${celAtividade(j, activitiesById)}
     </tr>`;
   }
 
-  function pintar(ganhosPorId) {
-    let linhas = estado.atleta ? LINHAS.filter(l => l.atleta === estado.atleta) : LINHAS;
+  function pintar(activitiesById) {
+    let janelas = estado.atleta ? JANELAS.filter(j => j.atleta === estado.atleta) : JANELAS;
     const lista = document.getElementById('lista');
-    if (!linhas.length) {
-      lista.innerHTML = '<p class="ativ-estado">Sem actividades com este filtro.</p>';
+    if (!janelas.length) {
+      lista.innerHTML = '<p class="ativ-estado">Sem janelas de ganho com este filtro.</p>';
       return;
     }
-    const corpo = linhas.map(l => linha(l, ganhosPorId[l.id])).join('');
+    const corpo = janelas.map(j => linha(j, activitiesById)).join('');
     lista.innerHTML = `<div class="ativ-scroll"><table class="ativ-t">
       <thead><tr>
-        <th class="ativ-quando">Quando</th><th class="ativ-atleta">Atleta</th><th class="ativ-tipo">Tipo</th>
-        <th>Distância</th><th>Duração</th><th>Ritmo</th><th>Ganho</th>
+        <th class="ativ-quando">Quando</th><th class="ativ-atleta">Atleta</th>
+        <th>Ganho</th><th class="ativ-ativ">Actividade</th>
       </tr></thead>
       <tbody>${corpo}</tbody>
     </table></div>`;
   }
 
-  function renderFiltros(ganhosPorId) {
+  function renderFiltros(activitiesById) {
     const box = document.getElementById('filtros');
     box.innerHTML = ROSTER.map(n => `<button class="chip ${estado.atleta === n ? 'on' : ''}"
       data-atleta="${esc(n)}">${tile(n)}${esc(n)}</button>`).join('');
     box.querySelectorAll('[data-atleta]').forEach(b => b.onclick = () => {
       estado.atleta = estado.atleta === b.dataset.atleta ? null : b.dataset.atleta;
-      renderFiltros(ganhosPorId);
-      pintar(ganhosPorId);
+      renderFiltros(activitiesById);
+      pintar(activitiesById);
     });
   }
 
@@ -225,19 +233,19 @@
       return;
     }
 
-    LINHAS = (folhaData.linhas || []).slice()
-      .sort((a, b) => b.inicio.localeCompare(a.inicio));
-    const ganhosPorId = indexarGanhos(ativData);
-    const comGanho = LINHAS.filter(l => ganhosPorId[l.id]).length;
+    JANELAS = (ativData.janelas || []).slice().sort((a, b) => b.fim.localeCompare(a.fim));
+    const activitiesById = {};
+    for (const l of (folhaData.linhas || [])) activitiesById[l.id] = l;
+    const comAtiv = JANELAS.filter(j => (j.atividades || []).length).length;
 
     document.getElementById('meta').innerHTML =
-      `<dt>actividades</dt><dd>${LINHAS.length} (${comGanho} com squadratinhos)</dd>`
-      + `<dt>folha-do-clube</dt><dd>${fmtDataHora(folhaData.gerado)}</dd>`
-      + `<dt>cruzamento</dt><dd>${fmtDataHora(ativData.gerado)}</dd>`;
+      `<dt>janelas de ganho</dt><dd>${JANELAS.length} (${comAtiv} com actividade Strava)</dd>`
+      + `<dt>cruzamento</dt><dd>${fmtDataHora(ativData.gerado)}</dd>`
+      + `<dt>folha-do-clube</dt><dd>${fmtDataHora(folhaData.gerado)}</dd>`;
     avisoDadosVelhos(ativData.gerado);  // shared.js
 
-    renderFiltros(ganhosPorId);
-    pintar(ganhosPorId);
+    renderFiltros(activitiesById);
+    pintar(activitiesById);
   })();
 })();
 </script>
