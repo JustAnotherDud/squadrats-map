@@ -33,7 +33,7 @@
     color: var(--tinta-3); font-size: 10.5px; padding: 6px 6px;
     border-bottom: 1px solid var(--rule); white-space: nowrap;
   }
-  .ativ-t thead th.ativ-atleta, .ativ-t thead th.ativ-tipo { text-align: left; }
+  .ativ-t thead th.ativ-atleta, .ativ-t thead th.ativ-tipo, .ativ-t thead th.ativ-quando { text-align: left; }
   .ativ-t td { padding: 6px 6px; border-bottom: 1px solid var(--hair); vertical-align: baseline; }
   .ativ-t td.ativ-n {
     text-align: right; white-space: nowrap; font-family: var(--f-mono);
@@ -41,10 +41,11 @@
   }
   .ativ-t td.ativ-n.fraco { color: var(--tinta-3); }
   .ativ-t td.ativ-atleta { white-space: nowrap; }
+  .ativ-t td.ativ-atleta .tile { margin-right: 6px; }
   .ativ-t td.ativ-tipo {
     font-family: var(--f-mono); font-size: 10.5px; color: var(--tinta-3); white-space: nowrap;
   }
-  .ativ-t td.ativ-quando { text-align: right; white-space: nowrap; color: var(--tinta-3); font-size: 11.5px; }
+  .ativ-t td.ativ-quando { text-align: left; white-space: nowrap; color: var(--tinta-3); font-size: 11.5px; }
 
   /* ganho: verde quando exacto, o mesmo tom mas com "~" e tooltip quando
      repartido entre 2+ actividades da mesma janela (ou a mesma actividade a
@@ -52,7 +53,7 @@
   .ativ-ganho { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .ativ-ganho.certo { color: var(--ganho); }
   .ativ-ganho.aprox { color: var(--ganho); cursor: help; border-bottom: 1px dotted var(--ganho); }
-  .ativ-ganho.vazio { color: var(--tinta-3); font-family: var(--f-txt); font-size: 11.5px; }
+  .ativ-ganho.vazio { color: var(--tinta-3); }
 
   .ativ-estado { color: var(--tinta-2); padding: 44px 0; text-align: center; }
   .ativ-nota { font-size: 11.5px; color: var(--tinta-3); margin: 22px 0 0; max-width: 70ch; line-height: 1.7; }
@@ -124,6 +125,20 @@
     return km == null ? '' : km.toLocaleString('pt-PT', { maximumFractionDigits: 2 }) + ' km';
   }
 
+  // hora de Lisboa, não UTC (a Strava mostra-a localmente, e é essa que o
+  // atleta reconhece) -- Intl trata do WET/WEST sozinho, sem tabela de
+  // offsets à mão. Mesmo formato do fmtDataHora do shared.js (MESES é dele),
+  // só sem o "UTC" porque já não é UTC.
+  function fmtDataHoraLisboa(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso || '');
+    const p = new Intl.DateTimeFormat('pt-PT', {
+      timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(d).reduce((o, x) => (o[x.type] = x.value, o), {});
+    return `${+p.day} ${MESES[+p.month - 1]} ${p.year}, ${p.hour}:${p.minute}`;
+  }
+
   // {id: {ganho, repartido, janelas}} a partir de data/atividades.json (as
   // janelas de ganho já cruzadas com actividades pelo append_atividades.py).
   // Uma actividade pode aparecer em mais de uma janela (ex.: uma caminhada
@@ -144,7 +159,7 @@
   }
 
   function celGanho(g) {
-    if (!g) return '<td class="ativ-ganho vazio">sem correspondência</td>';
+    if (!g) return '<td class="ativ-ganho vazio">0</td>';
     const classe = g.repartido ? 'aprox' : 'certo';
     const titulo = g.repartido
       ? ` title="aproximado: ganho da janela repartido pelo tempo de sobreposição (${g.janelas > 1 ? 'esta actividade atravessa 2+ janelas' : '2+ actividades na mesma janela'})"`
@@ -155,13 +170,13 @@
 
   function linha(l, ganho) {
     return `<tr>
+      <td class="ativ-quando">${fmtDataHoraLisboa(l.inicio)}</td>
       <td class="ativ-atleta">${tile(l.atleta)}${atl(l.atleta)}</td>
       <td class="ativ-tipo">${esc(l.tipo || '?')}</td>
       <td class="ativ-n fraco">${fmtKm(l.dist_km)}</td>
       <td class="ativ-n fraco">${fmtDuracao(l.duracao_s)}</td>
       <td class="ativ-n fraco">${calcRitmo(l.tipo, l.dist_km, l.duracao_s)}</td>
       ${celGanho(ganho)}
-      <td class="ativ-quando">${fmtDataHora(l.inicio)}</td>
     </tr>`;
   }
 
@@ -175,8 +190,8 @@
     const corpo = linhas.map(l => linha(l, ganhosPorId[l.id])).join('');
     lista.innerHTML = `<div class="ativ-scroll"><table class="ativ-t">
       <thead><tr>
-        <th class="ativ-atleta">Atleta</th><th class="ativ-tipo">Tipo</th>
-        <th>Distância</th><th>Duração</th><th>Ritmo</th><th>Ganho</th><th>Quando</th>
+        <th class="ativ-quando">Quando</th><th class="ativ-atleta">Atleta</th><th class="ativ-tipo">Tipo</th>
+        <th>Distância</th><th>Duração</th><th>Ritmo</th><th>Ganho</th>
       </tr></thead>
       <tbody>${corpo}</tbody>
     </table></div>`;
