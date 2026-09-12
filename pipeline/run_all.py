@@ -16,6 +16,7 @@ import os
 import sys
 import time
 
+import append_atividades
 import append_events
 import append_gains_regioes
 import append_regioes
@@ -42,6 +43,10 @@ def main(out_dir):
         # compara o club_regioes.json anterior (origin/data) com o novo e faz
         # append dos eventos novos a events.json, idempotente entre runs do dia
         ("eventos do club", lambda: append_events.main(out_dir)),
+        # cruza o feed de actividades do Strava (folha-do-clube/
+        # activities.json, HTTP) com os ganhos de squadratinhos entre
+        # corridas consecutivas do pipeline (data/atividades.json)
+        ("actividades vs. ganhos", lambda: append_atividades.main(out_dir)),
         # páginas por região: reescreve ranking/totais/união/vizinhos de cada
         # região activa a partir do snapshot novo (data/regioes/<key>.json)
         ("regiões (páginas)", lambda: append_regioes.main(out_dir)),
