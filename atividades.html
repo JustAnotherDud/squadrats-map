@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#14131b">
+<title>Actividades · Squadrats Club</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/bricolage-grotesque.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/ibm-plex-sans-400.woff2">
+<link rel="stylesheet" href="site.css">
+<style>
+  .wrap { max-width: 900px; margin: 0 auto; padding: 22px 18px 72px; }
+
+  /* filtros por atleta, mesmo padrão do historico.html */
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 18px; }
+  .chip {
+    background: var(--ch-1); color: var(--tinta-2); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .chip.on { color: var(--tinta); border-color: var(--marca); }
+
+  /* tabela densa, modelada no .perfil-tabela da secção 04 dos perfis */
+  .ativ-scroll { overflow-x: auto; max-width: 100%; }
+  .ativ-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .ativ-scroll .ativ-t { min-width: 640px; }
+  .ativ-t thead th {
+    text-align: right; font-family: var(--f-mono); font-weight: 400;
+    color: var(--tinta-3); font-size: 10.5px; padding: 6px 6px;
+    border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  .ativ-t thead th.ativ-atleta, .ativ-t thead th.ativ-tipo { text-align: left; }
+  .ativ-t td { padding: 6px 6px; border-bottom: 1px solid var(--hair); vertical-align: baseline; }
+  .ativ-t td.ativ-n {
+    text-align: right; white-space: nowrap; font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums; color: var(--tinta);
+  }
+  .ativ-t td.ativ-n.fraco { color: var(--tinta-3); }
+  .ativ-t td.ativ-atleta { white-space: nowrap; }
+  .ativ-t td.ativ-tipo {
+    font-family: var(--f-mono); font-size: 10.5px; color: var(--tinta-3); white-space: nowrap;
+  }
+  .ativ-t td.ativ-quando { text-align: right; white-space: nowrap; color: var(--tinta-3); font-size: 11.5px; }
+
+  /* ganho: verde quando exacto, o mesmo tom mas com "~" e tooltip quando
+     repartido entre 2+ actividades da mesma janela (ou a mesma actividade a
+     atravessar 2+ janelas), cinza e um aviso claro quando não há nenhum. */
+  .ativ-ganho { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ativ-ganho.certo { color: var(--ganho); }
+  .ativ-ganho.aprox { color: var(--ganho); cursor: help; border-bottom: 1px dotted var(--ganho); }
+  .ativ-ganho.vazio { color: var(--tinta-3); font-family: var(--f-txt); font-size: 11.5px; }
+
+  .ativ-estado { color: var(--tinta-2); padding: 44px 0; text-align: center; }
+  .ativ-nota { font-size: 11.5px; color: var(--tinta-3); margin: 22px 0 0; max-width: 70ch; line-height: 1.7; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Actividades do clube</h1>
+  <dl class="meta" id="meta"></dl>
+
+  <div class="filtros" id="filtros"></div>
+
+  <div id="lista"><p class="ativ-estado">A carregar…</p></div>
+
+  <p class="ativ-nota"><b>Ganho</b> = squadratinhos capturados na janela do
+    pipeline em que esta actividade caiu, cruzado a partir do histórico do
+    <a href="https://github.com/JustAnotherDud/squadrats-club/blob/main/pipeline/atividades.py">squadrats-club</a>.
+    Sublinhado a tracejado (<b>~N</b>): o ganho dessa janela foi repartido
+    entre 2+ actividades (ou esta actividade atravessou 2+ janelas), o número
+    é uma aproximação pelo tempo de sobreposição, não um valor exacto. Sem
+    correspondência: nenhuma janela de ganho bateu com o intervalo desta
+    actividade (bicicleta sem Strava, crédito atrasado do Squadrats, ou
+    simplesmente sem ganho nesse dia). Distância/duração vêm do
+    <a href="https://github.com/JustAnotherDud/folha-do-clube">folha-do-clube</a>
+    (scraping diário do Strava, 05:30 UTC); o ritmo é sempre recalculado de
+    distância e duração aqui, nunca o texto que a Strava manda (muda de
+    significado consoante o tipo de actividade).</p>
+</main>
+<script src="nav.js"></script>
+<script src="shared.js"></script>
+<script>
+(function () {
+  'use strict';
+  // cor / esc / nfmt / tile / atl / carregarCores / carregarJson /
+  // mostrarErroDados / avisoDadosVelhos / fmtDataHora / COR_FALLBACK: shared.js
+
+  // activities.json vive noutro repo (folha-do-clube), publicado no main,
+  // mesmo princípio cross-repo que o squadrats.json/daily_gains.json do
+  // folha-do-clube já lêem daqui, invertido.
+  const ATIVIDADES_STRAVA_URL = 'https://raw.githubusercontent.com/JustAnotherDud/folha-do-clube/main/activities.json';
+
+  const ROSTER = Object.keys(COR_FALLBACK);
+  const estado = { atleta: null };
+  let LINHAS = [];
+
+  // ritmo sempre recalculado de dist_km + duracao_s (Strava manda stat_two
+  // com significados diferentes consoante o tipo: pace, velocidade, ou às
+  // vezes outra coisa qualquer, ver README do folha-do-clube).
+  const TIPOS_VELOCIDADE = new Set(['Ride', 'EBikeRide', 'VirtualRide', 'Handcycle']);
+  const TIPOS_RITMO = new Set(['Run', 'Walk', 'Hike', 'TrailRun', 'VirtualRun']);
+  function calcRitmo(tipo, distKm, duracaoS) {
+    if (!distKm || !duracaoS) return '';
+    if (TIPOS_VELOCIDADE.has(tipo)) {
+      return (distKm / (duracaoS / 3600)).toFixed(1).replace('.', ',') + ' km/h';
+    }
+    if (!TIPOS_RITMO.has(tipo)) return '';  // Padel e afins: distância/duração não dão um ritmo com sentido
+    const spk = duracaoS / distKm;
+    const m = Math.floor(spk / 60), s = Math.round(spk % 60);
+    return `${m}:${String(s).padStart(2, '0')} /km`;
+  }
+
+  function fmtDuracao(segundos) {
+    if (!segundos) return '';
+    const h = Math.floor(segundos / 3600), m = Math.round((segundos % 3600) / 60);
+    return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+  }
+
+  function fmtKm(km) {
+    return km == null ? '' : km.toLocaleString('pt-PT', { maximumFractionDigits: 2 }) + ' km';
+  }
+
+  // {id: {ganho, repartido, janelas}} a partir de data/atividades.json (as
+  // janelas de ganho já cruzadas com actividades pelo append_atividades.py).
+  // Uma actividade pode aparecer em mais de uma janela (ex.: uma caminhada
+  // longa a atravessar a fronteira de duas corridas do pipeline) -- os
+  // ganhos somam-se, e isso também conta como "repartido" (aproximado).
+  function indexarGanhos(atividadesData) {
+    const porId = {};
+    for (const j of (atividadesData.janelas || [])) {
+      for (const a of (j.atividades || [])) {
+        const cur = porId[a.id] || { ganho: 0, repartido: false, janelas: 0 };
+        cur.ganho += a.ganho;
+        cur.janelas += 1;
+        cur.repartido = cur.repartido || j.repartido || cur.janelas > 1;
+        porId[a.id] = cur;
+      }
+    }
+    return porId;
+  }
+
+  function celGanho(g) {
+    if (!g) return '<td class="ativ-ganho vazio">sem correspondência</td>';
+    const classe = g.repartido ? 'aprox' : 'certo';
+    const titulo = g.repartido
+      ? ` title="aproximado: ganho da janela repartido pelo tempo de sobreposição (${g.janelas > 1 ? 'esta actividade atravessa 2+ janelas' : '2+ actividades na mesma janela'})"`
+      : '';
+    const prefixo = g.repartido ? '~' : '+';
+    return `<td class="ativ-ganho ${classe}"${titulo}>${prefixo}${nfmt(g.ganho)}</td>`;
+  }
+
+  function linha(l, ganho) {
+    return `<tr>
+      <td class="ativ-atleta">${tile(l.atleta)}${atl(l.atleta)}</td>
+      <td class="ativ-tipo">${esc(l.tipo || '?')}</td>
+      <td class="ativ-n fraco">${fmtKm(l.dist_km)}</td>
+      <td class="ativ-n fraco">${fmtDuracao(l.duracao_s)}</td>
+      <td class="ativ-n fraco">${calcRitmo(l.tipo, l.dist_km, l.duracao_s)}</td>
+      ${celGanho(ganho)}
+      <td class="ativ-quando">${fmtDataHora(l.inicio)}</td>
+    </tr>`;
+  }
+
+  function pintar(ganhosPorId) {
+    let linhas = estado.atleta ? LINHAS.filter(l => l.atleta === estado.atleta) : LINHAS;
+    const lista = document.getElementById('lista');
+    if (!linhas.length) {
+      lista.innerHTML = '<p class="ativ-estado">Sem actividades com este filtro.</p>';
+      return;
+    }
+    const corpo = linhas.map(l => linha(l, ganhosPorId[l.id])).join('');
+    lista.innerHTML = `<div class="ativ-scroll"><table class="ativ-t">
+      <thead><tr>
+        <th class="ativ-atleta">Atleta</th><th class="ativ-tipo">Tipo</th>
+        <th>Distância</th><th>Duração</th><th>Ritmo</th><th>Ganho</th><th>Quando</th>
+      </tr></thead>
+      <tbody>${corpo}</tbody>
+    </table></div>`;
+  }
+
+  function renderFiltros(ganhosPorId) {
+    const box = document.getElementById('filtros');
+    box.innerHTML = ROSTER.map(n => `<button class="chip ${estado.atleta === n ? 'on' : ''}"
+      data-atleta="${esc(n)}">${tile(n)}${esc(n)}</button>`).join('');
+    box.querySelectorAll('[data-atleta]').forEach(b => b.onclick = () => {
+      estado.atleta = estado.atleta === b.dataset.atleta ? null : b.dataset.atleta;
+      renderFiltros(ganhosPorId);
+      pintar(ganhosPorId);
+    });
+  }
+
+  (async function () {
+    await carregarCores(mainUrl('membros_cores.json'), NC);
+
+    let ativData, folhaData;
+    try {
+      [ativData, folhaData] = await Promise.all([
+        carregarJson(dadosUrl('atividades.json')),
+        carregarJson(ATIVIDADES_STRAVA_URL),
+      ]);
+    } catch (e) {
+      mostrarErroDados(document.querySelector('.wrap'), e);
+      return;
+    }
+
+    LINHAS = (folhaData.linhas || []).slice()
+      .sort((a, b) => b.inicio.localeCompare(a.inicio));
+    const ganhosPorId = indexarGanhos(ativData);
+    const comGanho = LINHAS.filter(l => ganhosPorId[l.id]).length;
+
+    document.getElementById('meta').innerHTML =
+      `<dt>actividades</dt><dd>${LINHAS.length} (${comGanho} com squadratinhos)</dd>`
+      + `<dt>folha-do-clube</dt><dd>${fmtDataHora(folhaData.gerado)}</dd>`
+      + `<dt>cruzamento</dt><dd>${fmtDataHora(ativData.gerado)}</dd>`;
+    avisoDadosVelhos(ativData.gerado);  // shared.js
+
+    renderFiltros(ganhosPorId);
+    pintar(ganhosPorId);
+  })();
+})();
+</script>
+</body>
+</html>
