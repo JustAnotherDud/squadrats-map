@@ -1,13 +1,13 @@
 {
-  "atualizado": "2026-09-13T06:02:59Z",
+  "atualizado": "2026-09-13T11:58:26Z",
   "atletas": {
     "Zé": {
-      "yard": 98,
+      "yard": 102,
       "yardinho": 483,
       "ubersquadrat": 8,
       "ubersquadratinho": 13,
-      "squadrats": 475,
-      "squadratinhos": 5810
+      "squadrats": 481,
+      "squadratinhos": 5850
     },
     "Xeira": {
       "yard": 116,
@@ -40,8 +40,8 @@
       "yardinho": 24,
       "ubersquadrat": 3,
       "ubersquadratinho": 4,
-      "squadrats": 225,
-      "squadratinhos": 1809
+      "squadrats": 230,
+      "squadratinhos": 1845
     }
   }
 }
